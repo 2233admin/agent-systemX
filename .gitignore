@@ -17,21 +17,20 @@ node_modules/
 WATCHDOG.yml
 
 # OpenSpec CLI-generated client projections; canonical contracts live in .cap.
-.agents/skills/.openspec-target
-.agents/skills/openspec-*/
-.claude/skills/openspec-*/
+vendor/bmad/skills/.openspec-target
+vendor/bmad/skills/openspec-*/
 .claude/commands/opsx/
 .omp/commands/opsx-*.md
 .omp/skills/openspec-*/
 .qoder/commands/opsx/
 .qoder/skills/openspec-*/
 
-# _bmad/, .claude/skills/, and .agents/skills/ (the BMad installation and
-# its skill content) were previously local-only via .git/info/exclude --
-# 2026-08-23: tracked instead, so every clone/session gets the same skills
-# without a separate local install step. *.user.toml anywhere under _bmad/
-# (installer-managed, personal-scoped: _bmad/config.user.toml itself, and
-# team-override companions like _bmad/custom/*.user.toml) stays untracked.
+# 第三方 Skill 组（当前唯一实例 bmad）作为 vendor 内容跟踪在
+# vendor/bmad/skills/ 下，一份，不再按客户端投影成两份。理由：负责人
+# 2026-08-25 裁定，本仓要的是「clone 下来就能用、不依赖任何安装步骤」，
+# 而不是「不在 git 里存第三方字节」；vendor 一份同时满足零安装与不重复。
+# configs 是唯一装配路径，客户端原生发现目录不再承载字节。
+# *.user.toml（安装器管理的个人态）仍不跟踪。
 _bmad/**/*.user.toml
 
 # Claude Code / agent runtime-local session state -- never shared, unlike
