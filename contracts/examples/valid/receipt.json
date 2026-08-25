@@ -6,7 +6,7 @@
     "contractId": "exec-agent-contracts-foundation-001",
     "revision": 1,
     "contractRef": "exec-agent-contracts-foundation-001@1",
-    "issueUrl": "https://github.com/zaurakworks/agent-system/issues/2",
+    "issueUrl": "https://github.com/Eridanus117/agent-system/issues/2",
     "issueNumber": 2,
     "remoteVersion": "2026-08-16T14:04:17Z",
     "contentDigest": "sha256:2222222222222222222222222222222222222222222222222222222222222222"
@@ -16,7 +16,7 @@
   "artifacts": [
     {
       "name": "Draft pull request",
-      "url": "https://github.com/zaurakworks/agent-system/pull/3",
+      "url": "https://github.com/Eridanus117/agent-system/pull/3",
       "commit": "0123456789abcdef0123456789abcdef01234567"
     }
   ],

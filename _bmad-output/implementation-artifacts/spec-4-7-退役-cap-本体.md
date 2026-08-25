@@ -108,7 +108,7 @@ deferred: []
 
 ## Auto Run Result
 
-**执行环境说明：** 本 Story 的实现落在一个独立的 Claude 工作树沙箱（`worktree-agent-a45e0634beb62c487`），该沙箱最初基于 `main`（未包含 Epic 4 任何代码），随后 fast-forward 到 `zaurakworks/new-story` 分支的 tip（`33a9d710f7e7904b48fb451eaa6921b5cfe0eb3b`，与本 spec frontmatter 的 `baseline_revision` 完全一致），并运行 `bun install` 补齐依赖后开始实现；本 spec 文件本身也是在该沙箱内首次创建（读取自另一处工作目录的草稿全文后原样落地），因为 Never/Block If 等约束条款审查确认与另一处草稿逐字一致。
+**执行环境说明：** 本 Story 的实现落在一个独立的 Claude 工作树沙箱（`worktree-agent-a45e0634beb62c487`），该沙箱最初基于 `main`（未包含 Epic 4 任何代码），随后 fast-forward 到 `Eridanus117/new-story` 分支的 tip（`33a9d710f7e7904b48fb451eaa6921b5cfe0eb3b`，与本 spec frontmatter 的 `baseline_revision` 完全一致），并运行 `bun install` 补齐依赖后开始实现；本 spec 文件本身也是在该沙箱内首次创建（读取自另一处工作目录的草稿全文后原样落地），因为 Never/Block If 等约束条款审查确认与另一处草稿逐字一致。
 
 ### 1. `agent-assembler` 真实烟雾 parity 证据（Block If 前置条件之一）
 

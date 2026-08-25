@@ -5,7 +5,7 @@
   "revision": 2,
   "contractRef": "exec-release-001@1",
   "source": {
-    "issueUrl": "https://github.com/zaurakworks/agent-system/issues/20",
+    "issueUrl": "https://github.com/Eridanus117/agent-system/issues/20",
     "issueNumber": 20,
     "remoteVersion": "2026-08-16T16:00:00Z",
     "contentDigest": "sha256:3333333333333333333333333333333333333333333333333333333333333333"
@@ -13,7 +13,7 @@
   "parentGoal": {
     "contractId": "goal-release-001",
     "relationship": "github-sub-issue",
-    "issueUrl": "https://github.com/zaurakworks/agent-system/issues/19"
+    "issueUrl": "https://github.com/Eridanus117/agent-system/issues/19"
   },
   "objective": "Prepare a bounded release.",
   "scope": {
@@ -28,8 +28,8 @@
     "Release artifacts are ready for review."
   ],
   "authorities": [
-    "https://github.com/zaurakworks/agent-system/issues/20",
-    "https://github.com/zaurakworks/agent-system/issues/19"
+    "https://github.com/Eridanus117/agent-system/issues/20",
+    "https://github.com/Eridanus117/agent-system/issues/19"
   ],
   "permissions": {
     "allowed": [

@@ -4,7 +4,7 @@
 
 ## 开始工作
 
-- 本仓变更只由负责人当前指令，或本仓公开、自足且经明确激活的 Issue／PR 合同授权；当前入口清理见 [Issue #11](https://github.com/zaurakworks/agent-plugins/issues/11)。
+- 本仓变更只由负责人当前指令，或本仓公开、自足且经明确激活的 Issue／PR 合同授权；当前入口清理见 [Issue #11](https://github.com/Eridanus117/agent-plugins/issues/11)。
 - 先读本 README、对应 Plugin manifest 与合同明确引用的文档。私有旧仓链接、迁移前编号和发布记录只作可选历史来源，不能成为理解、复现或授权的前提。
 - 开发、来源验证和本机安装是三个独立状态：修改源码不会自动安装，测试通过也不证明运行端生效。安装与卸载始终由使用者在目标运行端明确执行。
 
@@ -26,7 +26,7 @@
 
 `orchestrated-collaboration` `0.2.1` 按[关联 #128（资源投入规则两层承载落地）](https://github.com/Eridanus117/agent-control/issues/128)落实 120-D1=C：引用 `authority/05-resource-operations.md` 作为资源投入唯一原则源，以 R1–R6 就地置换“完成即扫描解锁／无依赖工作不伪串行／灵活使用产能”三条散规则，依次执行价值门、就绪队列与排他所有权、资源新鲜度、额度加速条件、验收容量与实验干扰、加派／维持／停止新增派发；不复制证据历史或动态阈值，不新增轮询、自动派发、自动停止或权益消费权限。
 
-本批按 clean-slate 迁仓修正发布身份：仓库所有权由 `Eridanus117` 迁至 `zaurakworks`，七个 Plugin 的 `author.name` 与 `repository` 字段、两份 Marketplace（Claude 与 Codex）、符合性版本声明与 README 版本总览同步更新，七个 Plugin 各递增一个修订号。**运行端重装与三端指纹验收必须在本版进入 `main` 后另行完成，不能由源仓合并推定。**
+本批按 clean-slate 迁仓修正发布身份：仓库所有权由 `Eridanus117` 迁至 `Eridanus117`，七个 Plugin 的 `author.name` 与 `repository` 字段、两份 Marketplace（Claude 与 Codex）、符合性版本声明与 README 版本总览同步更新，七个 Plugin 各递增一个修订号。**运行端重装与三端指纹验收必须在本版进入 `main` 后另行完成，不能由源仓合并推定。**
 
 以下发布记录保留迁移前编号以便仓库维护者溯源；其中私有链接对公共协作者不可用，只是可选历史来源。当前行为、贡献要求和验收必须在本仓公开内容中自足表达。
 

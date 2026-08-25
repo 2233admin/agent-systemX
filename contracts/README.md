@@ -41,7 +41,7 @@ JSON 中的 `authorities` 是为兼容既有合同保留的机器字段。它在
 
 ## 捕获合同并交付回执
 
-`contracts/tools/contract.py` 接受任意部署仓的议题 URL（`https://github.com/{owner}/{repo}/issues/{n}`），或 `--repo owner/repo` 加议题编号。它不再硬要求 `zaurakworks/agent-system`。它使用参数数组调用已经认证的 `gh` 可执行文件，只解析当前目标与执行议题表单生成的中文标题，并且从不读取或保存凭据。旧英文字段别名会被明确拒绝，使表单与解析器只维护一种格式。捕获执行合同时还会验证所声明目标确实是该议题的 GitHub 原生父级，且父目标与执行合同在同一仓库。历史 bootstrap ID 保持稳定；新目标必须使用当前中文目标议题表单。
+`contracts/tools/contract.py` 接受任意部署仓的议题 URL（`https://github.com/{owner}/{repo}/issues/{n}`），或 `--repo owner/repo` 加议题编号。它不再硬要求 `Eridanus117/agent-system`。它使用参数数组调用已经认证的 `gh` 可执行文件，只解析当前目标与执行议题表单生成的中文标题，并且从不读取或保存凭据。旧英文字段别名会被明确拒绝，使表单与解析器只维护一种格式。捕获执行合同时还会验证所声明目标确实是该议题的 GitHub 原生父级，且父目标与执行合同在同一仓库。历史 bootstrap ID 保持稳定；新目标必须使用当前中文目标议题表单。
 
 把议题捕获到被忽略、可重新生成的 `contracts/run-packages/` 目录：
 
@@ -82,4 +82,4 @@ python contracts/tools/validate.py
 
 ## 基础来源
 
-初始边界和不变量来自 archived source 的[目标 #1](https://github.com/zaurakworks/agent-contracts/issues/1)、[执行合同 #2](https://github.com/zaurakworks/agent-contracts/issues/2)及其[交接回执](https://github.com/zaurakworks/agent-contracts/issues/2#issuecomment-5307822402)。这些链接只提供迁移来源；当前合同必须位于部署自有仓库并在本目录自足表达。
+初始边界和不变量来自 archived source 的[目标 #1](https://github.com/Eridanus117/agent-contracts/issues/1)、[执行合同 #2](https://github.com/Eridanus117/agent-contracts/issues/2)及其[交接回执](https://github.com/Eridanus117/agent-contracts/issues/2#issuecomment-5307822402)。这些链接只提供迁移来源；当前合同必须位于部署自有仓库并在本目录自足表达。

@@ -85,7 +85,7 @@ def _validate_private_runtime(
     # no component may be a symlink or junction pointing elsewhere.
     # This is a weaker guarantee than the POSIX branch -- it does not read
     # ACLs, so a managed root that grants other principals write access
-    # still passes. Tracked in zaurakworks/agent-system#83.
+    # still passes. Tracked in Eridanus117/agent-system#83.
     managed = private_root.expanduser().absolute()
     candidate = root.expanduser().absolute()
     try:

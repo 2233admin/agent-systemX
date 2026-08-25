@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://github.com/zaurakworks/agent-system/schemas/receipt.schema.json",
+  "$id": "https://github.com/Eridanus117/agent-system/schemas/receipt.schema.json",
   "title": "Execution Receipt",
   "description": "A delivery or blocker report bound to an exact Execution Contract snapshot; it does not assert acceptance.",
   "type": "object",

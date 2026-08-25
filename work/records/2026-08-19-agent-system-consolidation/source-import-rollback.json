@@ -2,7 +2,7 @@
   "schema": 1,
   "target_commit": "e7a734c",
   "source": {
-    "repository": "zaurakworks/agent-contracts",
+    "repository": "Eridanus117/agent-contracts",
     "commit": "5bb8ea0b54f063b0758c294b73ea270ba69322d2",
     "worktree_clean_before": true,
     "worktree_clean_after": true

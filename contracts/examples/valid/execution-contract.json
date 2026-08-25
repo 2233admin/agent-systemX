@@ -5,7 +5,7 @@
   "revision": 1,
   "contractRef": "exec-agent-contracts-foundation-001@1",
   "source": {
-    "issueUrl": "https://github.com/zaurakworks/agent-system/issues/2",
+    "issueUrl": "https://github.com/Eridanus117/agent-system/issues/2",
     "issueNumber": 2,
     "remoteVersion": "2026-08-16T14:04:17Z",
     "contentDigest": "sha256:2222222222222222222222222222222222222222222222222222222222222222"
@@ -13,7 +13,7 @@
   "parentGoal": {
     "contractId": "goal-agent-contracts-001",
     "relationship": "github-sub-issue",
-    "issueUrl": "https://github.com/zaurakworks/agent-system/issues/1"
+    "issueUrl": "https://github.com/Eridanus117/agent-system/issues/1"
   },
   "objective": "Create the first project-local execution-contract foundation.",
   "scope": {
@@ -29,12 +29,12 @@
     "GitHub remains the active contract authority."
   ],
   "authorities": [
-    "https://github.com/zaurakworks/agent-system/issues/2",
-    "https://github.com/zaurakworks/agent-system/issues/1"
+    "https://github.com/Eridanus117/agent-system/issues/2",
+    "https://github.com/Eridanus117/agent-system/issues/1"
   ],
   "permissions": {
     "allowed": [
-      "Write and push a dedicated branch in zaurakworks/agent-system."
+      "Write and push a dedicated branch in Eridanus117/agent-system."
     ],
     "forbidden": [
       "Merge the pull request or modify user-level configuration."

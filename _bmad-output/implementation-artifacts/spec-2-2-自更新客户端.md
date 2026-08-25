@@ -19,7 +19,7 @@ baseline_commit: 'ec5f8206225a7e06c0bfd90db47ea5eeb1647e1c'
 ## Boundaries & Constraints
 
 **Always:**
-- 只读 GET 固定端点 `https://api.github.com/repos/zaurakworks/agent-system/releases/latest`；不得从用户可控或运行时派生的 URL 拉取（AD-15）。
+- 只读 GET 固定端点 `https://api.github.com/repos/Eridanus117/agent-system/releases/latest`；不得从用户可控或运行时派生的 URL 拉取（AD-15）。
 - 下载的二进制资产必须先用同一 release 里的 `SHA256SUMS.txt`（Story 2.1 定的标准 `sha256sum` 格式：`<hash>  <filename>`）逐字节校验通过，才允许替换本地文件；校验失败一律放弃本次更新，不写入任何文件。
 - 替换前把旧二进制重命名为 `<execPath>.<当前版本号>.bak` 保留可回滚版本，与 `omp` 参照物的 `.bak` 模式一致。
 - 检查/下载/校验/替换整条链路必须整体 try/catch，任一步失败都不得抛出、不得阻塞或延迟当前命令的执行与退出码，也不得输出到 stdout/stderr/TUI（失败静默降级，同 AD-15）；网络请求必须带边界超时，不得无限等待。
@@ -46,7 +46,7 @@ baseline_commit: 'ec5f8206225a7e06c0bfd90db47ea5eeb1647e1c'
 
 ### 修订：检查时机与节流（Issue #153，负责人 2026-08-24 明确激活）
 
-负责人通过 [Issue #153](https://github.com/zaurakworks/agent-system/issues/153) 明确重新协商了本节两条约束，改写范围仅限"何时检查、是否阻塞、是否记时间戳"，**不改变**端点、完整性校验、`.bak` 回滚、零遥测、失败静默降级、`CONFIGS_VERSION === 'dev'` 完全跳过这些约束：
+负责人通过 [Issue #153](https://github.com/Eridanus117/agent-system/issues/153) 明确重新协商了本节两条约束，改写范围仅限"何时检查、是否阻塞、是否记时间戳"，**不改变**端点、完整性校验、`.bak` 回滚、零遥测、失败静默降级、`CONFIGS_VERSION === 'dev'` 完全跳过这些约束：
 
 - 原 Always"不得阻塞或延迟当前命令"在实现上并未成立——检查是 `await` 在任何子命令分发之前的，实测 `configs --version` 因此多花约 1s，网络差时最坏可达约 65s。现改为：前台命令**不得**发起或等待任何自更新网络请求；检查由前台派发一个 stdio 全丢弃的独立后台进程（`configs --self-update-worker`）完成，其结果只影响**下一次**调用。
 - 原 Never"不引入 daemon、常驻进程或轮询定时器——检查只在进程启动这一次性时点内联发生；不持久化更新历史或版本决定到 SQLite 或磁盘"改为：仍然不引入 daemon、常驻进程或轮询定时器（后台检查器是一次性短命进程，做完即退出），但允许持久化一个最小调度状态文件 `$HOME/.agent-system-state/control-plane/self-update.json`，只含"上次检查时间戳"与"待播报的已装版本号"两个字段；它是可丢弃的调度缓存，损坏或缺失一律退化为"现在就检查"，不作为任何产品决定的真源，也不记录更新历史。

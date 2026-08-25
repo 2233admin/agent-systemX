@@ -16,13 +16,13 @@
 
 | 你现在想做什么 | 从哪里开始 |
 | --- | --- |
-| 快速知道 APS 替你做什么、什么时候会用到 | [给负责人的 Skill 选型面](https://github.com/zaurakworks/agent-plugins/blob/main/docs/skills-overview.md#adaptive-problem-solving) |
+| 快速知道 APS 替你做什么、什么时候会用到 | [给负责人的 Skill 选型面](https://github.com/Eridanus117/agent-plugins/blob/main/docs/skills-overview.md#adaptive-problem-solving) |
 | 学习、浏览和比较思考概念 | 继续读本页 |
-| 维护或审查 Agent 实际怎样选择和执行方法 | [APS 行为合同](https://github.com/zaurakworks/agent-plugins/blob/main/plugins/adaptive-problem-solving/skills/adaptive-problem-solving/SKILL.md) → [方法类型索引](https://github.com/zaurakworks/agent-plugins/blob/main/plugins/adaptive-problem-solving/skills/adaptive-problem-solving/references/method-registry/INDEX.md) → 命中的单张方法卡 |
+| 维护或审查 Agent 实际怎样选择和执行方法 | [APS 行为合同](https://github.com/Eridanus117/agent-plugins/blob/main/plugins/adaptive-problem-solving/skills/adaptive-problem-solving/SKILL.md) → [方法类型索引](https://github.com/Eridanus117/agent-plugins/blob/main/plugins/adaptive-problem-solving/skills/adaptive-problem-solving/references/method-registry/INDEX.md) → 命中的单张方法卡 |
 
 ## 怎么用这页
 
-先从一个真实问题进入，通常只挑一个主角度；若低成本、可回退的普通行动能更快给出反馈，就直接行动。概念页回答“这个角度是什么意思、何时值得想”，[APS 方法登记面](https://github.com/zaurakworks/agent-plugins/tree/main/plugins/adaptive-problem-solving/skills/adaptive-problem-solving/references/method-registry)回答 Agent “何时触发、怎样执行、成本多大、何时停止、证据到哪一级”。
+先从一个真实问题进入，通常只挑一个主角度；若低成本、可回退的普通行动能更快给出反馈，就直接行动。概念页回答“这个角度是什么意思、何时值得想”，[APS 方法登记面](https://github.com/Eridanus117/agent-plugins/tree/main/plugins/adaptive-problem-solving/skills/adaptive-problem-solving/references/method-registry)回答 Agent “何时触发、怎样执行、成本多大、何时停止、证据到哪一级”。
 
 概念被收录或建议登记都不产生同意、授权、写入所有权、产品采用或默认触发资格。需要执行时，APS 仍先判断普通路径是否足够、当前主瓶颈是什么，并遵守对应卡片的硬门与组合上限。
 
@@ -197,7 +197,7 @@
 
 ### 本次直接核验
 
-- 2026-08-16 对照 APS `0.2.11` 的[方法登记面说明](https://github.com/zaurakworks/agent-plugins/blob/main/plugins/adaptive-problem-solving/skills/adaptive-problem-solving/references/method-registry/README.md)、[方法类型学索引](https://github.com/zaurakworks/agent-plugins/blob/main/plugins/adaptive-problem-solving/skills/adaptive-problem-solving/references/method-registry/INDEX.md)、30 张卡与符合性检查，确认 18 张 M0、12 张 M1，以及逐项“覆盖／并入／净增建议”关系未变。
+- 2026-08-16 对照 APS `0.2.11` 的[方法登记面说明](https://github.com/Eridanus117/agent-plugins/blob/main/plugins/adaptive-problem-solving/skills/adaptive-problem-solving/references/method-registry/README.md)、[方法类型学索引](https://github.com/Eridanus117/agent-plugins/blob/main/plugins/adaptive-problem-solving/skills/adaptive-problem-solving/references/method-registry/INDEX.md)、30 张卡与符合性检查，确认 18 张 M0、12 张 M1，以及逐项“覆盖／并入／净增建议”关系未变。
 - 本仓职责边界来自[思考模式与元方法权威](../authority/03-thinking-methods.md)，知识准入与退出边界来自[知识权威](../authority/01-knowledge.md)；本页不修改两者。
 - 本仓例子来自当前知识包、近期远端合同与[关联 #136（今夜自治运行的反向反思）跟丢审计补正](https://github.com/Eridanus117/agent-control/issues/136#issuecomment-5263279476)。这些材料支持例子真实性，不单独证明方法有效。
 

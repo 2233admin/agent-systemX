@@ -3,8 +3,8 @@
   "version": "0.2.13",
   "description": "Govern problem framing, method choice, execution setup, parent-goal acceptance, and adaptive course correction.",
   "author": {
-    "name": "zaurakworks"
+    "name": "Eridanus117"
   },
-  "repository": "https://github.com/zaurakworks/agent-system",
+  "repository": "https://github.com/Eridanus117/agent-system",
   "skills": "./skills/"
 }

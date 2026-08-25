@@ -100,7 +100,7 @@ CF-6 是**决定机制**，不是通用质量检查。进入前必须同时满�
 
 1. [关联 #100（夜间新增资产的多视角攻防审计）C1／C2 交叉裁决](https://github.com/Eridanus117/agent-control/issues/100#issuecomment-5259393664)：确认旧机制身份链不同构、评论与运行身份曾反向绑定，以及公开顺序不能证明盲评；支持联合类型、机械映射和先密封后揭示。
 2. [现行 CF-6 0.2.0（三方审阅一致制）](https://github.com/Eridanus117/agent-plugins/blob/3baccec0d83115bb3123382b34fb0ec944512741/plugins/orchestrated-collaboration/skills/orchestrated-collaboration/references/collaboration-shapes/cf-6.md)：定义 C3=A 进入门、三席角色、联合身份、验证器、密封状态机、三席一致消费与失败门；本次远端正文与已安装 `orchestrated-collaboration` 0.2.2 逐字规范化一致。
-3. [已退役 GitHub 工作流的历史三条件谓词](https://github.com/zaurakworks/agent-plugins/issues/18)：曾提供“常规验收不等于代理决定”的早期样本；其生命周期回收、对象分类和角色状态机已经退役，不再是当前行为来源。当前边界由本仓项目入口与公开合同直接承载。
+3. [已退役 GitHub 工作流的历史三条件谓词](https://github.com/Eridanus117/agent-plugins/issues/18)：曾提供“常规验收不等于代理决定”的早期样本；其生命周期回收、对象分类和角色状态机已经退役，不再是当前行为来源。当前边界由本仓项目入口与公开合同直接承载。
 4. [关联 #139（P0-1 迭代回执地基）首轮裁决](https://github.com/Eridanus117/agent-control/issues/139#issuecomment-5262189283)、[原否决席复核](https://github.com/Eridanus117/agent-control/issues/139#issuecomment-5262328473)与[三席一致回执](https://github.com/Eridanus117/agent-control/issues/139#issuecomment-5262365043)：保存字段忠实性误判、最小修订、独立复核和最终落地链。
 5. [关联 #140（P0-3 类型化派发与写后核验门）首轮裁决](https://github.com/Eridanus117/agent-control/issues/140#issuecomment-5262189536)、[原否决席复核](https://github.com/Eridanus117/agent-control/issues/140#issuecomment-5262328713)与[三席一致回执](https://github.com/Eridanus117/agent-control/issues/140#issuecomment-5262365257)：保存标题错配漏检、负向夹具、独立复核和最终落地链。
 

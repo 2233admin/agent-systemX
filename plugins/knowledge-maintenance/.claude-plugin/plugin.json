@@ -3,8 +3,8 @@
   "version": "0.1.3",
   "description": "Reuse current knowledge and research only changes, conflicts, and gaps before admitting updated conclusions.",
   "author": {
-    "name": "zaurakworks"
+    "name": "Eridanus117"
   },
-  "repository": "https://github.com/zaurakworks/agent-system",
+  "repository": "https://github.com/Eridanus117/agent-system",
   "skills": "./skills/"
 }

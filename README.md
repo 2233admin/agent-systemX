@@ -22,7 +22,7 @@
 
 - 2026-08-15 从私有 `Eridanus117/agent-control` clean-slate 迁入的 Issue #1–#34 标记为 `迁移索引/待分诊`；它们默认不是当前授权或活动 backlog。
 - 迁入事项只有补齐公开、自足的目标、范围、验收和当前授权后才能重新激活。旧仓评论与 PR 可以作历史来源，但公共规范不得以私有链接为理解前提。
-- 旧仓保持私有；必要决定与证据先脱敏蒸馏，再机械 archive。当前落地工作见 [Issue #58](https://github.com/zaurakworks/agent-system/issues/58)。
+- 旧仓保持私有；必要决定与证据先脱敏蒸馏，再机械 archive。当前落地工作见 [Issue #58](https://github.com/Eridanus117/agent-system/issues/58)。
 
 ## 开始工作
 

@@ -328,7 +328,7 @@ MVP-FR10：Epic 1 / Story 1.2 — OMP-only 与未来 adapter 边界。
 我希望按组声明白名单就能得到一份候选，而不是手写几十条来源引用，
 以便装配能规模化，而不是靠人逐条抄路径。
 
-**覆盖：** Epic 3 正文「选择数据源导入原始资产」的供应半边；`#1`（原 `zaurakworks/agent-system#173`，随仓重建后编号变更） 记录的供给能力缺口，AD-22 退役第 (1) 步的其余部分
+**覆盖：** Epic 3 正文「选择数据源导入原始资产」的供应半边；`#1`（原 `Eridanus117/agent-system#173`，随仓重建后编号变更） 记录的供给能力缺口，AD-22 退役第 (1) 步的其余部分
 
 **验收标准来源：** 待 `bmad-build` 产出（当前记于 `_bmad-output/implementation-artifacts/deferred-work.md`）
 

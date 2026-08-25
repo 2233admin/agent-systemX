@@ -1,8 +1,8 @@
 {
   "schema": 1,
   "change": "consolidate-agent-repositories-into-agent-system",
-  "target_repository": "zaurakworks/agent-control",
-  "planned_repository": "zaurakworks/agent-system",
+  "target_repository": "Eridanus117/agent-control",
+  "planned_repository": "Eridanus117/agent-system",
   "target_branch": "consolidate-agent-repositories-into-agent-system",
   "base_head": "8d6e82aca6be715d109e90428553e62d7aedf712",
   "rollback_ref": "8d6e82aca6be715d109e90428553e62d7aedf712",

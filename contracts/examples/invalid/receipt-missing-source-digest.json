@@ -6,7 +6,7 @@
     "contractId": "exec-release-001",
     "revision": 1,
     "contractRef": "exec-release-001@1",
-    "issueUrl": "https://github.com/zaurakworks/agent-system/issues/20",
+    "issueUrl": "https://github.com/Eridanus117/agent-system/issues/20",
     "issueNumber": 20,
     "remoteVersion": "2026-08-16T16:00:00Z"
   },
@@ -15,7 +15,7 @@
   "artifacts": [
     {
       "name": "Pull request",
-      "url": "https://github.com/zaurakworks/agent-system/pull/21"
+      "url": "https://github.com/Eridanus117/agent-system/pull/21"
     }
   ],
   "verification": [

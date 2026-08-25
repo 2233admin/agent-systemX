@@ -17,9 +17,9 @@ from typing import Any, Protocol, Sequence
 
 TERMINAL_DISPATCH_STATUSES = {"completed", "failed", "stopped", "abandoned"}
 DEFAULT_GITHUB_REPOSITORIES = (
-    "zaurakworks/agent-system",
-    "zaurakworks/work-skills",
-    "zaurakworks/agent-plugins",
+    "Eridanus117/agent-system",
+    "Eridanus117/work-skills",
+    "Eridanus117/agent-plugins",
 )
 
 

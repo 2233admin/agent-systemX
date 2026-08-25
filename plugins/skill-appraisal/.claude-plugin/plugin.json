@@ -3,8 +3,8 @@
   "version": "0.2.0",
   "description": "Appraise whether a Skill group should be adopted, which matters it serves, what it replaces, and how to recheck it cheaply next time.",
   "author": {
-    "name": "zaurakworks"
+    "name": "Eridanus117"
   },
-  "repository": "https://github.com/zaurakworks/agent-system",
+  "repository": "https://github.com/Eridanus117/agent-system",
   "skills": "./skills/"
 }

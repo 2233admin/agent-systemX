@@ -1,6 +1,6 @@
 {
   "schema": 1,
-  "canonical_project": "zaurakworks/agent-system",
+  "canonical_project": "Eridanus117/agent-system",
   "invocation": "uv run --project <agent-system> cap",
   "workdir_count": 2,
   "client_binary_smoke": {

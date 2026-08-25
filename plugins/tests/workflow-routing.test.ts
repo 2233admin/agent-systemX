@@ -314,7 +314,7 @@ assert.ok(
 );
 const retiredCount = config.complexityBudget.retiredSkillCountGate;
 assert.equal(retiredCount.reportedMaxSkills, 13);
-assert.equal(retiredCount.retiredBy, 'https://github.com/zaurakworks/agent-system/pull/168');
+assert.equal(retiredCount.retiredBy, 'https://github.com/Eridanus117/agent-system/pull/168');
 assert.equal(retiredCount.retiredAt, '2026-08-24');
 assert.ok(
   retiredCount.reason.includes('资产数量不等于'),
@@ -332,9 +332,9 @@ assert.deepEqual(retiredCount.supersededBaseline, {
 assert.equal(retiredCount.supersededExceptions.length, 1);
 assert.equal(
   retiredCount.supersededExceptions[0].authorizedBy,
-  'https://github.com/zaurakworks/agent-control/issues/57',
+  'https://github.com/Eridanus117/agent-control/issues/57',
 );
-assert.equal(config.complexityBudget.retiredCorpusGate.retiredBy, 'https://github.com/zaurakworks/agent-plugins/issues/16');
+assert.equal(config.complexityBudget.retiredCorpusGate.retiredBy, 'https://github.com/Eridanus117/agent-plugins/issues/16');
 assert.equal(config.descriptionBudget.unit, 'utf8-bytes');
 assert.equal(
   config.descriptionBudget.maxUtf8Bytes,

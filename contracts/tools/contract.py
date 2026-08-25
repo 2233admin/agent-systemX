@@ -18,7 +18,7 @@ except ImportError:  # Direct execution: python contracts/tools/contract.py
     from validate import validate_instance, validate_semantics
 
 ROOT = Path(__file__).resolve().parents[1]
-DEFAULT_REPOSITORY = "zaurakworks/agent-system"
+DEFAULT_REPOSITORY = "Eridanus117/agent-system"
 ISSUE_URL_RE = re.compile(
     r"^https://github\.com/([A-Za-z0-9_.-]+)/([A-Za-z0-9_.-]+)/issues/([1-9][0-9]*)$"
 )

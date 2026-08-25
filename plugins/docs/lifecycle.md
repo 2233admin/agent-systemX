@@ -16,7 +16,7 @@
 
 因此：**合并不等于生效，装了才算数。** 在工作树里改动、甚至合并进 `main`，都不改变任何会话的行为，直到内容被装进缓存。
 
-> 本节曾写成「源码即生产」，说工作树就是加载路径、未合并内容实时生效。那个结论来自 `claude plugin details` 的 on-invoke 估算随工作树变化——但那是 CLI 检视命令在算「装了会是多大」，与会话加载是两条代码路径。**拿 CLI 显示推断会话行为，推错了两轮**，完整来回见 [`agent-control#11`](https://github.com/zaurakworks/agent-control/issues/11)。留下这段是因为错误结论本身有信息量：能被观察到的东西，不一定是正在起作用的东西。
+> 本节曾写成「源码即生产」，说工作树就是加载路径、未合并内容实时生效。那个结论来自 `claude plugin details` 的 on-invoke 估算随工作树变化——但那是 CLI 检视命令在算「装了会是多大」，与会话加载是两条代码路径。**拿 CLI 显示推断会话行为，推错了两轮**，完整来回见 [`agent-control#11`](https://github.com/Eridanus117/agent-control/issues/11)。留下这段是因为错误结论本身有信息量：能被观察到的东西，不一定是正在起作用的东西。
 
 **边界**：以上是 manifest 层的直接实测。`SKILL.md` 正文没有单独测——插件作为一个整体装进同一个缓存目录（含 manifest 与 `skills/` 全部文件），正文同源是推断，不是实测。
 
@@ -89,7 +89,7 @@ git -C <repo-root> worktree add <worktree-root>/<分支> -b <分支>
 
 | 项 | 处理 | 依据 |
 | --- | --- | --- |
-| Skill 数量 | 上限 7 | 历史授权上限曾到 13；[`agent-plugins#18`](https://github.com/zaurakworks/agent-plugins/issues/18) 退役六项后收紧到当前实际数量，不保留增长余量 |
+| Skill 数量 | 上限 7 | 历史授权上限曾到 13；[`agent-plugins#18`](https://github.com/Eridanus117/agent-plugins/issues/18) 退役六项后收紧到当前实际数量，不保留增长余量 |
 | 单项 L1 description | 上限 1000 UTF-8 字节 | 2026-08-11 普通 Codex、Orca Codex、Claude Code 三端可见性实测 |
 | L2 主合同 | 实测报告，不设总字节上限 | 只在选择 Skill 后加载；逐项行为审阅决定缩减或退役 |
 | L3 按需引用 | 递归实测报告，不设总字节上限 | 只有真实路由才进入运行上下文；嵌套引用仍属于维护面 |
@@ -97,13 +97,13 @@ git -C <repo-root> worktree add <worktree-root>/<分支> -b <分支>
 
 [`docs/skills-overview.md`](./skills-overview.md) 每次从源码生成上述分层事实。来源检查通过只证明计量和声明一致，不证明任一运行端已安装、触发或产生净收益。
 
-原 `209000` 字节硬门已由 [`agent-plugins#16`](https://github.com/zaurakworks/agent-plugins/issues/16) 退役：它只扫描 `references/` 顶层 Markdown，漏掉嵌套方法卡；同时把 L2、L3 和维护面错误当成同一批上下文字节。把漏项补进旧上限只会得到更大的错误数字，不解决口径问题。
+原 `209000` 字节硬门已由 [`agent-plugins#16`](https://github.com/Eridanus117/agent-plugins/issues/16) 退役：它只扫描 `references/` 顶层 Markdown，漏掉嵌套方法卡；同时把 L2、L3 和维护面错误当成同一批上下文字节。把漏项补进旧上限只会得到更大的错误数字，不解决口径问题。
 
 数量门继续要求「加」伴随「换」。移动文字只有在正文保留明确按需路由时才可能降低运行成本，且不降低维护复杂度；真正优化优先删除行为、状态机、依赖和重复调用者。历史 12→13 授权与已退役字节门继续留在声明中供审计，不构成把当前上限从 7 调回 13 的授权。
 
 ## 四、写作判据
 
-采自 [`agent-control/learning/skills-study/mattpocock.md`](https://github.com/zaurakworks/agent-control/blob/main/learning/skills-study/mattpocock.md) 的复核结论，**只采一条**：
+采自 [`agent-control/learning/skills-study/mattpocock.md`](https://github.com/Eridanus117/agent-control/blob/main/learning/skills-study/mattpocock.md) 的复核结论，**只采一条**：
 
 > 一个 leading word ＋ 一个可观察的完成门 ＋ 一个明确的退出。
 

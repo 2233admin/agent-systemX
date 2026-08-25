@@ -40,14 +40,14 @@ REFERENCE_RE = re.compile(r"#(?P<number>[1-9][0-9]*)(?P<title>（[^）\r\n]*）)
 FENCE_OPEN_RE = re.compile(r"^(?P<indent> {0,3})(?P<fence>`{3,}|~{3,})")
 URL_RE = re.compile(r"https?://[^\s<>]+")
 DIRECT_REPOSITORY_RE = re.compile(
-    r"(?:(?:Eridanus117|zaurakworks)/)?"
+    r"(?:Eridanus117/)?"
     r"(?P<repository>agent-control|agent-plugins|work-skills)$"
 )
 EXTERNAL_DIRECT_REPOSITORY_RE = re.compile(
     r"(?P<owner>[A-Za-z0-9_.-]+)/(?P<repository>[A-Za-z0-9_.-]+)$"
 )
 REPOSITORY_MENTION_RE = re.compile(
-    r"(?<![A-Za-z0-9_-])(?:Eridanus117/|zaurakworks/)?"
+    r"(?<![A-Za-z0-9_-])(?:Eridanus117/)?"
     r"(?P<repository>agent-control|agent-plugins|work-skills)(?![A-Za-z0-9_-])"
 )
 CLAUSE_SEPARATORS = "\n。；;！？!?|"

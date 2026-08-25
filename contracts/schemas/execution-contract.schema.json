@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://github.com/zaurakworks/agent-system/schemas/execution-contract.schema.json",
+  "$id": "https://github.com/Eridanus117/agent-system/schemas/execution-contract.schema.json",
   "title": "Execution Contract",
   "description": "Structured capture of one immutable revision of an authoritative Execution Contract Issue.",
   "type": "object",

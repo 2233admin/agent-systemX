@@ -1,4 +1,4 @@
-> 方案审阅载体：[#109](https://github.com/zaurakworks/agent-system/issues/109)。上游裁定见 [can1357/oh-my-pi#9067](https://github.com/can1357/oh-my-pi/issues/9067)（`wontfix`）。
+> 方案审阅载体：[#109](https://github.com/Eridanus117/agent-system/issues/109)。上游裁定见 [can1357/oh-my-pi#9067](https://github.com/can1357/oh-my-pi/issues/9067)（`wontfix`）。
 
 ## Why
 

@@ -6,7 +6,7 @@
     "comment": "负责人对本文件中属于产品政策级判断的两项的明确确认。记录在此是因为聊天里的批准不构成仓库事实——下一个 Session 只能看到文件。此后修改这两项仍需新的明确确认。",
     "at": "2026-08-24",
     "by": "负责人",
-    "ref": "https://github.com/zaurakworks/agent-system/pull/168",
+    "ref": "https://github.com/Eridanus117/agent-system/pull/168",
     "items": [
       "事项划分 E1 装配 Agent 配置／E2 造软件／E3 推进仓库事项／E4 管 Skill 本身／E5 想清楚一件事，以及横切面 X；连同 groups 中 12 个组各自的 matters 归属。",
       "recheckStaleDays = 30：复核过期阈值。此前标为占位值，本次确认为当前取值；它仍然不是实测得出的数字，改动只需新的确认，不需要新的证据。"

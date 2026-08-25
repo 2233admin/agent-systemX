@@ -8,8 +8,8 @@
 
 本 change 规划期间，两件事已由上游独立落地，本 change **不再承载**它们：
 
-- **资产权限位**（原计划的第一个提交）由 [#84](https://github.com/zaurakworks/agent-system/pull/84) 的 `_canonical_mode` 落地。上游实现直接返回常量，并记录了本 change 遗漏的一项事实：**WSL 经 DrvFs 访问时对每个文件报 `0o777`**。原 design D1 打算在 POSIX 侧校验实际权限位并拒绝可执行资产——那条规则会让任何经 `/mnt/c` 运行的会话把全部锁定输入判为可执行而拒绝。上游的"权限位不携带可移植信息、直接返回常量"更正确，本 change 采纳它，不再提出替代方案。
-- **`omp/runtime.py` 的 `_validate_private_runtime`** 由 [#85](https://github.com/zaurakworks/agent-system/pull/85) 落地，且在 Windows 分支补了本 change 没有的替代约束（限制在 CAP 托管根内 + 逐分量拒绝重解析点），并显式记录了"不读 ACL"这一残余弱点。本 change 采纳它。
+- **资产权限位**（原计划的第一个提交）由 [#84](https://github.com/Eridanus117/agent-system/pull/84) 的 `_canonical_mode` 落地。上游实现直接返回常量，并记录了本 change 遗漏的一项事实：**WSL 经 DrvFs 访问时对每个文件报 `0o777`**。原 design D1 打算在 POSIX 侧校验实际权限位并拒绝可执行资产——那条规则会让任何经 `/mnt/c` 运行的会话把全部锁定输入判为可执行而拒绝。上游的"权限位不携带可移植信息、直接返回常量"更正确，本 change 采纳它，不再提出替代方案。
+- **`omp/runtime.py` 的 `_validate_private_runtime`** 由 [#85](https://github.com/Eridanus117/agent-system/pull/85) 落地，且在 Windows 分支补了本 change 没有的替代约束（限制在 CAP 托管根内 + 逐分量拒绝重解析点），并显式记录了"不读 ACL"这一残余弱点。本 change 采纳它。
 
 因此本 change 现在只承载一件事：**把 POSIX-only 的目录句柄链换成两端共用的分量校验**，以及由此派生的写入策略与认证结论表达。
 
@@ -57,7 +57,7 @@
 
 ## 基线证据
 
-均于 2026-08-19 在 Windows 11 Pro 10.0.26200 + CPython 3.14.2 实测，工作树 `zaurakworks/win-omp` 与 `origin/main`（`1a637f9`）同点且干净：
+均于 2026-08-19 在 Windows 11 Pro 10.0.26200 + CPython 3.14.2 实测，工作树 `Eridanus117/win-omp` 与 `origin/main`（`1a637f9`）同点且干净：
 
 - `uv run cap agents` → `profile: error: capability lock drift detected`。
 - 计算 `_input_records` 与 `.cap/lock.json` 的 `inputs` 差异：44 条中 24 条不符，**唯一差异是 `mode` 为 `0666` 而锁内为 `0644`；24 条的 `sha256` 全部一致**，目录条目全部一致。

@@ -41,7 +41,7 @@ class FixtureRunner:
             return subprocess.CompletedProcess(
                 argv,
                 0,
-                json.dumps({"html_url": "https://github.com/zaurakworks/agent-system/issues/4#issuecomment-1"}),
+                json.dumps({"html_url": "https://github.com/Eridanus117/agent-system/issues/4#issuecomment-1"}),
                 "",
             )
         return subprocess.CompletedProcess(argv, 1, "", "unexpected fixture command")
@@ -67,7 +67,7 @@ def receipt_for(package: dict[str, Any]) -> dict[str, Any]:
         "artifacts": [
             {
                 "name": "开放的 Draft PR",
-                "url": "https://github.com/zaurakworks/agent-system/pull/5",
+                "url": "https://github.com/Eridanus117/agent-system/pull/5",
                 "commit": "0123456789abcdef0123456789abcdef01234567",
             }
         ],
@@ -87,7 +87,7 @@ class ContractTests(unittest.TestCase):
 
     def capture(self) -> dict[str, Any]:
         return contract.capture(
-            "https://github.com/zaurakworks/agent-system/issues/4", self.client
+            "https://github.com/Eridanus117/agent-system/issues/4", self.client
         )
 
     def test_valid_capture_uses_exact_snapshot_and_native_parent(self) -> None:
@@ -105,7 +105,7 @@ class ContractTests(unittest.TestCase):
             {
                 "contractId": "goal-agent-contracts-001",
                 "relationship": "github-sub-issue",
-                "issueUrl": "https://github.com/zaurakworks/agent-system/issues/1",
+                "issueUrl": "https://github.com/Eridanus117/agent-system/issues/1",
             },
         )
         self.assertTrue(all(isinstance(call["argv"], list) for call in self.runner.calls))
@@ -113,7 +113,7 @@ class ContractTests(unittest.TestCase):
     def test_parent_mismatch_is_rejected(self) -> None:
         parent = self.runner.relation["data"]["repository"]["issue"]["parent"]
         parent["number"] = 9
-        parent["url"] = "https://github.com/zaurakworks/agent-system/issues/9"
+        parent["url"] = "https://github.com/Eridanus117/agent-system/issues/9"
         with self.assertRaisesRegex(contract.ContractError, "native GitHub parent"):
             self.capture()
 
@@ -179,7 +179,7 @@ class ContractTests(unittest.TestCase):
                 "api",
                 "--method",
                 "POST",
-                "repos/zaurakworks/agent-system/issues/4/comments",
+                "repos/Eridanus117/agent-system/issues/4/comments",
                 "--input",
                 "-",
             ],
@@ -192,7 +192,7 @@ class ContractTests(unittest.TestCase):
     def test_current_goal_issue_form_capture(self) -> None:
         goal = copy.deepcopy(self.runner.goal)
         goal["number"] = 6
-        goal["url"] = "https://github.com/zaurakworks/agent-system/issues/6"
+        goal["url"] = "https://github.com/Eridanus117/agent-system/issues/6"
         goal["body"] = """### 合同 ID
 
 goal-example-001
@@ -207,7 +207,7 @@ goal-example-001
 
 ### 合同状态依据与引用
 
-- https://github.com/zaurakworks/agent-system/issues/6 —— 当前目标。
+- https://github.com/Eridanus117/agent-system/issues/6 —— 当前目标。
 
 ### 允许的动作与写入
 
@@ -241,7 +241,7 @@ goal-example-001
         )
 
     def test_capture_accepts_deployment_owned_repository(self) -> None:
-        old = "https://github.com/zaurakworks/agent-system"
+        old = "https://github.com/Eridanus117/agent-system"
         new = "https://github.com/2233admin/agent-system"
         self.runner.execution["url"] = self.runner.execution["url"].replace(old, new)
         self.runner.execution["body"] = self.runner.execution["body"].replace(old, new)

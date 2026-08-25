@@ -3,8 +3,8 @@
   "version": "0.1.7",
   "description": "Turn observed Agent drift and reusable corrections into bounded prompt or Skill improvements.",
   "author": {
-    "name": "zaurakworks"
+    "name": "Eridanus117"
   },
-  "repository": "https://github.com/zaurakworks/agent-system",
+  "repository": "https://github.com/Eridanus117/agent-system",
   "skills": "./skills/"
 }

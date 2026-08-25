@@ -1,6 +1,6 @@
 {
   "schema": 1,
-  "target_repository": "zaurakworks/agent-system",
+  "target_repository": "Eridanus117/agent-system",
   "source_commit": "9b779a7c28a1c658d695a2764a1a2fb77bfd58c2",
   "codex": {
     "isolated_home": true,

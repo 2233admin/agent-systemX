@@ -39,7 +39,7 @@
 - 类型：事实调研与方案综合，非权威；
 - 位置：`agent-plugins/research/{issue-1-cross-provider-method-assets, issue-2-method-asset-conformance-contract, issue-4-grilling-dual-provider-plugin, issue-6-grilling-upstream-review}/`；
 - 内容：各主题 `research.md` / `innovate.md` / `plan.md`；`issue-4` 另含 `implementation-evidence.md` 与两端探针配置；
-- 关联：`zaurakworks/agent-plugins` 的 Issue #1 / #2 / #4 / #6。
+- 关联：`Eridanus117/agent-plugins` 的 Issue #1 / #2 / #4 / #6。
 
 ## R06｜`agent-plugins/reviews/20260808/`
 

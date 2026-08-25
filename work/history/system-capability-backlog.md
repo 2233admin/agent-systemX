@@ -1,6 +1,6 @@
 # 系统能力事项与轻量 ROI 排序
 
-> 归档说明（2026-08-16）：本文件保存早期候选排序，已退出当前工作面。其“思考模式与元方法只有问题和期望结果”“不扩展为完整方法系统”等判断已被当前权威、[问题求解诉求 #4](https://github.com/zaurakworks/agent-control/issues/4) 与 APS 方法登记面替代；不得据此恢复旧方向。归档动作见 [#54](https://github.com/zaurakworks/agent-control/issues/54)。
+> 归档说明（2026-08-16）：本文件保存早期候选排序，已退出当前工作面。其“思考模式与元方法只有问题和期望结果”“不扩展为完整方法系统”等判断已被当前权威、[问题求解诉求 #4](https://github.com/Eridanus117/agent-control/issues/4) 与 APS 方法登记面替代；不得据此恢复旧方向。归档动作见 [#54](https://github.com/Eridanus117/agent-control/issues/54)。
 
 > 状态：候选排序，不是权威，也不代表实施授权。
 > 依据：只使用当前权威和本次 Session 已确认的诉求；旧仓和旧 Issue 不作为需求来源。

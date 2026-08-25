@@ -3180,7 +3180,7 @@ def _managed_publication_paths(root: Path) -> set[str]:
                 manifest.get("name") != name
                 or manifest.get("version") != version
                 or manifest.get("repository")
-                != "https://github.com/zaurakworks/agent-system"
+                != "https://github.com/Eridanus117/agent-system"
                 or manifest.get("skills") != "./skills/"
             ):
                 return allowed
@@ -3721,7 +3721,7 @@ def _canonical_mode(path: Path) -> int:
     non-executable. No lock input is currently executable. Restoring executable
     support requires a portable source for that bit -- Git's index rather than
     the filesystem -- and a lock version bump; the field should simply be
-    removed at that point. See zaurakworks/agent-system#82.
+    removed at that point. See Eridanus117/agent-system#82.
     """
 
     del path

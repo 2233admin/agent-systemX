@@ -1,6 +1,6 @@
 {
   "schema": 1,
-  "source_repository": "zaurakworks/agent-assembly",
+  "source_repository": "Eridanus117/agent-assembly",
   "source_worktree_head": "38fc3e35cf8f1c25aa2fd9e20b47603c464b12cc",
   "source_remote_default_head": "c1e3a54c0a6638fdba7395136bd67e877586753f",
   "source_branch": "share-omp-runtime-across-profiles",

@@ -5,7 +5,7 @@
 > 状态：2026-08-15 clean-slate 迁入的产品政策快照；正文按公开 Issue 逐项复核。
 > 权威地位：本文件是 `authority/` 的公共路由索引；它不保存当前工作，也不自行产生实施授权。
 > 历史来源：私有 `Eridanus117/agent-control` Issue／评论只作可选证据；当前公共规则必须在本仓自足表达。
-> 当前迁移裁决：[Issue #58](https://github.com/zaurakworks/agent-system/issues/58)。
+> 当前迁移裁决：[Issue #58](https://github.com/Eridanus117/agent-system/issues/58)。
 
 ## 权威规则
 

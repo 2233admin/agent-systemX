@@ -658,7 +658,7 @@ class GateAndLockTests(ProfileTestCase):
         plugin_manifest = {
             "name": "sample",
             "version": "1.0.0",
-            "repository": "https://github.com/zaurakworks/agent-system",
+            "repository": "https://github.com/Eridanus117/agent-system",
             "skills": "./skills/",
         }
         for manifest_root in (".codex-plugin", ".claude-plugin"):

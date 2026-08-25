@@ -47,7 +47,7 @@
 
 **边界**：本任务只做 mode 规范化，未触碰 POSIX-only 的认证 vault。Windows 上 profile 测试全绿需要另立事项。
 
-> 这是一个独立的既有缺陷，**不属于本变更**，已记录为 [#82](https://github.com/zaurakworks/agent-system/issues/82)；本变更的实施在其合并后开始。若决定先做 Claude adapter，则 2.2 / 6.2 的验收改为「只比对 `profiles.*.clients.*.tree_hash` 与 `clients.*.adapter_version`，忽略 `inputs.*.mode`」。
+> 这是一个独立的既有缺陷，**不属于本变更**，已记录为 [#82](https://github.com/Eridanus117/agent-system/issues/82)；本变更的实施在其合并后开始。若决定先做 Claude adapter，则 2.2 / 6.2 的验收改为「只比对 `profiles.*.clients.*.tree_hash` 与 `clients.*.adapter_version`，忽略 `inputs.*.mode`」。
 
 ### 0.2 认证模式抉择（需负责人决定，阻断 3.1）
 
@@ -61,7 +61,7 @@
 
 ### 0.3 CAP 在 Windows 上无法 render 或启动任何客户端
 
-- [x] 0.3 解决 CAP 的执行环境边界（[#87](https://github.com/zaurakworks/agent-system/issues/87)）—— **核心已解决**：#95 用两端共用的分量校验取代 POSIX 目录句柄链，原生 Windows 上 `cap render` 已可用（实测 6 个 skill 全部产出）；#97 补齐门禁、边界测试与文档。残留的 Windows 测试套件未全绿属独立事项，不阻断本包。
+- [x] 0.3 解决 CAP 的执行环境边界（[#87](https://github.com/Eridanus117/agent-system/issues/87)）—— **核心已解决**：#95 用两端共用的分量校验取代 POSIX 目录句柄链，原生 Windows 上 `cap render` 已可用（实测 6 个 skill 全部产出）；#97 补齐门禁、边界测试与文档。残留的 Windows 测试套件未全绿属独立事项，不阻断本包。
 
 **描述**：`_open_stable_directory` 在 Windows 上无条件失败（`anchor` 恒为 `C:\`，永不等于 `os.sep`），而 `materialize_profile` 是所有 render 的唯一入口。`os.supports_dir_fd` 在 Windows 上是空集，`dir_fd` 在 `profile/cli.py` 中有 17 处使用，贯穿 render 物化、receipt 预约与认证 vault，原生移植是数周的安全关键工作。
 

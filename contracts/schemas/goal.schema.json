@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://github.com/zaurakworks/agent-system/schemas/goal.schema.json",
+  "$id": "https://github.com/Eridanus117/agent-system/schemas/goal.schema.json",
   "title": "Goal Contract",
   "description": "Structured capture of an authoritative Goal Contract Issue.",
   "type": "object",

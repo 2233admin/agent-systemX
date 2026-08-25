@@ -3,7 +3,7 @@
   "kind": "goal",
   "contractId": "goal-unbounded-work-001",
   "source": {
-    "issueUrl": "https://github.com/zaurakworks/agent-system/issues/10",
+    "issueUrl": "https://github.com/Eridanus117/agent-system/issues/10",
     "issueNumber": 10,
     "remoteVersion": "2026-08-16T15:00:00Z",
     "contentDigest": "sha256:1111111111111111111111111111111111111111111111111111111111111111"
@@ -13,7 +13,7 @@
     "The migration is delivered for review."
   ],
   "authorities": [
-    "https://github.com/zaurakworks/agent-system/issues/10"
+    "https://github.com/Eridanus117/agent-system/issues/10"
   ],
   "dependencies": [],
   "deliverables": [

@@ -4,7 +4,7 @@
 
 把两个仓本地 `codex-work/` 目录下的研发过程资产（调研、方案、评审、实验）迁入 `work/records/`，纳入版本控制。原目录被 Git 忽略，只存在于单台主机，在一次本地清空操作前被抢救出来。
 
-共 48 个文件、317 KB。来源仓：`zaurakworks/agent-control` 与 `zaurakworks/agent-plugins` 的本地工作副本。
+共 48 个文件、317 KB。来源仓：`Eridanus117/agent-control` 与 `Eridanus117/agent-plugins` 的本地工作副本。
 
 ## 为什么
 
@@ -14,7 +14,7 @@
 
 同一批记录里 `2026-08-09-agent-system-bootstrap/raw/index.md` 的 S04 条目也自陈：「保存状态：仅当前主机可用，目录被 Git 忽略」「限制：不能跨 Host 恢复」。
 
-诊断在 08-09 就有了，修复没有落地。08-15 迁仓到 `zaurakworks` 时 `codex-work/` 被整个丢下，新仓从未包含它；随后准备清空本地工作副本，这批文件距离永久丢失只差一步。
+诊断在 08-09 就有了，修复没有落地。08-15 迁仓到 `Eridanus117` 时 `codex-work/` 被整个丢下，新仓从未包含它；随后准备清空本地工作副本，这批文件距离永久丢失只差一步。
 
 本条记录就是那次修复。
 

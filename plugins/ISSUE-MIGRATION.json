@@ -1,10 +1,10 @@
 {
   "schema": 1,
-  "source_repository": "zaurakworks/agent-plugins",
+  "source_repository": "Eridanus117/agent-plugins",
   "source_head": "9b779a7c28a1c658d695a2764a1a2fb77bfd58c2",
   "open_issues": [
     {
-      "source_issue": "https://github.com/zaurakworks/agent-plugins/issues/10",
+      "source_issue": "https://github.com/Eridanus117/agent-plugins/issues/10",
       "source_number": 10,
       "source_title": "摩擦：复杂度预算把按需加载的 references/ 当常驻字节计价，使官方 progressive disclosure 在本仓变成「绕过预算」",
       "source_state": "OPEN",
@@ -14,7 +14,7 @@
       "blocker": "Create and reciprocally link an agent-system successor before archive."
     },
     {
-      "source_issue": "https://github.com/zaurakworks/agent-plugins/issues/14",
+      "source_issue": "https://github.com/Eridanus117/agent-plugins/issues/14",
       "source_number": 14,
       "source_title": "实验：把安装入口改为按需单 Plugin",
       "source_state": "OPEN",
@@ -24,7 +24,7 @@
       "blocker": "Resolve or explicitly migrate the source experiment together with open Draft PR #15; no acceptance is inferred."
     },
     {
-      "source_issue": "https://github.com/zaurakworks/agent-plugins/issues/16",
+      "source_issue": "https://github.com/Eridanus117/agent-plugins/issues/16",
       "source_number": 16,
       "source_title": "审计：十三项 Skill 的保留、缩减、合并与退役",
       "source_state": "OPEN",
@@ -36,7 +36,7 @@
   ],
   "open_pull_requests": [
     {
-      "source_pull_request": "https://github.com/zaurakworks/agent-plugins/pull/15",
+      "source_pull_request": "https://github.com/Eridanus117/agent-plugins/pull/15",
       "source_number": 15,
       "source_title": "docs: 将安装入口改为按需单 Plugin",
       "state": "OPEN",
@@ -49,13 +49,13 @@
   ],
   "releases": [],
   "canonical_install_surface": {
-    "repository": "zaurakworks/agent-system",
+    "repository": "Eridanus117/agent-system",
     "marketplace_name": "agent-plugins",
     "codex_manifest": ".agents/plugins/marketplace.json",
     "claude_manifest": ".claude-plugin/marketplace.json",
-    "plugin_repository_fields": "zaurakworks/agent-system"
+    "plugin_repository_fields": "Eridanus117/agent-system"
   },
-  "source_url_policy": "Remaining zaurakworks/agent-plugins Issue/PR links are historical or migration sources; no managed manifest or install command may use the source repository as canonical.",
+  "source_url_policy": "Remaining Eridanus117/agent-plugins Issue/PR links are historical or migration sources; no managed manifest or install command may use the source repository as canonical.",
   "archive_status": "blocked",
   "archive_blockers": [
     "Issues #10 and #16 require agent-system successors.",

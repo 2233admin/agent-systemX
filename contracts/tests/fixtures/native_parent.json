@@ -3,12 +3,12 @@
     "repository": {
       "issue": {
         "number": 4,
-        "url": "https://github.com/zaurakworks/agent-system/issues/4",
+        "url": "https://github.com/Eridanus117/agent-system/issues/4",
         "parent": {
           "number": 1,
-          "url": "https://github.com/zaurakworks/agent-system/issues/1",
+          "url": "https://github.com/Eridanus117/agent-system/issues/1",
           "repository": {
-            "nameWithOwner": "zaurakworks/agent-system"
+            "nameWithOwner": "Eridanus117/agent-system"
           }
         }
       }

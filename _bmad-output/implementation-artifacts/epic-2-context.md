@@ -26,7 +26,7 @@
 
 ## Technical Decisions
 
-- **固定发布端点：** 端点就是本仓库自身的 GitHub Releases（`github.com/zaurakworks/agent-system`）。
+- **固定发布端点：** 端点就是本仓库自身的 GitHub Releases（`github.com/Eridanus117/agent-system`）。
 - `configs` 继续以 Bun `--compile` 独立产物分平台发布，这是既有分发规则，本 Epic 不做改动。
 - 薄 OMP 扩展的分发渠道（Marketplace、Git 或本地 link）及其"必须与 CLI 协议版本显式兼容"的要求不受本 Epic 影响；自更新只作用于 `configs` 自身的二进制文件。
 - 整体系统范式是以外部 CLI 为唯一组合根的六边形模块化单体；自更新组件应遵循既有约定——adapter（更新/进程/文件系统 adapter）不做产品决定，副作用与领域核心隔离。

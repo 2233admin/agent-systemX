@@ -3,7 +3,7 @@
   "kind": "goal",
   "contractId": "goal-agent-contracts-001",
   "source": {
-    "issueUrl": "https://github.com/zaurakworks/agent-system/issues/1",
+    "issueUrl": "https://github.com/Eridanus117/agent-system/issues/1",
     "issueNumber": 1,
     "remoteVersion": "2026-08-16T14:03:04Z",
     "contentDigest": "sha256:0000000000000000000000000000000000000000000000000000000000000000"
@@ -14,11 +14,11 @@
     "No user-level agent configuration is required."
   ],
   "authorities": [
-    "https://github.com/zaurakworks/agent-system/issues/1"
+    "https://github.com/Eridanus117/agent-system/issues/1"
   ],
   "permissions": {
     "allowed": [
-      "Write project-local files and authorized GitHub records in zaurakworks/agent-system."
+      "Write project-local files and authorized GitHub records in Eridanus117/agent-system."
     ],
     "forbidden": [
       "Modify user-level agent configuration or another repository."

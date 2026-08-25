@@ -11,7 +11,7 @@
 
 **后续协作纠正与确认**：负责人否定了“多 Session 共享写入保护可以单独代表协作 MVP”。当前要建设的是完整的多 Agent 长程执行能力：低成本对齐之后，多个执行者能分工、并行、交付、审查、整合、恢复并持续推进；安全保护只是其中一项必要属性。GitHub 可以成为规划、协调、派发、依赖、状态、审查和整合的候选主干；`issue-to-merge` 和 Orca 都是冷启动安装或试用的待审计候选，不因已经存在就成为长期依赖。完整边界见 [`04-collaboration.md`](./04-collaboration.md)。
 
-**后续方案确认**：负责人于 2026-08-10 批准首个可逆协作 MVP，随后按真实试验纠正“永久中央协调者 + 专门 Worker”的局部最小化，并于 2026-08-17 根据 [`agent-plugins#18`](https://github.com/zaurakworks/agent-plugins/issues/18) 的净收益审计退役专用 GitHub 工作流 Plugin。当前路径是“GitHub 持久合同与直接交付 + 按需 Orca 薄运行适配”：任何带有明确 Issue 合同和写入所有权的 Session 都可以协调自己负责的父 Issue 子树或端到端交付叶子 Issue；角色不由 Provider、终端或固定身份决定。全局只统一长期诉求、权威、产品状态和跨任务不变量，局部结果回写远端父级后退出，不保留永久协调者身份。Actions Agent Runner、强制锁、独立登记中心、Hook 和常驻自动调度器不建设。该决定不把当前组件确认为永久平台。
+**后续方案确认**：负责人于 2026-08-10 批准首个可逆协作 MVP，随后按真实试验纠正“永久中央协调者 + 专门 Worker”的局部最小化，并于 2026-08-17 根据 [`agent-plugins#18`](https://github.com/Eridanus117/agent-plugins/issues/18) 的净收益审计退役专用 GitHub 工作流 Plugin。当前路径是“GitHub 持久合同与直接交付 + 按需 Orca 薄运行适配”：任何带有明确 Issue 合同和写入所有权的 Session 都可以协调自己负责的父 Issue 子树或端到端交付叶子 Issue；角色不由 Provider、终端或固定身份决定。全局只统一长期诉求、权威、产品状态和跨任务不变量，局部结果回写远端父级后退出，不保留永久协调者身份。Actions Agent Runner、强制锁、独立登记中心、Hook 和常驻自动调度器不建设。该决定不把当前组件确认为永久平台。
 
 ## 当前问题
 

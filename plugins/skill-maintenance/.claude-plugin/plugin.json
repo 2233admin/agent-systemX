@@ -3,8 +3,8 @@
   "version": "0.1.0",
   "description": "Maintain Skill behavior contracts, callers, versions, budgets, generated surfaces, and clean cutovers.",
   "author": {
-    "name": "zaurakworks"
+    "name": "Eridanus117"
   },
-  "repository": "https://github.com/zaurakworks/agent-system",
+  "repository": "https://github.com/Eridanus117/agent-system",
   "skills": "./skills/"
 }
