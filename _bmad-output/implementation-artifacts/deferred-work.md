@@ -160,3 +160,63 @@
 - source_spec: `_bmad-output/implementation-artifacts/spec-3-4-sourceref-跨机器可移植性语义.md`
   summary: `src/cli/supply-root.ts` 放在 `cli/` 却没有任何 CLI 消费者（唯一 importer 是 adapter），且它经 `process.env` 向 adapter 引入了隐式全局态——该 adapter 的其他协作者都是注入的 port，这也是五个测试文件现在都要保存／恢复环境变量的原因。
   evidence: 两轮 blind-hunter 均报出。仓内有 `cli/db-path` 被四个 adapter import 的先例，故不构成异常，但 `db-path` 确实有 CLI 消费者、本模块没有。可选修法：迁到 `src/config/` 或把 `supplyRoot` 提升为 `ClaudeContentMaterializerPort` 的参数（该模块已经接受 `invocationDir` 作参数），在组合根接线。
+
+- source_spec: `_bmad-output/implementation-artifacts/spec-3-5-configs-supply.md`
+  summary: 把 `validateSupplyRelativeRef` 接到**写边界**——`application/establish.ts` 的 `parseCandidateRevision` 目前对 `sourceRef` 只做 `isString`，因此 `configs establish`／`revise` 仍可持久化一条永远无法启动的非法引用（绝对路径、空串、`..` 逃逸等），错误要到 `configs use` 时才 fail-closed 暴露。
+  evidence: Story 3.4 三个审查层均提及，当时被冻结区 Never 明确划到本 Story；epic-3-context 的 Technical Decisions 也点名「供给命令必须把该实现接到写边界」。与 Story 3.5 的 `configs supply` 是两个各自可独立交付的目标：供给侧自身会自检，非法引用只能经手写候选 JSON 进入，而读侧已 fail-closed 拦住，故本条是纵深防御而非阻塞项。负责人 2026-08-25 选择 [S] 拆分、本轮只做 `configs supply`。接线时应同时强制使用谓词返回的规范化 `ref`，消除同一引用的多种字符串编码。
+
+- source_spec: `_bmad-output/implementation-artifacts/spec-3-5-configs-supply.md`
+  summary: 物化目录布局 `materialized/plugin/skills/<name>/` **丢掉了组身份**——目标目录由 `sanitizePathSegment(reference.name)` 推导，只用 skill 叶子名。两个组的同名 skill 会落到同一目录、后者覆盖前者且 `failures: []`。
+  evidence: Story 3.5 的三个审查层中有两层各自端到端复现。产出侧已在本 Story fail-closed（`SupplyDuplicateSkillNameError`），但根因在消费侧：AD-22 明写「组是装配与判定的单元」，而物化布局把它压平了。彻底修法是让物化目录带上组（如 `skills/<组>/<name>/`），那要动 Epic 4 的 `content-materializer.ts` 并重新核对 `--plugin-dir` 的真实加载语义，超出本 Story 范围。在此之前，任何绕过 `configs supply` 直接手写候选 JSON 的路径仍可触发。
+
+- source_spec: `_bmad-output/implementation-artifacts/spec-3-5-configs-supply.md`
+  summary: `sourceCategory` 对每个扫描到的 skill 硬编码为 `'project-skill-import'`，而扫描器对该组的来源（own／fork／vendor）没有任何信号。
+  evidence: Story 3.5 blind-hunter 报出。AD-8 禁止用编造的 Known 冒充事实；`cap-fs.ts` 对自研能力用的是 `'project-capability'`。诚实的做法是 `Unknown`，或读一个真实来源信号（`matters.json` 有 `origin.kind` 但产品够不着它，见 AD-22 的资产面／装配面分界）。改动牵涉「供给库要不要携带来源元数据」这一设计判断，不宜在本 Story 顺手定。
+
+- source_spec: `_bmad-output/implementation-artifacts/spec-3-5-configs-supply.md`
+  summary: 候选完全省略 `instructions`／`mcp`／`hooks`／`plugins` 四组，`parseCandidateRevision` 会默认成 `[]`；把 supply 输出 pipe 进 `configs revise --supersedes <id>` 会产出一条静默丢掉前驱全部非 skill 能力的后继修订。
+  evidence: Story 3.5 blind-hunter 报出。`cli/index.ts` 与 `supply-fs.ts` 的文档串都把输出宣传为 establish／revise 皆可消费，但只有 establish 语义正确。要么扫描器支持其余四类，要么明确声明本命令只服务 establish，二者都需要判断，未在本轮处理。
+
+- source_spec: `_bmad-output/implementation-artifacts/spec-3-5-configs-supply.md`
+  summary: `renderQueryFailure` 的模板固定渲染成「配置 "X"：…」，而 supply 的失败主体是供给库与组，不是某个配置；`establish`／`revise` 用固定标签时同样别扭。
+  evidence: Story 3.5 复验时观察到（P8 改用固定标签 `'supply'` 后渲染为「配置 "supply"：…」）。属 `render.ts` 的既有模板问题，非本轮引入，改它会同时影响三个既有命令的输出与其测试。
+
+- source_spec: `_bmad-output/implementation-artifacts/spec-3-5-configs-supply.md`
+  summary: 供给库若合法使用符号链接（例如把一个组软链到别处），本 Story 的 P6 修复会以 `SupplyUnsupportedEntryError` 硬拒，使该库不可用。
+  evidence: 实现者在 P6 里主动选择硬拒而非把链接目标纳入摘要，理由是 `cp` 复制的是链接本身而非目标、纳入会造成另一种「指纹与交付不符」。取舍成立，但代价是符号链接型供给库需要专门设计后才能支持。
+
+- source_spec: `_bmad-output/implementation-artifacts/spec-3-5-configs-supply.md`
+  summary: P5「不吞 EACCES」这一半在 Windows 上无覆盖——唯一可移植且确定的触发方式是权限位，故该用例 `skipIf(win32)`；实现者确认在本机把 `isMissingPath` 守卫整个移除仍全绿。
+  evidence: 实现者主动报告。`ENOTDIR` 那一半有可移植用例钉住，EACCES 那一半只在 POSIX／ubuntu CI 腿上验证。当前新仓 Actions 尚未运行，因此这一半实际上还没有被任何一次执行覆盖过。
+
+- source_spec: `_bmad-output/implementation-artifacts/spec-3-5-configs-supply.md`
+  summary: `parseSupply` 是同一套手写 `--flag value` 循环的第三份近乎逐字副本（`parseEstablish`／`parseRevise`／`parseSupply`，各约 60 行）；`SupplyCandidate` 是 `CandidateConfigRevision` 可接受字段集的手工副本，无编译期关联。
+  evidence: Story 3.5 blind-hunter 报出。前者可抽共享 flag 扫描器，后者可用 `satisfies` 或从 `CandidateConfigRevision` 派生，使耦合真实存在——目前 `parseCandidateRevision` 新增必填字段时 `tsc` 仍绿，只有集成测试会发现。
+
+- source_spec: `_bmad-output/implementation-artifacts/spec-3-5-configs-supply.md`
+  summary: `runSupply` 的 stdout 未处理 EPIPE——下游消费者提前退出时会得到未处理的 rejection 而非干净退出码。
+  evidence: Story 3.5 edge-case-hunter 报出。该命令的既定用法就是 pipe 进 `establish`，下游异常退出是现实场景。
+
+- source_spec: `_bmad-output/implementation-artifacts/spec-3-5-configs-supply.md`
+  summary: 物化侧把 Skill 拷进 `materialized/plugin/skills/<name>/`（`content-materializer.ts` 用 `sanitizePathSegment(reference.name)` 推导目标），**布局里没有组这一层**——两个组含同名 skill 时后者覆盖前者、`failures: []` 并报告成功。
+  evidence: Story 3.5 的三个审查层中有两层各自端到端复现。Story 3.5 已在**产出侧** fail-closed（`SupplyDuplicateSkillNameError`），但根因在消费侧：AD-22 明写「组是装配与判定的单元」，而物化产物把组扁平化掉了。修它要动 Epic 4 的 `content-materializer.ts` 与 `--plugin-dir` 的目录布局，不在本 Story 的 Code Map 内；且改布局需要重新核对 Claude 的 plugin 包格式是否允许多层 skills 目录。产出侧已堵住后，剩余可达路径只有手写候选 JSON。
+
+- source_spec: `_bmad-output/implementation-artifacts/spec-3-5-configs-supply.md`
+  summary: `renderQueryFailure` 把标签渲染成 `Configuration "<label>"`，于是 `supply`／`establish`／`revise` 这类固定标签会输出 `Configuration "supply": …`——而根本不存在名为 supply 的配置。
+  evidence: Story 3.5 的 blind-hunter 报出「用 configName 作标签会误报主体」，已按 `runEstablish`／`runRevise` 的先例改用固定标签；但 `Configuration "<label>"` 这个前缀是共享渲染器的既有形态，三个命令共有，非本 Story 引入。修法是让渲染器区分「配置标识」与「子命令标识」两类标签，属独立的措辞改动。
+
+- source_spec: `_bmad-output/implementation-artifacts/spec-3-5-configs-supply.md`
+  summary: 候选只产出 `skills`，`instructions`／`mcp`／`hooks`／`plugins` 缺省为 `[]`；因此把 `supply` 的输出 pipe 进 `configs revise --supersedes <id>` 会产出一条**静默丢掉前驱全部非 skill 能力**的后继修订。
+  evidence: Story 3.5 的 blind-hunter 报出。`cli/index.ts` 与 `supply-fs.ts` 的注释都把输出宣传为可被 `establish`／`revise` 同样消费，但只有 establish 语义正确。要么让注释只承诺 establish，要么让 supply 支持从前驱继承非 skill 组——后者需要先定「供给库如何表达非 skill 能力」，而目录约定当前只覆盖 `skills/`。
+
+- source_spec: `_bmad-output/implementation-artifacts/spec-3-5-configs-supply.md`
+  summary: `sourceCategory` 对每个扫描到的 skill 硬编码为 `'project-skill-import'`；`summary` 硬编码为 `skill reference: <name>`，尽管 `SKILL.md` 的 frontmatter 里有真实 `description` 且指纹步骤已经读过该文件字节。
+  evidence: Story 3.5 的 blind-hunter 报出。前者对一个扫描器无从判断来源的组断言了第三方导入出处，与 AD-8「不得用常量冒充已知事实」抵触，诚实的做法是 `Unknown` 或读真实信号（`matters.json` 的 own/fork/vendor 是真实信号但产品够不着）；后者让 `configs show` 的摘要列零信息。两者都需要先定「从哪里取真实信号」，非机械修复。
+
+- source_spec: `_bmad-output/implementation-artifacts/spec-3-5-configs-supply.md`
+  summary: 指纹只覆盖 `dirent.isFile()` 的条目，**空目录、文件模式（可执行位）不在摘要内**，而 `content-materializer.ts` 的 `cp(recursive)` 会原样复现它们。
+  evidence: Story 3.5 的 blind-hunter 与 verification-gap 均报出。符号链接那半已在 P6 处理（两处判断改为一致），但空目录与 mode 位仍在覆盖面之外——意味着「指纹相同」不严格等价于「物化产物相同」，作为退役第 (2) 步 parity 取证依据时需知道这个边界。要闭合需把 mode 与目录结构纳入摘要，会改变已产出指纹的取值。
+
+- source_spec: `_bmad-output/implementation-artifacts/spec-3-5-configs-supply.md`
+  summary: `SupplyCandidate` 是 `CandidateConfigRevision` 可接受字段集的**手工副本**，无编译期关联；`parseSupply` 是 `parseEstablish`／`parseRevise` 之后同一套手写 flag 循环的第三份近乎逐字副本（各约 60 行）。
+  evidence: Story 3.5 的 blind-hunter 报出。前者若 `parseCandidateRevision` 新增必填字段或改名，`tsc` 仍绿、只有集成测试会发现；后者三份副本各自带相同的 repeated／missing-value 分支，注释自己都在担心漂移。两者都是纯结构性清理，抽共享 helper 即可，但会同时触及三个既有子命令的解析路径。

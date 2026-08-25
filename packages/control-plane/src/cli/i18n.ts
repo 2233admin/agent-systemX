@@ -136,6 +136,15 @@ const zh: Dict = {
   'parseError.establishFlagRequiresValue': '{flag} 需要一个值',
   'parseError.establishFlagRepeated': '{flag} 只能传一次',
 
+  // `[Story 3.5]` `configs supply` 的三个用法错误（退出 2）。`--group` 可以传
+  // 多次（一次装配多个组），所以它不复用 `establishFlagRepeated`——重复的是
+  // *同一个组名*，不是 flag 本身。
+  'parseError.supplyMissingConfigName': 'configs supply：缺少 --config-name <name>',
+  'parseError.supplyMissingGroup': 'configs supply：至少需要一个 --group <group>',
+  // `[P7]` 空的 --group 值（或只有空白）与空的 --config-name 值同属一类用户错误，
+  // 因此同样在 parse 阶段判掉、同样退出 2，而不是拖到运行期变成退出 1。
+  'parseError.supplyEmptyGroup': 'configs supply：--group 的值不能为空',
+
   'establish.successPrefix': '已建立新配置修订：',
   'establish.missingTriggerCategory':
     'configs establish：缺少或不合法的触发类别——必须通过 --trigger-category 传入 new-scenario / known-insufficiency / bad-case 之一；未写入任何内容。',
@@ -150,6 +159,37 @@ const zh: Dict = {
   'revise.supersedesConfigMismatch':
     'configs revise：--supersedes 指向的修订 "{revisionId}" 属于配置 "{actual}"，与候选内容的配置 "{expected}" 不一致；未写入任何内容。',
   'revise.supersedesConflict': 'configs revise：--supersedes 指向的修订 "{revisionId}" 已被另一条修订替代；未写入任何内容。',
+
+  // `[Story 3.5]` `configs supply` 的四个 fail-closed 拒绝（AD-10）。四条文案
+  // 都以「未产出任何候选」收尾：`supply` 的正常产出会被管道喂给
+  // `configs establish`，所以「什么都没产出」这件事必须说死，用户才不会以为
+  // 管道那头拿到了一份不完整的候选。
+  'supply.rootNotFound': 'configs supply：供给库根 `{supplyRoot}` 不存在或不是目录——请检查 CONTROL_PLANE_SUPPLY_ROOT；未产出任何候选。',
+  // `[P10]` 与同表邻居一致，两条都补上恢复指引——此前只有 rootNotFound 有。
+  'supply.groupNotFound':
+    'configs supply：供给库根 `{supplyRoot}` 下没有组 "{group}"。恢复：确认组目录 `{supplyRoot}/{group}` 存在，或检查 CONTROL_PLANE_SUPPLY_ROOT 是否指向了预期的库根；未产出任何候选。',
+  'supply.groupEmpty':
+    'configs supply：组 "{group}"（供给库根 `{supplyRoot}`）下没有任何含 SKILL.md 的 skill 目录——声明了却拿不到内容视为错误，不是空集。恢复：供给库的目录约定是 `<组>/skills/<skill>/SKILL.md`，请确认 `{group}/skills/` 之下至少有一个含 SKILL.md 的目录；未产出任何候选。',
+  'supply.refInvalid': 'configs supply：产出自检失败——{reason}；未产出任何候选。',
+  'supply.duplicateGroup':
+    'configs supply：组 "{group}" 被声明了不止一次（`{first}` 与 `{second}` 规范化后是同一个组）。恢复：每个组只传一次 --group；未产出任何候选。',
+  'supply.duplicateSkillName':
+    'configs supply：skill 名 "{skill}" 同时来自两个组（`{first}` 与 `{second}`）——物化时两者会落在同一个目标目录、后者静默覆盖前者，因此拒绝产出。恢复：本次装配只选其中一个组，或先在供给库里消除同名；未产出任何候选。',
+  'supply.sourceUnreadable':
+    'configs supply：读取 `{where}`（供给库根 `{supplyRoot}`）失败：{reason}。恢复：这是 I/O 失败而不是「没有这个东西」，请检查权限以及该路径是否正被并发改动；未产出任何候选。',
+  'supply.unsupportedEntry':
+    'configs supply：`{sourceRef}` 下的 `{entryPath}` 是{entryKind}，无法可复现地计入内容指纹——指纹覆盖不到的内容仍会被物化侧照样复制，指纹便不再能作为 parity 取证依据。恢复：把它换成普通文件或普通目录；未产出任何候选。',
+
+  // `[P9]` sourceRef 合同拒绝的成句模板。zh 侧与 `cli/supply-root.ts` 的
+  // `describeSupplyRefRejection` **逐字相同**（有测试做等值断言），en 侧是同结构
+  // 的英文句——此前直接透传那个硬编码中文常量，en 模式下会渲染出中英混排。
+  'supplyRef.rejection':
+    'sourceRef 违反跨机器可移植性合同（{why}）：只接受供给库内的相对 POSIX 路径；实际值 `{value}`，当前生效的供给根 `{supplyRoot}`',
+  'supplyRef.why.empty': '为空',
+  'supplyRef.why.backslash': '含反斜杠',
+  'supplyRef.why.driveLetter': '带盘符前缀',
+  'supplyRef.why.absolute': '是绝对路径',
+  'supplyRef.why.outsideRoot': '解析后未落在供给根之内',
 
   'selfUpdate.updated': 'configs：已更新到 v{version}（当前已生效）',
 };
@@ -257,6 +297,10 @@ const en: Dict = {
   'parseError.establishFlagRequiresValue': '{flag} requires a value',
   'parseError.establishFlagRepeated': '{flag} can only be passed once',
 
+  'parseError.supplyMissingConfigName': 'configs supply: missing --config-name <name>',
+  'parseError.supplyMissingGroup': 'configs supply: at least one --group <group> is required',
+  'parseError.supplyEmptyGroup': 'configs supply: --group requires a non-empty value',
+
   'establish.successPrefix': 'Established new configuration revision:',
   'establish.missingTriggerCategory':
     'configs establish: trigger category is missing or invalid -- pass one of new-scenario / known-insufficiency / bad-case via --trigger-category; nothing was written.',
@@ -271,6 +315,30 @@ const en: Dict = {
   'revise.supersedesConfigMismatch':
     'configs revise: supersedes target revision "{revisionId}" belongs to configuration "{actual}", which does not match the candidate\'s configuration "{expected}"; nothing was written.',
   'revise.supersedesConflict': 'configs revise: supersedes target revision "{revisionId}" has already been superseded by another revision; nothing was written.',
+
+  'supply.rootNotFound':
+    'configs supply: supply library root `{supplyRoot}` does not exist or is not a directory -- check CONTROL_PLANE_SUPPLY_ROOT; nothing was produced.',
+  'supply.groupNotFound':
+    'configs supply: no group "{group}" under supply library root `{supplyRoot}`. Recovery: check that the group directory `{supplyRoot}/{group}` exists, or that CONTROL_PLANE_SUPPLY_ROOT points at the library root you meant; nothing was produced.',
+  'supply.groupEmpty':
+    'configs supply: group "{group}" (supply library root `{supplyRoot}`) contains no skill directory with a SKILL.md -- a declared group that yields nothing is an error, not an empty set. Recovery: the supply library convention is `<group>/skills/<skill>/SKILL.md`; check that `{group}/skills/` holds at least one directory with a SKILL.md; nothing was produced.',
+  'supply.refInvalid': 'configs supply: produced-side self-check failed -- {reason}; nothing was produced.',
+  'supply.duplicateGroup':
+    'configs supply: group "{group}" was declared more than once (`{first}` and `{second}` normalize to the same group). Recovery: pass --group once per group; nothing was produced.',
+  'supply.duplicateSkillName':
+    'configs supply: skill name "{skill}" is supplied by two different groups (`{first}` and `{second}`) -- materialization would copy both into the same target directory, silently overwriting one with the other, so this is refused. Recovery: pick one of the two groups for this assembly, or de-duplicate the name in the supply library; nothing was produced.',
+  'supply.sourceUnreadable':
+    'configs supply: could not read `{where}` (supply library root `{supplyRoot}`): {reason}. Recovery: this is an I/O failure, not a "no such thing" -- check permissions and whether that path is being modified concurrently; nothing was produced.',
+  'supply.unsupportedEntry':
+    'configs supply: `{entryPath}` under `{sourceRef}` is a {entryKind}, which cannot be fingerprinted reproducibly -- content the fingerprint cannot cover is still copied by the materializing side, which would void the fingerprint as parity evidence. Recovery: replace it with a regular file or directory; nothing was produced.',
+
+  'supplyRef.rejection':
+    'sourceRef violates the cross-machine portability contract ({why}): only a supply-library-relative POSIX path is accepted; actual value `{value}`, effective supply root `{supplyRoot}`',
+  'supplyRef.why.empty': 'empty',
+  'supplyRef.why.backslash': 'contains a backslash',
+  'supplyRef.why.driveLetter': 'has a drive-letter prefix',
+  'supplyRef.why.absolute': 'is an absolute path',
+  'supplyRef.why.outsideRoot': 'resolves outside the supply root',
 
   'selfUpdate.updated': 'configs: updated to v{version} (now in effect)',
 };

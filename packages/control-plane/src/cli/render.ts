@@ -40,9 +40,18 @@ import type {
   SupersedesConfigMismatchError,
   SupersedesConflictError,
   SupersedesNotFoundError,
+  SupplyDuplicateGroupError,
+  SupplyDuplicateSkillNameError,
+  SupplyGroupEmptyError,
+  SupplyGroupNotFoundError,
+  SupplyRefInvalidError,
+  SupplyRootNotFoundError,
+  SupplySourceUnreadableError,
+  SupplyUnsupportedEntryError,
 } from '../application/ports';
+import type { SupplyRefRejection } from './supply-root';
 import { attention, colorForPhase, dim } from './colors';
-import { t } from './i18n';
+import { t, type TranslationKey } from './i18n';
 
 /**
  * `[DELTA]` Replaces the old static `CAPABILITY_GROUP_LABELS` constant --
@@ -158,6 +167,11 @@ export function renderDetail(revision: StableConfigRevision): string {
  * `[Story 3.2]` Widened again to also cover `configs revise`'s four
  * additional supersedes-specific rejections -- same reasoning: one shared
  * failure-rendering path, not a parallel one for `revise`.
+ *
+ * `[Story 3.5]` 再次加宽，纳入 `configs supply` 的 fail-closed 拒绝。注意唯一的
+ * 差别不在渲染，而在**写到哪条流**：`supply` 的正常产出是要被管道喂给
+ * `configs establish` 的候选 JSON，所以它的失败块由调用点打到 stderr，stdout
+ * 保持零输出（见 `cli/index.ts` 的 `runSupply`）——渲染本身仍是这一条共用路径。
  */
 export type QueryOrEstablishError =
   | ConfigQueryError
@@ -168,7 +182,15 @@ export type QueryOrEstablishError =
   | MissingSupersedesError
   | SupersedesNotFoundError
   | SupersedesConfigMismatchError
-  | SupersedesConflictError;
+  | SupersedesConflictError
+  | SupplyRootNotFoundError
+  | SupplyGroupNotFoundError
+  | SupplyGroupEmptyError
+  | SupplyRefInvalidError
+  | SupplyDuplicateGroupError
+  | SupplyDuplicateSkillNameError
+  | SupplySourceUnreadableError
+  | SupplyUnsupportedEntryError;
 
 /**
  * `[Review fix]` Exhaustiveness guard: if `QueryOrEstablishError` ever
@@ -179,6 +201,31 @@ export type QueryOrEstablishError =
  * of the switch silently falling through and rendering the literal string
  * `"undefined"`.
  */
+/**
+ * `[Story 3.5 / P9]` 把 `SupplyRefInvalidError` 的结构化三元组成句。
+ *
+ * 为什么不直接透传 `cli/supply-root.ts` 的 `describeSupplyRefRejection`：那句文案
+ * 硬编码中文，`CONFIGS_LANG=en` 下会渲染出一句中英混排。这里按语言各自成句，而
+ * **zh 侧的结果与 `describeSupplyRefRejection` 逐字相同**——`tests/integration/
+ * cli-supply.test.ts` 有一条用例直接拿它做等值断言，所以两处措辞一旦漂移会当场红。
+ * 「产出侧与解析侧对同一条引用说同一句话」这条性质因此保住了，只是不再靠共用一个
+ * 硬编码字符串来保证。
+ *
+ * `SupplyRefRejection` 是闭合枚举，`Record` 写全才编译得过：将来加一条判定枝而
+ * 忘了补文案，会在这里编译失败，而不是在用户面前退化成一个原始 key。
+ */
+const SUPPLY_REF_REJECTION_KEYS: Record<SupplyRefRejection, TranslationKey> = {
+  为空: 'supplyRef.why.empty',
+  含反斜杠: 'supplyRef.why.backslash',
+  带盘符前缀: 'supplyRef.why.driveLetter',
+  是绝对路径: 'supplyRef.why.absolute',
+  解析后未落在供给根之内: 'supplyRef.why.outsideRoot',
+};
+
+function formatSupplyRefRejection(value: string, supplyRoot: string, why: SupplyRefRejection): string {
+  return t('supplyRef.rejection', { why: t(SUPPLY_REF_REJECTION_KEYS[why]), value, supplyRoot });
+}
+
 function assertNeverErrorKind(kind: never): never {
   throw new Error(`unhandled QueryOrEstablishError kind: ${String(kind)}`);
 }
@@ -209,16 +256,52 @@ function formatErrorReason(error: QueryOrEstablishError): string {
       });
     case 'supersedes-conflict':
       return t('revise.supersedesConflict', { revisionId: error.revisionId });
+    case 'supply-root-not-found':
+      return t('supply.rootNotFound', { supplyRoot: error.supplyRoot });
+    case 'supply-group-not-found':
+      return t('supply.groupNotFound', { group: error.group, supplyRoot: error.supplyRoot });
+    case 'supply-group-empty':
+      return t('supply.groupEmpty', { group: error.group, supplyRoot: error.supplyRoot });
+    case 'supply-ref-invalid':
+      return t('supply.refInvalid', { reason: formatSupplyRefRejection(error.value, error.supplyRoot, error.why) });
+    case 'supply-duplicate-group':
+      return t('supply.duplicateGroup', {
+        group: error.groupRef,
+        first: error.firstDeclared,
+        second: error.secondDeclared,
+      });
+    case 'supply-duplicate-skill-name':
+      return t('supply.duplicateSkillName', {
+        skill: error.skillName,
+        first: error.firstSourceRef,
+        second: error.secondSourceRef,
+      });
+    case 'supply-source-unreadable':
+      return t('supply.sourceUnreadable', { where: error.where, supplyRoot: error.supplyRoot, reason: error.reason });
+    case 'supply-unsupported-entry':
+      return t('supply.unsupportedEntry', {
+        sourceRef: error.sourceRef,
+        entryPath: error.entryPath,
+        entryKind: error.entryKind,
+      });
     default:
       return assertNeverErrorKind(error);
   }
 }
 
 /**
- * Shared failure rendering for `show`/`compare`/`establish`: a label
- * (revision id for `show`/`compare`; the candidate's `configName` once
- * parsed, or a fixed `'establish'` fallback before that, for `establish`)
+ * Shared failure rendering for every typed rejection in this CLI: a label
  * + typed reason + recovery entry.
+ *
+ * `[Story 3.5 / P10]` 标签的来历按命令而不同，此前这段文档串只列了
+ * `show`/`compare`/`establish`，漏了 `revise` 也漏了 `supply`，现补全：
+ * - `show`/`compare`：修订 id；
+ * - `establish`：候选解析成功后用它的 `configName`，在那之前用固定的 `'establish'`；
+ * - `revise`：同上，固定回落值是 `'revise'`；
+ * - `supply`：**恒为**固定的 `'supply'`。它没有「解析成功后换成 configName」这一
+ *   步，而且刻意不用 `--config-name` 的值——供给库根不存在之类的失败与任何一份配置
+ *   都无关（那份配置甚至还不存在），拿它当标签会渲染出「配置 "general"：供给库根
+ *   …… 不存在」这种误报主体的句子。
  */
 export function renderQueryFailure(label: string, error: QueryOrEstablishError): string {
   return t('queryFailure.prefix', { revisionId: label, reason: formatErrorReason(error) });

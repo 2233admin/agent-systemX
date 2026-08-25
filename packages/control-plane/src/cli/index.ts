@@ -1,15 +1,21 @@
 #!/usr/bin/env bun
 /**
- * `configs` CLI entry point. Dispatches the read-only subcommands from
- * Story 1.1 (`list`, `show <id>`, `compare <id...>`), Story 1.2's
- * activation subcommands (`use <id>`, `status [<planId>]`, `switch <id>`),
- * Story 3.1's non-interactive write subcommand
- * (`establish --trigger-category <cat> --evidence <ref> [--from <path>]`),
- * and Story 3.2's non-interactive supersede subcommand
- * (`revise --trigger-category <cat> --evidence <ref> --supersedes
- * <revisionId> [--from <path>]`). No other subcommand exists -- in
- * particular there is no `configs sync`/`configs import` (see
- * `src/adapters/sources/cap-fs.ts` for why).
+ * `configs` CLI 的入口，负责分派全部子命令：
+ * - Story 1.1 的三个只读子命令（`list`、`show <id>`、`compare <id...>`）；
+ * - Story 1.2 的启用类子命令（`use <id>`、`status [<planId>]`、`switch <id>`）；
+ * - Story 3.1 的非交互写入子命令
+ *   （`establish --trigger-category <cat> --evidence <ref> [--from <path>]`）；
+ * - Story 3.2 的非交互替代子命令
+ *   （`revise --trigger-category <cat> --evidence <ref> --supersedes <revisionId>
+ *   [--from <path>]`）；
+ * - Story 3.5 的非交互供给子命令
+ *   （`supply --config-name <name> --group <group> [--group ...]`），它按目录约定
+ *   扫描供给库，把候选 JSON 打到 stdout，交给 `establish`／`revise` 消费。
+ *
+ * `[Story 3.5]` 除此之外不存在别的子命令。尤其是仍然**不存在**
+ * `configs sync`／`configs import`：`supply` 刻意不是那种东西——它不写任何内容，
+ * 也不做任何裁定，只是把一批显式声明的供给库组，变成一份人本来要手写的候选 JSON
+ * （见 `src/adapters/sources/supply-fs.ts`）。
  */
 
 import { spawn } from 'node:child_process';
@@ -67,6 +73,18 @@ import {
   parseSupersedesRevisionId,
   parseTriggerCategory,
 } from '../application/establish';
+import {
+  SupplyDuplicateGroupError,
+  SupplyDuplicateSkillNameError,
+  SupplyGroupEmptyError,
+  SupplyGroupNotFoundError,
+  SupplyRefInvalidError,
+  SupplyRootNotFoundError,
+  SupplySourceUnreadableError,
+  SupplyUnsupportedEntryError,
+} from '../application/establish';
+import { buildSupplyCandidate, loadSupplyGroups } from '../adapters/sources/supply-fs';
+import { defaultSupplyRoot } from './supply-root';
 import { isStdinTTY, readCandidateFile, readStdinText } from './candidate-source';
 import {
   InvalidTransitionError,
@@ -117,13 +135,20 @@ import { runTui } from './tui';
 // language-dependent, so this is composed via `usageLine()` rather than
 // being a static constant.
 const USAGE_SYNTAX =
-  'configs <list|show <id>|compare <id> <id> [...ids]|use <id> [--client <id>] [--yes] [-- ...args]|status [<planId>]|switch <id> [--client <id>] [--yes] [-- ...args]|establish --trigger-category <cat> --evidence <ref> [--from <path>]|revise --trigger-category <cat> --evidence <ref> --supersedes <revisionId> [--from <path>]>';
+  'configs <list|show <id>|compare <id> <id> [...ids]|use <id> [--client <id>] [--yes] [-- ...args]|status [<planId>]|switch <id> [--client <id>] [--yes] [-- ...args]|establish --trigger-category <cat> --evidence <ref> [--from <path>]|revise --trigger-category <cat> --evidence <ref> --supersedes <revisionId> [--from <path>]|supply --config-name <name> --group <group> [--group <group>...]>';
 
 function usageLine(): string {
   return `${t('usage.prefix')} ${USAGE_SYNTAX}`;
 }
 
 const KNOWN_CLIENT_IDS: readonly ClientId[] = ['omp', 'claude-code', 'codex-cli'];
+
+/**
+ * `[Story 3.5 / P8]` `configs supply` 失败块的固定标签。与
+ * `runEstablish`/`runRevise` 的 `'establish'`/`'revise'` 同一约定，且此处**永不**
+ * 换成 `--config-name` 的值：供给侧的失败讲的是供给库，不是某一份配置。
+ */
+const SUPPLY_FAILURE_LABEL = 'supply';
 
 function isConfigQueryError(error: unknown): error is ConfigQueryError {
   return error instanceof ConfigNotFoundError || error instanceof ConfigUnsupportedError;
@@ -155,6 +180,20 @@ type ParsedCommand =
       readonly evidenceRaw: string | undefined;
       readonly supersedesRaw: string | undefined;
       readonly fromPath: string | null;
+    }
+  | {
+      // `[Story 3.5]` 与 `establish`／`revise` 不同：那两个命令携带的是尚未校验的
+      // 原始 flag 串，因为它们的语义校验次序必须排在一次 stdin 读取之前。`supply`
+      // 的两个 flag 则纯粹是语法要求——缺失或为空即 usage error（退出 2），在
+      // `parseSupply` 里就判掉，所以到达 `runSupply` 的一定非空。
+      //
+      // `[P2]` 唯独「重复的组」不在这里判：两种写法是不是同一个组，只有拿到供给根
+      // 才答得出，而根要到 `runSupply` 才快照。因此 `groups` 到达 `runSupply` 时
+      // 尚未去重，由 `loadSupplyGroups` 规范化后判定，再被映射回同一条退出 2 的
+      // usage-error 路径。
+      readonly kind: 'supply';
+      readonly configName: string;
+      readonly groups: readonly string[];
     };
 
 function parseUseOrSwitch(kind: 'use' | 'switch', rest: readonly string[]): ParsedCommand {
@@ -400,6 +439,98 @@ function parseRevise(rest: readonly string[]): ParsedCommand {
   return { kind: 'revise', triggerCategoryRaw, evidenceRaw, supersedesRaw, fromPath };
 }
 
+/**
+ * `[Story 3.5]` `configs supply --config-name <name> --group <group> [--group ...]`。
+ *
+ * flag 处理原样照抄 `parseEstablish` 的惯例（同样的 `--flag value` 形状，同样复用
+ * `establishFlagRequiresValue`／`establishFlagRepeated` 这两个文案 key，不另建一套
+ * 平行的），只有一处刻意不同：`--group` 是**可重复**的，因为一次供给调用装配的是
+ * 一批组的白名单（AD-22 的装配单元）。重复声明同一个组仍然要拒——静默去重等于悄悄
+ * 把 `--group a --group a` 改成用户没写的另一个意思，放行则会把该组的每个 skill
+ * 产出两遍——但这个判定需要供给根，所以它在下游做出，再被映射回本函数这条退出 2 的
+ * 路径（见下面 `--group` 分支的注释）。
+ *
+ * 与 `parseEstablish` 的另一处不同：本函数**确实**检查 flag 是否给全，缺一个就是
+ * usage error（退出 2），而不是留给运行期的典型化拒绝。这个分工的理由是：
+ * `establish` 那条「校验 flag 必须早于碰 stdin」的次序约束在这里没有对应物——
+ * `supply` 根本不读 stdin——所以没有什么需要推迟。
+ *
+ * 还要注意这里**不接受**什么：没有 `--library`／`--root` 这类 flag。供给侧若能单独
+ * 指定库根，就能产出一条解析侧按*另一个*根去找的修订，而这正是 AD-22 判为 critical
+ * 的那种分歧。根只来自全仓共用的那一个 `defaultSupplyRoot()`，别无他处。
+ */
+function parseSupply(rest: readonly string[]): ParsedCommand {
+  let configName: string | undefined;
+  const groups: string[] = [];
+
+  for (let i = 0; i < rest.length; i += 1) {
+    const token = rest[i];
+    if (token === '--config-name') {
+      if (configName !== undefined) {
+        return {
+          kind: 'usage-error',
+          message: `${t('parseError.establishFlagRepeated', { flag: '--config-name' })}
+${usageLine()}`,
+        };
+      }
+      const value = rest[i + 1];
+      if (value === undefined) {
+        return {
+          kind: 'usage-error',
+          message: `${t('parseError.establishFlagRequiresValue', { flag: '--config-name' })}
+${usageLine()}`,
+        };
+      }
+      configName = value;
+      i += 1;
+      continue;
+    }
+    if (token === '--group') {
+      const value = rest[i + 1];
+      if (value === undefined) {
+        return {
+          kind: 'usage-error',
+          message: `${t('parseError.establishFlagRequiresValue', { flag: '--group' })}
+${usageLine()}`,
+        };
+      }
+      // `[P7]` 与下面的 `--config-name` 一样先 trim、再判非空：两者是同一类用户
+      // 错误，不能给出两个不同的退出码（此前空的组名会穿过 parse，到运行期才以
+      // 「产出自检失败」退出 1）。
+      const group = value.trim();
+      if (group.length === 0) {
+        return { kind: 'usage-error', message: `${t('parseError.supplyEmptyGroup')}
+${usageLine()}` };
+      }
+      // `[P2]` 这里刻意**不**去重。比较原始 argv 串会让 `--group alpha --group
+      // ./alpha` 穿过去（同一个组的两种写法，每个 skill 因此被产出两遍）；而判断
+      // 两种写法是不是同一个组，需要供给根，根只在 `runSupply` 里快照一次。权威
+      // 判定因此住在 `loadSupplyGroups`，跑在规范化之后，再由 `runSupply` 映射回
+      // 本函数这条退出 2 的 usage-error 路径——于是两种写法失败得一模一样。
+      groups.push(group);
+      i += 1;
+      continue;
+    }
+    return { kind: 'usage-error', message: `${t('parseError.unknownFlag', { flag: token! })}
+${usageLine()}` };
+  }
+
+  // `--config-name` 排在 `--group` 之前检查，只是为了让两个都缺的调用报出一句
+  // 固定的消息，而不是一句随 argv 顺序变化的消息。
+  if (configName === undefined || configName.trim().length === 0) {
+    return { kind: 'usage-error', message: `${t('parseError.supplyMissingConfigName')}
+${usageLine()}` };
+  }
+  if (groups.length === 0) {
+    return { kind: 'usage-error', message: `${t('parseError.supplyMissingGroup')}
+${usageLine()}` };
+  }
+
+  // 在这里 trim 一次，理由与 `parseCandidateRevision` trim `configName` 相同：
+  // `"general"` 与 `"general "` 绝不能变成两份不同的配置。
+  return { kind: 'supply', configName: configName.trim(), groups };
+}
+
 function parseCommand(argv: readonly string[]): ParsedCommand {
   const [command, ...rest] = argv;
   switch (command) {
@@ -427,6 +558,8 @@ function parseCommand(argv: readonly string[]): ParsedCommand {
       return parseEstablish(rest);
     case 'revise':
       return parseRevise(rest);
+    case 'supply':
+      return parseSupply(rest);
     default:
       // `command` is always defined here: `main()` intercepts `argv.length
       // === 0` before `parseCommand` is ever called, so this `default`
@@ -964,6 +1097,76 @@ async function runRevise(parsed: Extract<ParsedCommand, { kind: 'revise' }>): Pr
   }
 }
 
+/**
+ * `[Story 3.5]` 非交互的 `configs supply`。它读取供给库、把候选 JSON 打到 stdout；
+ * 从不打开（更不会创建）任何 SQLite 文件，从不写供给库，也不做任何裁定——
+ * `configs establish`／`configs revise` 仍是唯一的写路径，而这里的输出恰好就是人
+ * 本来要为它们手写的那份东西：
+ *
+ * ```
+ * configs supply --config-name general --group plugins/grilling \
+ *   | configs establish --trigger-category new-scenario --evidence <ref>
+ * ```
+ *
+ * `[P10]` 那是**裸管道**，不带 `--from`。此处此前写的是
+ * `configs establish --from -`，照做会 ENOENT：`-` 不是本 CLI 的 stdin 别名，
+ * `readCandidateFile` 会把它当成一个真实文件名去打开。`establish`／`revise` 只在
+ * *省略* `--from` 时才读 stdin。
+ *
+ * 供给根在这里**只快照一次**，取自全仓共用的 `defaultSupplyRoot()`，然后作为参数
+ * 往下传（`supply-fs.ts` 自己从不解析根）。一次调用因此不可能解析出两个根，而一条
+ * `sourceRef` 所相对的那个根，与稍后 `content-materializer.ts` 拿来解析它的是同一个
+ * （AD-22）。
+ *
+ * 失败块打到 **stderr**，不打到 stdout，且 stdout 保持零字节。这不是排版偏好：本
+ * 命令的 stdout 是通往 `configs establish` 的管道，一段写到 stdout 的失败块会被下游
+ * 当成候选内容吃进去。渲染仍走 `renderQueryFailure` 这一条共用路径（与其余子命令
+ * 同样的「典型化原因 + 恢复建议」块），只有流向不同。
+ *
+ * `[P8]` 失败标签是固定串 `'supply'`，绝不用 `--config-name` 的值——与
+ * `runEstablish`／`runRevise` 解析成功前的回落值同一约定，而且这里的理由更硬：
+ * 「供给库根不存在」与任何一份叫 `general` 的配置都无关（那份配置甚至还不存在），
+ * 拿它当标签就是指错了主体。
+ *
+ * `[P2]` `SupplyDuplicateGroupError` 退出 **2** 而不是 1：它是纯粹的命令行错误
+ * （与 `--group a --group a` 是同一个错误），判定过程不参考库里有什么，所以它属于
+ * usage error 一类——只是没能在拿到根之前判出来而已。
+ *
+ * 其余每一种拒绝都是整体失败（AD-10）：`loadSupplyGroups` 在本函数打印任何内容之前
+ * 就抛出，所以「部分候选」——一份悄悄少了某个组的 skill、外观与完整候选无异的输出
+ * ——永远不可能被产出。
+ */
+async function runSupply(parsed: Extract<ParsedCommand, { kind: 'supply' }>): Promise<number> {
+  const supplyRoot = defaultSupplyRoot();
+  try {
+    const scan = await loadSupplyGroups(supplyRoot, parsed.groups);
+    // 两空格缩进、由 `console.log` 补尾随换行——一种固定的序列化：全链路没有时间
+    // 戳、没有 Map 迭代顺序、也没有 locale 相关的排序，这正是「同一库两次运行逐
+    // 字节相同」的由来。
+    console.log(JSON.stringify(buildSupplyCandidate(parsed.configName, scan), null, 2));
+    return 0;
+  } catch (error) {
+    if (error instanceof SupplyDuplicateGroupError) {
+      console.error(`${renderQueryFailure(SUPPLY_FAILURE_LABEL, error)}
+${usageLine()}`);
+      return 2;
+    }
+    if (
+      error instanceof SupplyRootNotFoundError ||
+      error instanceof SupplyGroupNotFoundError ||
+      error instanceof SupplyGroupEmptyError ||
+      error instanceof SupplyRefInvalidError ||
+      error instanceof SupplyDuplicateSkillNameError ||
+      error instanceof SupplySourceUnreadableError ||
+      error instanceof SupplyUnsupportedEntryError
+    ) {
+      console.error(renderQueryFailure(SUPPLY_FAILURE_LABEL, error));
+      return 1;
+    }
+    throw error;
+  }
+}
+
 export async function main(argv: readonly string[], overrides: CliOverrides = {}): Promise<number> {
   // `[DELTA]` IA first layer: `configs` with no subcommand at all is no
   // longer a usage error -- it prints the same usage text as a normal,
@@ -1011,6 +1214,12 @@ export async function main(argv: readonly string[], overrides: CliOverrides = {}
   // `runRevise`'s doc comment.
   if (parsed.kind === 'revise') {
     return await runRevise(parsed);
+  }
+  // `[Story 3.5]` `supply` 同样绕开 `openDeps()`，而且理由比 `establish`／`revise`
+  // 更硬：它根本没有写路径。它只读供给库、打印一份候选——打开（并因此创建／迁移）
+  // SQLite 文件，对一个只读命令来说纯属副作用。
+  if (parsed.kind === 'supply') {
+    return await runSupply(parsed);
   }
 
   const deps = await openDeps(overrides);

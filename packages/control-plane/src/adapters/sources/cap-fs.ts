@@ -4,8 +4,14 @@
  * directory used before Story 4.7 retired it). This is NOT a product CLI
  * capability -- per epics.md AR16, "configuration supply" is out of this
  * Story's scope. `configs list/show/compare` never import from this
- * module; `configs establish`/`configs revise` (Story 3.1/3.2) are the
- * supported non-interactive supply path.
+ * module.
+ *
+ * `[Story 3.5]` 此前这里写的是「`configs establish`/`configs revise` 就是受支持
+ * 的非交互供给路径」。那句话现在只对了一半，须更正：它们是受支持的**写**路径
+ * ——把一份候选落成一条不可变修订——但它们自己不产出候选。真正的供给路径是
+ * `configs supply`（`supply-fs.ts`），它按目录约定扫描供给库、产出候选 JSON，
+ * 再由 `establish`/`revise` 消费。本 loader 与那条路径无关：它是一个泛化的
+ * CAP 形态目录读取器，只在测试与开发脚本里出现。
  *
  * `[Story 4.7]` The real repo `.cap/` directory this loader originally read
  * has been retired (see spec-4-7-退役-cap-本体.md) -- it no longer exists on
