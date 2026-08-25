@@ -5,11 +5,19 @@
  * activation subcommands (`use <id>`, `status [<planId>]`, `switch <id>`),
  * Story 3.1's non-interactive write subcommand
  * (`establish --trigger-category <cat> --evidence <ref> [--from <path>]`),
- * and Story 3.2's non-interactive supersede subcommand
+ * Story 3.2's non-interactive supersede subcommand
  * (`revise --trigger-category <cat> --evidence <ref> --supersedes
- * <revisionId> [--from <path>]`). No other subcommand exists -- in
- * particular there is no `configs sync`/`configs import` (see
- * `src/adapters/sources/cap-fs.ts` for why).
+ * <revisionId> [--from <path>]`), and Story 3.5's non-interactive supply
+ * subcommand (`supply --config-name <name> --group <group> [--group ...]`),
+ * which scans the supply library by directory convention and prints a
+ * candidate JSON on stdout for `establish`/`revise` to consume.
+ *
+ * `[Story 3.5]` No other subcommand exists. In particular there is still no
+ * `configs sync`/`configs import`: `supply` is deliberately *not* one --
+ * it neither writes anything nor decides anything, it only turns an
+ * explicitly-declared whitelist of supply-library groups into the same
+ * candidate JSON a human would otherwise hand-write (see
+ * `src/adapters/sources/supply-fs.ts`).
  */
 
 import { spawn } from 'node:child_process';
@@ -67,6 +75,18 @@ import {
   parseSupersedesRevisionId,
   parseTriggerCategory,
 } from '../application/establish';
+import {
+  SupplyDuplicateGroupError,
+  SupplyDuplicateSkillNameError,
+  SupplyGroupEmptyError,
+  SupplyGroupNotFoundError,
+  SupplyRefInvalidError,
+  SupplyRootNotFoundError,
+  SupplySourceUnreadableError,
+  SupplyUnsupportedEntryError,
+} from '../application/establish';
+import { buildSupplyCandidate, loadSupplyGroups } from '../adapters/sources/supply-fs';
+import { defaultSupplyRoot } from './supply-root';
 import { isStdinTTY, readCandidateFile, readStdinText } from './candidate-source';
 import {
   InvalidTransitionError,
@@ -117,13 +137,20 @@ import { runTui } from './tui';
 // language-dependent, so this is composed via `usageLine()` rather than
 // being a static constant.
 const USAGE_SYNTAX =
-  'configs <list|show <id>|compare <id> <id> [...ids]|use <id> [--client <id>] [--yes] [-- ...args]|status [<planId>]|switch <id> [--client <id>] [--yes] [-- ...args]|establish --trigger-category <cat> --evidence <ref> [--from <path>]|revise --trigger-category <cat> --evidence <ref> --supersedes <revisionId> [--from <path>]>';
+  'configs <list|show <id>|compare <id> <id> [...ids]|use <id> [--client <id>] [--yes] [-- ...args]|status [<planId>]|switch <id> [--client <id>] [--yes] [-- ...args]|establish --trigger-category <cat> --evidence <ref> [--from <path>]|revise --trigger-category <cat> --evidence <ref> --supersedes <revisionId> [--from <path>]|supply --config-name <name> --group <group> [--group <group>...]>';
 
 function usageLine(): string {
   return `${t('usage.prefix')} ${USAGE_SYNTAX}`;
 }
 
 const KNOWN_CLIENT_IDS: readonly ClientId[] = ['omp', 'claude-code', 'codex-cli'];
+
+/**
+ * `[Story 3.5 / P8]` `configs supply` 失败块的固定标签。与
+ * `runEstablish`/`runRevise` 的 `'establish'`/`'revise'` 同一约定，且此处**永不**
+ * 换成 `--config-name` 的值：供给侧的失败讲的是供给库，不是某一份配置。
+ */
+const SUPPLY_FAILURE_LABEL = 'supply';
 
 function isConfigQueryError(error: unknown): error is ConfigQueryError {
   return error instanceof ConfigNotFoundError || error instanceof ConfigUnsupportedError;
@@ -155,6 +182,17 @@ type ParsedCommand =
       readonly evidenceRaw: string | undefined;
       readonly supersedesRaw: string | undefined;
       readonly fromPath: string | null;
+    }
+  | {
+      // `[Story 3.5]` Unlike `establish`/`revise` (which carry raw,
+      // still-unvalidated flag strings because their semantic validation is
+      // ordered against a stdin read), both of `supply`'s flags are purely
+      // syntactic requirements -- absent/empty/duplicated is a *usage*
+      // error (exit 2), decided entirely in `parseSupply`, so what reaches
+      // `runSupply` is already non-empty and duplicate-free.
+      readonly kind: 'supply';
+      readonly configName: string;
+      readonly groups: readonly string[];
     };
 
 function parseUseOrSwitch(kind: 'use' | 'switch', rest: readonly string[]): ParsedCommand {
@@ -400,6 +438,110 @@ function parseRevise(rest: readonly string[]): ParsedCommand {
   return { kind: 'revise', triggerCategoryRaw, evidenceRaw, supersedesRaw, fromPath };
 }
 
+/**
+ * `[Story 3.5]` `configs supply --config-name <name> --group <group> [--group ...]`.
+ *
+ * Flag handling copies `parseEstablish`'s conventions verbatim (same
+ * `--flag value` shape, same `establishFlagRequiresValue`/
+ * `establishFlagRepeated` message keys -- no parallel key set), with one
+ * deliberate difference: `--group` is *repeatable*, because a supply call
+ * assembles a whitelist of groups (AD-22's assembly unit). Repeating the
+ * same group is still rejected -- silently deduping would quietly make
+ * `--group a --group a` mean something different from what was typed, and
+ * letting it through would emit every skill in that group twice -- but that
+ * decision needs the supply root, so it is made downstream and routed back
+ * to this same exit-2 path (see the `--group` branch below).
+ *
+ * Unlike `parseEstablish`, this function *does* enforce presence: both
+ * flags are required, and a missing one is a usage error (exit 2), not a
+ * typed run-time rejection. That split exists because `establish`'s
+ * ordering constraint (validate flags before touching stdin) has no analogue
+ * here -- `supply` never reads stdin at all -- so there is nothing to defer.
+ *
+ * Note what is *not* accepted: there is no `--library`/`--root` flag. A
+ * supply side able to name its own library root could emit a revision the
+ * resolving side then looks for under a *different* root, which is exactly
+ * the divergence AD-22 rates critical. The root comes from the one shared
+ * `defaultSupplyRoot()` and nowhere else.
+ */
+function parseSupply(rest: readonly string[]): ParsedCommand {
+  let configName: string | undefined;
+  const groups: string[] = [];
+
+  for (let i = 0; i < rest.length; i += 1) {
+    const token = rest[i];
+    if (token === '--config-name') {
+      if (configName !== undefined) {
+        return {
+          kind: 'usage-error',
+          message: `${t('parseError.establishFlagRepeated', { flag: '--config-name' })}
+${usageLine()}`,
+        };
+      }
+      const value = rest[i + 1];
+      if (value === undefined) {
+        return {
+          kind: 'usage-error',
+          message: `${t('parseError.establishFlagRequiresValue', { flag: '--config-name' })}
+${usageLine()}`,
+        };
+      }
+      configName = value;
+      i += 1;
+      continue;
+    }
+    if (token === '--group') {
+      const value = rest[i + 1];
+      if (value === undefined) {
+        return {
+          kind: 'usage-error',
+          message: `${t('parseError.establishFlagRequiresValue', { flag: '--group' })}
+${usageLine()}`,
+        };
+      }
+      // `[P7]` Trimmed and non-empty-checked exactly like `--config-name`
+      // below -- these are the same class of user mistake and must not
+      // produce two different exit codes (an empty group used to slip
+      // through parsing and fail at run time as a ref rejection, exit 1).
+      const group = value.trim();
+      if (group.length === 0) {
+        return { kind: 'usage-error', message: `${t('parseError.supplyEmptyGroup')}
+${usageLine()}` };
+      }
+      // `[P2]` Deliberately *not* de-duplicated here. Comparing raw argv
+      // strings would let `--group alpha --group ./alpha` through (two
+      // spellings of one group, every skill emitted twice); deciding
+      // whether two spellings denote the same group requires the supply
+      // root, which is only snapshotted in `runSupply`. The authoritative
+      // check therefore lives in `loadSupplyGroups`, after normalization,
+      // and `runSupply` maps it back onto this same exit-2 usage-error
+      // path -- so both spellings fail identically.
+      groups.push(group);
+      i += 1;
+      continue;
+    }
+    return { kind: 'usage-error', message: `${t('parseError.unknownFlag', { flag: token! })}
+${usageLine()}` };
+  }
+
+  // `--config-name` is checked before `--group` only so that an invocation
+  // missing both reports a single, stable message rather than one that
+  // depends on argv order.
+  if (configName === undefined || configName.trim().length === 0) {
+    return { kind: 'usage-error', message: `${t('parseError.supplyMissingConfigName')}
+${usageLine()}` };
+  }
+  if (groups.length === 0) {
+    return { kind: 'usage-error', message: `${t('parseError.supplyMissingGroup')}
+${usageLine()}` };
+  }
+
+  // Trimmed here, once, for the same reason `parseCandidateRevision` trims
+  // `configName`: `"general"` and `"general "` must never become two
+  // different configurations.
+  return { kind: 'supply', configName: configName.trim(), groups };
+}
+
 function parseCommand(argv: readonly string[]): ParsedCommand {
   const [command, ...rest] = argv;
   switch (command) {
@@ -427,6 +569,8 @@ function parseCommand(argv: readonly string[]): ParsedCommand {
       return parseEstablish(rest);
     case 'revise':
       return parseRevise(rest);
+    case 'supply':
+      return parseSupply(rest);
     default:
       // `command` is always defined here: `main()` intercepts `argv.length
       // === 0` before `parseCommand` is ever called, so this `default`
@@ -964,6 +1108,86 @@ async function runRevise(parsed: Extract<ParsedCommand, { kind: 'revise' }>): Pr
   }
 }
 
+/**
+ * `[Story 3.5]` Non-interactive `configs supply`. Reads the supply library
+ * and prints a candidate JSON on stdout; it never opens (let alone creates)
+ * any SQLite file, never writes to the supply library, and never decides
+ * anything -- `configs establish`/`configs revise` remain the only write
+ * path, and this output is exactly what a human would otherwise hand-write
+ * for them:
+ *
+ * ```
+ * configs supply --config-name general --group plugins/grilling  *   | configs establish --trigger-category new-scenario --evidence <ref>
+ * ```
+ *
+ * `[P10]` 那是**裸管道**，不带 `--from`。此处此前写的是
+ * `configs establish --from -`，照做会 ENOENT：`-` 不是本 CLI 的 stdin 别名，
+ * `readCandidateFile` 会把它当成一个真实文件名去打开。`establish`/`revise` 在
+ * *省略* `--from` 时才读 stdin。
+ *
+ * The root is snapshotted **once**, here, from the one shared
+ * `defaultSupplyRoot()`, and passed down as a parameter (`supply-fs.ts`
+ * never resolves it itself). One invocation therefore cannot possibly
+ * resolve two different roots, and the root a `sourceRef` is relative to is
+ * the same one `content-materializer.ts` will resolve it against later
+ * (AD-22).
+ *
+ * Failures print to **stderr**, not stdout, and stdout stays byte-empty.
+ * That is not a stylistic choice: this command's stdout is a pipe into
+ * `configs establish`, so a failure block written to stdout would be fed to
+ * the consumer as if it were a candidate. `renderQueryFailure` is still the
+ * one shared rendering path (the same typed-reason + recovery block every
+ * other subcommand prints) -- only the stream differs.
+ *
+ * `[P8]` The failure label is the fixed string `'supply'`, never
+ * `--config-name`'s value -- same convention as `runEstablish`/`runRevise`'s
+ * pre-parse fallbacks, and for a sharper reason here: a missing supply root
+ * has nothing to do with any configuration called `general` (that
+ * configuration does not even exist yet), so labelling it that way would
+ * name the wrong subject.
+ *
+ * `[P2]` `SupplyDuplicateGroupError` exits **2**, not 1: it is a pure
+ * command-line mistake (the same one `--group a --group a` is), decided
+ * without reference to what the library contains, so it belongs with the
+ * usage errors -- it just could not be decided until the root was known.
+ *
+ * Every other rejection is whole-command (AD-10): `loadSupplyGroups` throws
+ * before this function has printed anything, so a partial candidate --
+ * one silently missing a group's skills, indistinguishable from a complete
+ * one -- can never be emitted.
+ */
+async function runSupply(parsed: Extract<ParsedCommand, { kind: 'supply' }>): Promise<number> {
+  const supplyRoot = defaultSupplyRoot();
+  try {
+    const scan = await loadSupplyGroups(supplyRoot, parsed.groups);
+    // Two spaces, trailing newline via `console.log` -- a fixed
+    // serialization with no timestamps, no map iteration order and no
+    // locale-dependent ordering anywhere upstream, which is what makes two
+    // runs over the same library byte-for-byte identical.
+    console.log(JSON.stringify(buildSupplyCandidate(parsed.configName, scan), null, 2));
+    return 0;
+  } catch (error) {
+    if (error instanceof SupplyDuplicateGroupError) {
+      console.error(`${renderQueryFailure(SUPPLY_FAILURE_LABEL, error)}
+${usageLine()}`);
+      return 2;
+    }
+    if (
+      error instanceof SupplyRootNotFoundError ||
+      error instanceof SupplyGroupNotFoundError ||
+      error instanceof SupplyGroupEmptyError ||
+      error instanceof SupplyRefInvalidError ||
+      error instanceof SupplyDuplicateSkillNameError ||
+      error instanceof SupplySourceUnreadableError ||
+      error instanceof SupplyUnsupportedEntryError
+    ) {
+      console.error(renderQueryFailure(SUPPLY_FAILURE_LABEL, error));
+      return 1;
+    }
+    throw error;
+  }
+}
+
 export async function main(argv: readonly string[], overrides: CliOverrides = {}): Promise<number> {
   // `[DELTA]` IA first layer: `configs` with no subcommand at all is no
   // longer a usage error -- it prints the same usage text as a normal,
@@ -1011,6 +1235,14 @@ export async function main(argv: readonly string[], overrides: CliOverrides = {}
   // `runRevise`'s doc comment.
   if (parsed.kind === 'revise') {
     return await runRevise(parsed);
+  }
+  // `[Story 3.5]` `supply` bypasses `openDeps()` too, and for a stronger
+  // reason than `establish`/`revise` do: it has no write path at all. It
+  // reads the supply library and prints a candidate -- opening (and thereby
+  // creating/migrating) the SQLite file would be a side effect of a
+  // read-only command.
+  if (parsed.kind === 'supply') {
+    return await runSupply(parsed);
   }
 
   const deps = await openDeps(overrides);

@@ -3,6 +3,7 @@ import type { StableConfigRevision, TriggerCategory } from '../domain/config';
 import type { ClientId } from '../domain/client';
 import type { LaunchPlan } from '../domain/activation';
 import type { ClaudeContentMaterializationResult } from '../adapters/clients/claude/content-materializer';
+import type { SupplyRefRejection } from '../cli/supply-root';
 
 /**
  * Read-only persistence port. Adapters implement this against whatever
@@ -166,6 +167,183 @@ export class SupersedesConflictError extends Error {
   constructor(readonly revisionId: string) {
     super(`supersedes target revision "${revisionId}" has already been superseded by another revision`);
     this.name = 'SupersedesConflictError';
+  }
+}
+
+/**
+ * `[Story 3.5]` `configs supply` 的四个 fail-closed 拒绝（AD-10）。与本文件
+ * 里其余错误同样带 `kind` 判别式，因此可以并入 `cli/render.ts` 的
+ * `QueryOrEstablishError` 联合，走同一条失败渲染路径，而不是让供给命令另发明
+ * 一条平行的。
+ *
+ * 它们刻意只携带**数据**（根、组名、已经成文的原因），不携带 `SupplyRefVerdict`
+ * 之类 `cli/supply-root.ts` 的类型：`application/` 不该反向依赖 `cli/`，而失败
+ * 文案本身已经由产出侧用 `describeSupplyRefRejection` 生成好了。
+ *
+ * `defaultSupplyRoot()` 指向的目录不存在。零输出、退出 1，原因必须点名这个根
+ * ——「无门可指根因」正是 Story 3.4/3.5 一路在关掉的那个问题。
+ */
+export class SupplyRootNotFoundError extends Error {
+  readonly kind = 'supply-root-not-found' as const;
+
+  constructor(readonly supplyRoot: string) {
+    super(`supply library root does not exist or is not a directory: ${supplyRoot}`);
+    this.name = 'SupplyRootNotFoundError';
+  }
+}
+
+/** `[Story 3.5]` 被 `--group` 显式声明的组，在供给库里没有对应目录。 */
+export class SupplyGroupNotFoundError extends Error {
+  readonly kind = 'supply-group-not-found' as const;
+
+  constructor(
+    readonly group: string,
+    readonly supplyRoot: string,
+  ) {
+    super(`supply group "${group}" was not found under supply root ${supplyRoot}`);
+    this.name = 'SupplyGroupNotFoundError';
+  }
+}
+
+/**
+ * `[Story 3.5]` 组目录存在，却没有任何含 `SKILL.md` 的 skill 子目录。这是错误
+ * 而不是空集：被显式声明却拿不到内容，静默产出零条会让下游装配出一份看起来正常、
+ * 实则少了整整一个组的配置。
+ */
+export class SupplyGroupEmptyError extends Error {
+  readonly kind = 'supply-group-empty' as const;
+
+  constructor(
+    readonly group: string,
+    readonly supplyRoot: string,
+  ) {
+    super(`supply group "${group}" contains no skill directory with a SKILL.md under supply root ${supplyRoot}`);
+    this.name = 'SupplyGroupEmptyError';
+  }
+}
+
+/**
+ * `[Story 3.5]` 产出自检失败：某条即将写进候选的 `sourceRef` 过不了
+ * `validateSupplyRelativeRef`。
+ *
+ * `[P9]` 它携带的是**结构化的三元组**（原始值、当时生效的根、判定枝
+ * `SupplyRefRejection`），不是一段已经成文的句子。原因是
+ * `describeSupplyRefRejection` 的文案硬编码中文：直接透传会让 `CONFIGS_LANG=en`
+ * 的用户读到一句中英混排。渲染改由 `cli/render.ts` 用 i18n 组装，两种语言各自
+ * 成句；zh 侧的成句结果与 `describeSupplyRefRejection` **逐字相同**（有测试钉住
+ * 这一点），所以「产出侧与解析侧措辞一致」这条性质没有丢，只是不再靠共用一个
+ * 硬编码字符串来保证。
+ */
+export class SupplyRefInvalidError extends Error {
+  readonly kind = 'supply-ref-invalid' as const;
+
+  constructor(
+    readonly value: string,
+    readonly supplyRoot: string,
+    readonly why: SupplyRefRejection,
+  ) {
+    super(`supply produced an invalid sourceRef (${why}): \`${value}\` against supply root \`${supplyRoot}\``);
+    this.name = 'SupplyRefInvalidError';
+  }
+}
+
+/**
+ * `[Story 3.5 / P2]` 同一个组被声明了不止一次。判定跑在**规范化之后**，按
+ * `validateSupplyRelativeRef` 返回的 `ref` 比较，而不是比原始 argv 串——
+ * `--group alpha --group ./alpha` 是同一个组的两种写法，比原始串会让它穿过去，
+ * 同一批 skill 被产出两遍。
+ *
+ * 这是**用法**错误（退出 2），不是运行期拒绝：它完全由命令行决定，与库里有什么
+ * 无关。之所以仍做成典型化错误而不是在 parse 阶段判掉，是因为「两种写法是不是
+ * 同一个组」这件事只有拿到供给根才答得出，而根要到 `runSupply` 才快照。
+ */
+export class SupplyDuplicateGroupError extends Error {
+  readonly kind = 'supply-duplicate-group' as const;
+
+  constructor(
+    readonly groupRef: string,
+    readonly firstDeclared: string,
+    readonly secondDeclared: string,
+  ) {
+    super(`supply group "${groupRef}" was declared more than once (as "${firstDeclared}" and "${secondDeclared}")`);
+    this.name = 'SupplyDuplicateGroupError';
+  }
+}
+
+/**
+ * `[Story 3.5 / P1 critical]` 两个不同的组含同名 skill。
+ *
+ * 为什么必须 fail-closed，而不是「产出两条、让下游自己看着办」：解析侧
+ * `content-materializer.ts` 的 `materializeSkills` 用
+ * `sanitizePathSegment(reference.name)` 推导目标目录，两条同名引用会先后 `cp`
+ * 到**同一个** `materialized/plugin/skills/<name>`，后者覆盖前者，而
+ * `failures` 仍是空数组、整次启动报告成功。这正是整套 fail-closed 设计要防的
+ * 「看起来完整、实则少了内容」——而且 `configs supply` 是第一个让它容易发生的
+ * 产出者：一次调用就是多个组的白名单。
+ *
+ * 修在产出侧，不修 `content-materializer.ts`：消费侧丢失组身份（`name` 不带组
+ * 前缀）是更深的一处建模问题，已另记 defer。在它被解决之前，产出侧拒绝产出这种
+ * 修订，是唯一能保证「落库的修订一定能被完整物化」的地方。
+ */
+export class SupplyDuplicateSkillNameError extends Error {
+  readonly kind = 'supply-duplicate-skill-name' as const;
+
+  constructor(
+    readonly skillName: string,
+    readonly firstSourceRef: string,
+    readonly secondSourceRef: string,
+  ) {
+    super(
+      `skill name "${skillName}" is supplied by more than one group (${firstSourceRef} and ${secondSourceRef}); materialization would silently overwrite one with the other`,
+    );
+    this.name = 'SupplyDuplicateSkillNameError';
+  }
+}
+
+/**
+ * `[Story 3.5 / P5]` 扫描或计算指纹时的 I/O 失败（`EACCES`、`EMFILE`、
+ * readdir 与 readFile 之间文件被删掉的 `ENOENT`……）。
+ *
+ * 之所以要典型化而不是让裸 errno 逃出去：`runSupply` 只认得典型化拒绝，别的都会
+ * 冒到 `import.meta.main` 的通用 `unexpectedFailure`，绕过 `renderQueryFailure`；
+ * 更要紧的是，直接调 `main()` 的调用方（包括测试）拿到的会是一个 rejected
+ * promise，而不是一个退出码。
+ *
+ * `where` 是出事的位置（组的规范化 ref，或供给根本身）——诊断必须能指到组，否则
+ * 「哪个组读不动」还是要靠猜。
+ */
+export class SupplySourceUnreadableError extends Error {
+  readonly kind = 'supply-source-unreadable' as const;
+
+  constructor(
+    readonly where: string,
+    readonly supplyRoot: string,
+    readonly reason: string,
+  ) {
+    super(`supply library could not be read at ${where} (supply root ${supplyRoot}): ${reason}`);
+    this.name = 'SupplySourceUnreadableError';
+  }
+}
+
+/**
+ * `[Story 3.5 / P6]` skill 目录里出现了既不是普通文件也不是普通目录的项——符号
+ * 链接、FIFO、设备文件之类。
+ *
+ * 为什么是硬拒绝而不是「跳过」：跳过会让指纹与实际交付内容不符。解析侧的 `cp`
+ * 照样会把这些项复现过去（符号链接按链接复制），而指纹里没有它们；一个文件全是
+ * 符号链接的 skill 甚至会哈希成**空输入**的 sha256。指纹存在的全部意义是充当
+ * AD-22 退役第 (2) 步的 parity 取证依据，一个覆盖不到交付内容的指纹还不如没有。
+ */
+export class SupplyUnsupportedEntryError extends Error {
+  readonly kind = 'supply-unsupported-entry' as const;
+
+  constructor(
+    readonly sourceRef: string,
+    readonly entryPath: string,
+    readonly entryKind: string,
+  ) {
+    super(`supply entry ${sourceRef}/${entryPath} is a ${entryKind}, which cannot be fingerprinted reproducibly`);
+    this.name = 'SupplyUnsupportedEntryError';
   }
 }
 

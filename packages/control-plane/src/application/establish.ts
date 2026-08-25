@@ -31,6 +31,14 @@ import {
   SupersedesConfigMismatchError,
   SupersedesConflictError,
   SupersedesNotFoundError,
+  SupplyDuplicateGroupError,
+  SupplyDuplicateSkillNameError,
+  SupplyGroupEmptyError,
+  SupplyGroupNotFoundError,
+  SupplyRefInvalidError,
+  SupplyRootNotFoundError,
+  SupplySourceUnreadableError,
+  SupplyUnsupportedEntryError,
 } from './ports';
 
 // Re-exported so `cli/index.ts` and tests can import every establish-time
@@ -46,6 +54,16 @@ export {
   SupersedesConfigMismatchError,
   SupersedesConflictError,
   SupersedesNotFoundError,
+  // `[Story 3.5]` `configs supply` 的 fail-closed 拒绝走同一条再导出路径
+  // ——调用点只认这一个模块，不必知道错误本体住在 `ports.ts`。
+  SupplyDuplicateGroupError,
+  SupplyDuplicateSkillNameError,
+  SupplyGroupEmptyError,
+  SupplyGroupNotFoundError,
+  SupplyRefInvalidError,
+  SupplyRootNotFoundError,
+  SupplySourceUnreadableError,
+  SupplyUnsupportedEntryError,
 };
 
 export const TRIGGER_CATEGORIES: readonly TriggerCategory[] = ['new-scenario', 'known-insufficiency', 'bad-case'];
