@@ -1,23 +1,21 @@
 name: Existing repository checks
 
+# `packages/**`、`package.json`、`bun.lock` 曾在 paths-ignore 里。Story 3.6 起不再
+# 忽略：本 workflow 现在包含「本仓装配意图一致性门」，而那道门调用的是
+# `packages/control-plane` 里真实的 `configs supply` CLI。忽略 `packages/**` 会让
+# 一个只改 CLI 的 PR 绕过这道门——门的意义正在于此时报警。
 on:
   pull_request:
     branches:
       - main
     paths-ignore:
-      - "packages/**"
       - "_bmad-output/**"
-      - "package.json"
-      - "bun.lock"
       - ".github/workflows/control-plane-checks.yml"
   push:
     branches:
       - main
     paths-ignore:
-      - "packages/**"
       - "_bmad-output/**"
-      - "package.json"
-      - "bun.lock"
       - ".github/workflows/control-plane-checks.yml"
 
 permissions:
@@ -35,11 +33,28 @@ jobs:
         with:
           python-version: "3.13"
 
+      # 装配意图一致性门要起真实的 `configs supply` 子进程（Bun + control-plane
+      # 的依赖），所以这个此前只装 Python 的 job 现在也要 Bun。
+      - name: Set up Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Install workspace dependencies
+        run: bun install --frozen-lockfile
+
       - name: Check federated entry contract
         run: python scripts/test_federated_entry.py
 
       - name: Check repository entry projections
         run: python -m scripts.entry_sync check --scope repository
+
+      # 真跑，不是只注册：推导本仓装配意图并用真实 `configs supply` 校验。
+      - name: Check assembly intent consistency
+        run: python tools/assembly_intent/assembly_intent.py
+
+      - name: Test assembly intent
+        run: python -m unittest discover -s tools/assembly_intent/tests -v
 
       - name: Test dispatch deadlines
         run: python -m unittest discover -s tools/dispatch_deadlines/tests -v
