@@ -332,6 +332,18 @@ MVP-FR10：Epic 1 / Story 1.2 — OMP-only 与未来 adapter 边界。
 
 **验收标准来源：** 待 `bmad-build` 产出（当前记于 `_bmad-output/implementation-artifacts/deferred-work.md`）
 
+### Story 3.6：本仓装配意图从既有权威推导，并建立一致性门
+
+作为维护本仓的负责人，
+我希望「本仓的 agent 会话该装配哪些 Skill」这件事不需要我再单独维护一份声明，
+以便它不可能与仓库规则漂移——改规则就是改意图。
+
+**覆盖：** AD-22 退役第 (1) 步「本仓自身的装配意图能被表达为一条真实修订」与「规则与能力必须同真」两项；AD-22 验证边界里标记为「退役第 (1) 步落地后生效的待建门」的那道门。
+
+**关键取舍：** 不新增装配声明文件。意图从仓内两处**已有且各因别的理由存在**的权威推导——`entrypoints/agent-system.md` 中「加载可用的 `X`」点名的 Skill，与 `_bmad/_config/` 的安装器清单与 pin。新增一份列表会与入口规则漂移，而漂移正是 `plugins/skill-imports.toml` 失效的死因。
+
+**验收标准来源：** `_bmad-output/implementation-artifacts/spec-3-6-assembly-intent-gate.md`
+
 ## Epic 4：装配并激活 Claude Code 客户端
 
 用户可以让本产品把已存在的装配意图（Instructions/Skills/MCP 引用）交付给 Claude Code，边界是宿主原生可强制执行的权限/工具/MCP 硬控制，不是 prompt 文字软约束；交付方式复用 Architecture Spine AD-19 的窄端口（probe → plan → launch/resume → interpret）与 AD-20 的会话模型（fresh target 复用 OMP 同款单次确认生命周期，already-running session target 诚实返回 `requires-restart`），最终按固定三步顺序取代现有 `.cap/`。Codex CLI 因缺乏真实装配证据（`.cap/runtime/` 无 `codex.toml`）不在本 Epic 范围内，继续按 Architecture Spine AD-1 的 2026-08-23 澄清保持非目标。

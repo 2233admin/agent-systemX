@@ -51,6 +51,7 @@ development_status:
   3-3-查看装配来源与替代链: done
   3-4-裁定并落地-sourceref-的跨机器可移植性语义: done
   3-5-从-skill-供给库产出配置修订候选-configs-supply: done
+  3-6-本仓装配意图从既有权威推导-并建立一致性门: done
   epic-3-retrospective: optional
 
   epic-4: in-progress
