@@ -102,3 +102,51 @@ context: ['{project-root}/AGENTS.md']
 - `cd packages/control-plane && bun test` -- expected: 全绿
 - `CONTROL_PLANE_SUPPLY_ROOT=<repo> bun src/cli/index.ts supply --config-name general --group plugins/grilling` -- expected: 输出含 `"sourceRef"` 为 `plugins/grilling/skills/grilling` 的候选 JSON，退出 0
   - `[P10 订正]` 原命令写的是根=`<repo>/plugins`、`--group grilling`，与 `supply-root.ts` 部署场景表「自我开发本仓时根指向**仓库根**」相矛盾。改为根=仓库根后，产出的 `sourceRef` 恰好就是 `cap-fs.ts` 对同一批 Skill 产出的仓库根相对形式，两条产出路径自洽。
+
+## Spec Change Log
+
+- **2026-08-25（loop 1，patch 集）** — 三层审查判定无 intent_gap／无 bad_spec，14 条 patch 已应用。其中三条由 verification-gap 层的真变异证明此前无测试兜住（去掉指纹里的路径与 NUL 投喂、把 `defaultMarker` 改成 `known(true)`、`compareCodeUnits` 换成 `localeCompare`，三种改坏之后均 21 pass 全绿）。最严重一条由两层各自端到端复现：两个组含同名 skill 时物化侧后者覆盖前者、`failures: []` 并报告成功——已在产出侧 fail-closed（`SupplyDuplicateSkillNameError`），消费侧的组身份丢失记入 `deferred-work.md`。**本文件两处错误一并订正：** (a) Boundaries 的括注「`plugins/` 今天已是此形状」只在根取 `plugins/` 时成立，与 AD-22「本仓自我开发时根指向仓库根」矛盾；实测根=仓库根时 `--group plugins/grilling` 正常工作并产出 `plugins/grilling/skills/grilling`，恰是 `cap-fs.ts` 的仓库根相对形式，两者自洽——**组名可以是多段路径**，本文件原先未写。(b) Verification 命令原用 `CONTROL_PLANE_SUPPLY_ROOT=<repo>/plugins`，同样矛盾，已改为根=仓库根。**KEEP：** 去重放在 `supply-fs.ts` 按规范化 ref 做（比 `parseSupply` 层更对，规范化本就发生在那里）；确定性测试另起子进程比真实 stdout Buffer；符号链接两处判断改为一致后硬拒绝而非算出空输入的 sha256。
+- **2026-08-25（loop 1 补记，注释语言）** — `context:` 已含 `AGENTS.md` 且 `supply-fs.ts`／`ports.ts` 均按规则写中文，但 `src/cli/index.ts` 新增 124 行注释仅 7 行含中文——因为那些是**扩写既有英文文档串**，实现者保持了段内语言一致。规则的判据是「新增或实质修改」且「碰到哪段就整段改」，已单独 patch 整段转写（现 107 行中 80 行含中文，其余为结构行与 shell 示例）。
+
+## Suggested Review Order
+
+**产出侧的合同（先看这里）**
+
+- 五条判定的复用点：组名与 skill 名都经 `validateSupplyRelativeRef`，并采用它返回的规范化 ref
+  [`supply-fs.ts:203`](../../packages/control-plane/src/adapters/sources/supply-fs.ts#L203)
+
+- 按规范化 ref 去重——放在这一层而非 `parseSupply`，因为规范化本就发生在这里
+  [`supply-fs.ts:279`](../../packages/control-plane/src/adapters/sources/supply-fs.ts#L279)
+
+- 指纹构成：路径与内容都投喂，覆盖边界在注释里如实写明
+  [`supply-fs.ts:182`](../../packages/control-plane/src/adapters/sources/supply-fs.ts#L182)
+
+- 候选装配：三个标量 Fact 的诚实取值（`defaultMarker` 为 `Unknown` 才不是伪造）
+  [`supply-fs.ts:438`](../../packages/control-plane/src/adapters/sources/supply-fs.ts#L438)
+
+**fail-closed 的边界**
+
+- 同名 skill 在产出侧硬拒——消费侧布局丢组身份是更深的问题，已记 defer
+  [`ports.ts:288`](../../packages/control-plane/src/application/ports.ts#L288)
+
+- I/O 失败不再被吞成「没有这个东西」：只有 ENOENT／ENOTDIR 映射为不存在
+  [`ports.ts:315`](../../packages/control-plane/src/application/ports.ts#L315)
+
+**CLI 接线**
+
+- 失败走 stderr 而非 stdout——stdout 是喂给 `establish` 的管道，失败块落在那儿会被当成候选
+  [`index.ts:1139`](../../packages/control-plane/src/cli/index.ts#L1139)
+
+- 固定失败标签，不用 `configName`（沿用 `establish`／`revise` 的先例）
+  [`index.ts:151`](../../packages/control-plane/src/cli/index.ts#L151)
+
+- flag 解析：组名 trim 且非空判为 usage-error，与 `--config-name` 对齐
+  [`index.ts:462`](../../packages/control-plane/src/cli/index.ts#L462)
+
+**测试（外围）**
+
+- 「逐字节相同」另起子进程比真实 stdout Buffer——进程内捕获会被归一化，证明不了这件事
+  [`cli-supply.test.ts:188`](../../packages/control-plane/tests/integration/cli-supply.test.ts#L188)
+
+- 顺序无关性按整份候选断言，不只是 `sourceRef` 顺序
+  [`cli-supply.test.ts:237`](../../packages/control-plane/tests/integration/cli-supply.test.ts#L237)
