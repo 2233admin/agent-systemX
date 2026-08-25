@@ -1,5 +1,5 @@
 # Team override for bmad-build.
-# See {project-root}/.claude/skills/bmad-build/customize.toml for the base defaults.
+# See {project-root}/vendor/bmad/skills/bmad-build/customize.toml for the base defaults.
 
 [workflow]
 

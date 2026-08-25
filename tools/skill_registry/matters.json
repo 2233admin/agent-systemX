@@ -127,7 +127,7 @@
         "localChanges": "none",
         "updateTrigger": "上游发布高于 v6.11.0 的版本。零改动承诺成立，可直接拉新版，不需要重打补丁。"
       },
-      "note": "跨两个事项：造软件主链在 E2，brainstorming／deep-recon／forge-idea／prfaq／advanced-elicitation／party-mode 属 E5。不按 Skill 拆——组内互相调用（bmad-help 路由、deprecated 转发），拆组会拆断。2026-08-24 撤回了此前唯一一处本地改动（sprint_status.py 的 --set-epic-status，65 行）：该能力上游本就有，在 sprint_plan.py generate --set KEY=STATUS，此前查错了脚本；回退后与安装态一字不差。安装器按 ides: [claude-code, codex, pi] 各写一份，因此 .agents/skills 与 .claude/skills 是两份相同副本（各 243 个文件），登记面只计一份。"
+      "note": "跨两个事项：造软件主链在 E2，brainstorming／deep-recon／forge-idea／prfaq／advanced-elicitation／party-mode 属 E5。不按 Skill 拆——组内互相调用（bmad-help 路由、deprecated 转发），拆组会拆断。2026-08-24 撤回了此前唯一一处本地改动（sprint_status.py 的 --set-epic-status，65 行）：该能力上游本就有，在 sprint_plan.py generate --set KEY=STATUS，此前查错了脚本；回退后与安装态一字不差。2026-08-25 起按 vendor 内容跟踪一份于 vendor/bmad/skills/（49 个 Skill、243 个文件），不再按客户端投影成两份：负责人裁定本仓要的是「clone 即可用、不依赖安装步骤」，vendor 一份同时满足零安装与不重复；装配由 configs 承担，客户端原生发现目录不再承载字节。"
     },
     "openspec": {
       "displayName": "openspec",
@@ -142,7 +142,7 @@
           "updateTrigger": "各 SKILL.md 的 compatibility 字段：仅兼容 OpenSpec CLI 1.9.0，升级 CLI 时必须复核本合同"
         }
       },
-      "note": "6 个 openspec-* 是本仓自己写的中文项目内适配（见各 SKILL.md 的 source 字段），不是上游文件副本；上游 OpenSpec 是 npm 依赖，由 package.json 锁版本。.agents/skills/openspec-*/ 与 .claude/skills/openspec-*/ 是 CLI 生成的安装副本，已在 .gitignore 排除。变更方法包，服务于任何要做变更的事项。当前 openspec/config.yaml 绑死 .cap（三处），提取时必须换掉，尤其归档门。"
+      "note": "6 个 openspec-* 是本仓自己写的中文项目内适配（见各 SKILL.md 的 source 字段），不是上游文件副本；上游 OpenSpec 是 npm 依赖，由 package.json 锁版本。vendor/bmad/skills/openspec-*/ 是 CLI 生成的安装副本，已在 .gitignore 排除。变更方法包，服务于任何要做变更的事项。当前 openspec/config.yaml 绑死 .cap（三处），提取时必须换掉，尤其归档门。"
     },
     "cap-assembly": {
       "displayName": "CAP 装配",
@@ -156,7 +156,7 @@
   "groupRules": {
     "comment": "Skill 到组的映射。plugins/ 下 plugin 目录名即组名，机械可推。其余按位置＋名称前缀声明。",
     "byLocation": [
-      { "prefix": ".agents/skills", "namePrefix": "bmad-", "group": "bmad" },
+      { "prefix": "vendor/bmad/skills", "namePrefix": "bmad-", "group": "bmad" },
       { "prefix": ".cap/capabilities/skills", "namePrefix": "openspec-", "group": "openspec" },
       { "prefix": ".cap/capabilities/skills", "group": "cap-assembly" }
     ]
@@ -164,6 +164,6 @@
 
   "scanRoots": [
     { "path": "plugins", "shape": "plugin" },
-    { "path": ".agents/skills", "shape": "flat" }
+    { "path": "vendor/bmad/skills", "shape": "flat" }
   ]
 }

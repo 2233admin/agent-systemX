@@ -168,59 +168,59 @@
 
 **本地改动：零**（fork 承诺成立）
 
-> 跨两个事项：造软件主链在 E2，brainstorming／deep-recon／forge-idea／prfaq／advanced-elicitation／party-mode 属 E5。不按 Skill 拆——组内互相调用（bmad-help 路由、deprecated 转发），拆组会拆断。2026-08-24 撤回了此前唯一一处本地改动（sprint_status.py 的 --set-epic-status，65 行）：该能力上游本就有，在 sprint_plan.py generate --set KEY=STATUS，此前查错了脚本；回退后与安装态一字不差。安装器按 ides: [claude-code, codex, pi] 各写一份，因此 .agents/skills 与 .claude/skills 是两份相同副本（各 243 个文件），登记面只计一份。
+> 跨两个事项：造软件主链在 E2，brainstorming／deep-recon／forge-idea／prfaq／advanced-elicitation／party-mode 属 E5。不按 Skill 拆——组内互相调用（bmad-help 路由、deprecated 转发），拆组会拆断。2026-08-24 撤回了此前唯一一处本地改动（sprint_status.py 的 --set-epic-status，65 行）：该能力上游本就有，在 sprint_plan.py generate --set KEY=STATUS，此前查错了脚本；回退后与安装态一字不差。2026-08-25 起按 vendor 内容跟踪一份于 vendor/bmad/skills/（49 个 Skill、243 个文件），不再按客户端投影成两份：负责人裁定本仓要的是「clone 即可用、不依赖安装步骤」，vendor 一份同时满足零安装与不重复；装配由 configs 承担，客户端原生发现目录不再承载字节。
 
 | Skill | 位置 | L1 | L2 | L3 | 上次复核 | 失效条件 | 最少复核步骤 |
 | --- | --- | ---: | ---: | ---: | --- | --- | --- |
-| `bmad-advanced-elicitation` | `.agents/skills/bmad-advanced-elicitation` | 204 B | 4.9 KB | 0.0 KB | 2026-08-24 | 有 | 有 |
-| `bmad-agent-analyst` | `.agents/skills/bmad-agent-analyst` | 124 B | 4.4 KB | 0.0 KB | 2026-08-24 | 有 | 有 |
-| `bmad-agent-architect` | `.agents/skills/bmad-agent-architect` | 114 B | 4.4 KB | 0.0 KB | 2026-08-24 | 有 | 有 |
-| `bmad-agent-dev` | `.agents/skills/bmad-agent-dev` | 143 B | 4.5 KB | 0.0 KB | 2026-08-24 | 有 | 有 |
-| `bmad-agent-pm` | `.agents/skills/bmad-agent-pm` | 132 B | 4.4 KB | 0.0 KB | 2026-08-24 | 有 | 有 |
-| `bmad-agent-ux-designer` | `.agents/skills/bmad-agent-ux-designer` | 99 B | 4.4 KB | 0.0 KB | 2026-08-24 | 有 | 有 |
-| `bmad-architecture` | `.agents/skills/bmad-architecture` | 283 B | 13.7 KB | 5.8 KB | 2026-08-24 | 有 | 有 |
-| `bmad-brainstorming` | `.agents/skills/bmad-brainstorming` | 134 B | 9.5 KB | 19.8 KB | 2026-08-24 | 有 | 有 |
-| `bmad-build` | `.agents/skills/bmad-build` | 292 B | 0.9 KB | 1.0 KB | 2026-08-24 | 有 | 有 |
-| `bmad-build-auto` | `.agents/skills/bmad-build-auto` | 74 B | 0.7 KB | 1.0 KB | 2026-08-24 | 有 | 有 |
-| `bmad-checkpoint-preview` | `.agents/skills/bmad-checkpoint-preview` | 189 B | 3.1 KB | 0.0 KB | 2026-08-24 | 有 | 有 |
-| `bmad-code-review` | `.agents/skills/bmad-code-review` | 138 B | 3.9 KB | 1.0 KB | 2026-08-24 | 有 | 有 |
-| `bmad-correct-course` | `.agents/skills/bmad-correct-course` | 118 B | 13.3 KB | 0.0 KB | 2026-08-24 | 有 | 有 |
-| `bmad-create-architecture` | `.agents/skills/bmad-create-architecture` | 61 B | 2.9 KB | 0.0 KB | 2026-08-24 | 有 | 有 |
-| `bmad-create-epics-and-stories` | `.agents/skills/bmad-create-epics-and-stories` | 106 B | 5.0 KB | 0.0 KB | 2026-08-24 | 有 | 有 |
-| `bmad-create-prd` | `.agents/skills/bmad-create-prd` | 52 B | 2.8 KB | 0.0 KB | 2026-08-24 | 有 | 有 |
-| `bmad-create-story` | `.agents/skills/bmad-create-story` | 114 B | 23.0 KB | 0.0 KB | 2026-08-24 | 有 | 有 |
-| `bmad-customize` | `.agents/skills/bmad-customize` | 183 B | 6.5 KB | 0.0 KB | 2026-08-24 | 有 | 有 |
-| `bmad-deep-recon` | `.agents/skills/bmad-deep-recon` | 758 B | 9.1 KB | 27.4 KB | 2026-08-24 | 有 | 有 |
-| `bmad-dev-auto` | `.agents/skills/bmad-dev-auto` | 75 B | 1.9 KB | 0.0 KB | 2026-08-24 | 有 | 有 |
-| `bmad-dev-story` | `.agents/skills/bmad-dev-story` | 114 B | 26.2 KB | 0.0 KB | 2026-08-24 | 有 | 有 |
-| `bmad-document-project` | `.agents/skills/bmad-document-project` | 122 B | 1.2 KB | 0.0 KB | 2026-08-24 | 有 | 有 |
-| `bmad-domain-research` | `.agents/skills/bmad-domain-research` | 57 B | 1.8 KB | 0.0 KB | 2026-08-24 | 有 | 有 |
-| `bmad-edit-prd` | `.agents/skills/bmad-edit-prd` | 52 B | 2.9 KB | 0.0 KB | 2026-08-24 | 有 | 有 |
-| `bmad-editorial-review` | `.agents/skills/bmad-editorial-review` | 39 B | 1.1 KB | 0.0 KB | 2026-08-24 | 有 | 有 |
-| `bmad-editorial-review-prose` | `.agents/skills/bmad-editorial-review-prose` | 39 B | 0.5 KB | 0.0 KB | 2026-08-24 | 有 | 有 |
-| `bmad-editorial-review-structure` | `.agents/skills/bmad-editorial-review-structure` | 39 B | 0.7 KB | 0.0 KB | 2026-08-24 | 有 | 有 |
-| `bmad-forge-idea` | `.agents/skills/bmad-forge-idea` | 222 B | 10.1 KB | 0.0 KB | 2026-08-24 | 有 | 有 |
-| `bmad-generate-project-context` | `.agents/skills/bmad-generate-project-context` | 126 B | 0.8 KB | 0.0 KB | 2026-08-24 | 有 | 有 |
-| `bmad-help` | `.agents/skills/bmad-help` | 189 B | 4.5 KB | 0.0 KB | 2026-08-24 | 有 | 有 |
-| `bmad-market-research` | `.agents/skills/bmad-market-research` | 57 B | 1.8 KB | 0.0 KB | 2026-08-24 | 有 | 有 |
-| `bmad-party-mode` | `.agents/skills/bmad-party-mode` | 297 B | 9.4 KB | 19.8 KB | 2026-08-24 | 有 | 有 |
-| `bmad-prd` | `.agents/skills/bmad-prd` | 104 B | 13.8 KB | 8.7 KB | 2026-08-24 | 有 | 有 |
-| `bmad-prfaq` | `.agents/skills/bmad-prfaq` | 181 B | 10.5 KB | 16.0 KB | 2026-08-24 | 有 | 有 |
-| `bmad-product-brief` | `.agents/skills/bmad-product-brief` | 116 B | 11.4 KB | 0.0 KB | 2026-08-24 | 有 | 有 |
-| `bmad-project-context` | `.agents/skills/bmad-project-context` | 198 B | 8.3 KB | 7.5 KB | 2026-08-24 | 有 | 有 |
-| `bmad-qa-generate-e2e-tests` | `.agents/skills/bmad-qa-generate-e2e-tests` | 123 B | 5.5 KB | 0.0 KB | 2026-08-24 | 有 | 有 |
-| `bmad-quick-dev` | `.agents/skills/bmad-quick-dev` | 70 B | 1.9 KB | 0.0 KB | 2026-08-24 | 有 | 有 |
-| `bmad-retrospective` | `.agents/skills/bmad-retrospective` | 234 B | 13.1 KB | 26.9 KB | 2026-08-24 | 有 | 有 |
-| `bmad-review` | `.agents/skills/bmad-review` | 357 B | 7.4 KB | 24.3 KB | 2026-08-24 | 有 | 有 |
-| `bmad-review-adversarial-general` | `.agents/skills/bmad-review-adversarial-general` | 39 B | 0.4 KB | 0.0 KB | 2026-08-24 | 有 | 有 |
-| `bmad-review-edge-case-hunter` | `.agents/skills/bmad-review-edge-case-hunter` | 39 B | 0.5 KB | 0.0 KB | 2026-08-24 | 有 | 有 |
-| `bmad-review-verification-gap` | `.agents/skills/bmad-review-verification-gap` | 39 B | 0.4 KB | 0.0 KB | 2026-08-24 | 有 | 有 |
-| `bmad-spec` | `.agents/skills/bmad-spec` | 277 B | 16.8 KB | 0.0 KB | 2026-08-24 | 有 | 有 |
-| `bmad-sprint-planning` | `.agents/skills/bmad-sprint-planning` | 312 B | 5.1 KB | 9.2 KB | 2026-08-24 | 有 | 有 |
-| `bmad-sprint-status` | `.agents/skills/bmad-sprint-status` | 62 B | 2.3 KB | 0.0 KB | 2026-08-24 | 有 | 有 |
-| `bmad-technical-research` | `.agents/skills/bmad-technical-research` | 60 B | 1.8 KB | 0.0 KB | 2026-08-24 | 有 | 有 |
-| `bmad-ux` | `.agents/skills/bmad-ux` | 145 B | 10.4 KB | 13.9 KB | 2026-08-24 | 有 | 有 |
-| `bmad-validate-prd` | `.agents/skills/bmad-validate-prd` | 54 B | 2.9 KB | 0.0 KB | 2026-08-24 | 有 | 有 |
+| `bmad-advanced-elicitation` | `vendor/bmad/skills/bmad-advanced-elicitation` | 204 B | 4.9 KB | 0.0 KB | 2026-08-24 | 有 | 有 |
+| `bmad-agent-analyst` | `vendor/bmad/skills/bmad-agent-analyst` | 124 B | 4.4 KB | 0.0 KB | 2026-08-24 | 有 | 有 |
+| `bmad-agent-architect` | `vendor/bmad/skills/bmad-agent-architect` | 114 B | 4.4 KB | 0.0 KB | 2026-08-24 | 有 | 有 |
+| `bmad-agent-dev` | `vendor/bmad/skills/bmad-agent-dev` | 143 B | 4.5 KB | 0.0 KB | 2026-08-24 | 有 | 有 |
+| `bmad-agent-pm` | `vendor/bmad/skills/bmad-agent-pm` | 132 B | 4.4 KB | 0.0 KB | 2026-08-24 | 有 | 有 |
+| `bmad-agent-ux-designer` | `vendor/bmad/skills/bmad-agent-ux-designer` | 99 B | 4.4 KB | 0.0 KB | 2026-08-24 | 有 | 有 |
+| `bmad-architecture` | `vendor/bmad/skills/bmad-architecture` | 283 B | 13.7 KB | 5.8 KB | 2026-08-24 | 有 | 有 |
+| `bmad-brainstorming` | `vendor/bmad/skills/bmad-brainstorming` | 134 B | 9.5 KB | 19.8 KB | 2026-08-24 | 有 | 有 |
+| `bmad-build` | `vendor/bmad/skills/bmad-build` | 292 B | 0.9 KB | 1.0 KB | 2026-08-24 | 有 | 有 |
+| `bmad-build-auto` | `vendor/bmad/skills/bmad-build-auto` | 74 B | 0.7 KB | 1.0 KB | 2026-08-24 | 有 | 有 |
+| `bmad-checkpoint-preview` | `vendor/bmad/skills/bmad-checkpoint-preview` | 189 B | 3.1 KB | 0.0 KB | 2026-08-24 | 有 | 有 |
+| `bmad-code-review` | `vendor/bmad/skills/bmad-code-review` | 138 B | 3.9 KB | 1.0 KB | 2026-08-24 | 有 | 有 |
+| `bmad-correct-course` | `vendor/bmad/skills/bmad-correct-course` | 118 B | 13.3 KB | 0.0 KB | 2026-08-24 | 有 | 有 |
+| `bmad-create-architecture` | `vendor/bmad/skills/bmad-create-architecture` | 61 B | 2.9 KB | 0.0 KB | 2026-08-24 | 有 | 有 |
+| `bmad-create-epics-and-stories` | `vendor/bmad/skills/bmad-create-epics-and-stories` | 106 B | 5.0 KB | 0.0 KB | 2026-08-24 | 有 | 有 |
+| `bmad-create-prd` | `vendor/bmad/skills/bmad-create-prd` | 52 B | 2.8 KB | 0.0 KB | 2026-08-24 | 有 | 有 |
+| `bmad-create-story` | `vendor/bmad/skills/bmad-create-story` | 114 B | 23.0 KB | 0.0 KB | 2026-08-24 | 有 | 有 |
+| `bmad-customize` | `vendor/bmad/skills/bmad-customize` | 183 B | 6.5 KB | 0.0 KB | 2026-08-24 | 有 | 有 |
+| `bmad-deep-recon` | `vendor/bmad/skills/bmad-deep-recon` | 758 B | 9.1 KB | 27.4 KB | 2026-08-24 | 有 | 有 |
+| `bmad-dev-auto` | `vendor/bmad/skills/bmad-dev-auto` | 75 B | 1.9 KB | 0.0 KB | 2026-08-24 | 有 | 有 |
+| `bmad-dev-story` | `vendor/bmad/skills/bmad-dev-story` | 114 B | 26.2 KB | 0.0 KB | 2026-08-24 | 有 | 有 |
+| `bmad-document-project` | `vendor/bmad/skills/bmad-document-project` | 122 B | 1.2 KB | 0.0 KB | 2026-08-24 | 有 | 有 |
+| `bmad-domain-research` | `vendor/bmad/skills/bmad-domain-research` | 57 B | 1.8 KB | 0.0 KB | 2026-08-24 | 有 | 有 |
+| `bmad-edit-prd` | `vendor/bmad/skills/bmad-edit-prd` | 52 B | 2.9 KB | 0.0 KB | 2026-08-24 | 有 | 有 |
+| `bmad-editorial-review` | `vendor/bmad/skills/bmad-editorial-review` | 39 B | 1.1 KB | 0.0 KB | 2026-08-24 | 有 | 有 |
+| `bmad-editorial-review-prose` | `vendor/bmad/skills/bmad-editorial-review-prose` | 39 B | 0.5 KB | 0.0 KB | 2026-08-24 | 有 | 有 |
+| `bmad-editorial-review-structure` | `vendor/bmad/skills/bmad-editorial-review-structure` | 39 B | 0.7 KB | 0.0 KB | 2026-08-24 | 有 | 有 |
+| `bmad-forge-idea` | `vendor/bmad/skills/bmad-forge-idea` | 222 B | 10.1 KB | 0.0 KB | 2026-08-24 | 有 | 有 |
+| `bmad-generate-project-context` | `vendor/bmad/skills/bmad-generate-project-context` | 126 B | 0.8 KB | 0.0 KB | 2026-08-24 | 有 | 有 |
+| `bmad-help` | `vendor/bmad/skills/bmad-help` | 189 B | 4.5 KB | 0.0 KB | 2026-08-24 | 有 | 有 |
+| `bmad-market-research` | `vendor/bmad/skills/bmad-market-research` | 57 B | 1.8 KB | 0.0 KB | 2026-08-24 | 有 | 有 |
+| `bmad-party-mode` | `vendor/bmad/skills/bmad-party-mode` | 297 B | 9.4 KB | 19.8 KB | 2026-08-24 | 有 | 有 |
+| `bmad-prd` | `vendor/bmad/skills/bmad-prd` | 104 B | 13.8 KB | 8.7 KB | 2026-08-24 | 有 | 有 |
+| `bmad-prfaq` | `vendor/bmad/skills/bmad-prfaq` | 181 B | 10.5 KB | 16.0 KB | 2026-08-24 | 有 | 有 |
+| `bmad-product-brief` | `vendor/bmad/skills/bmad-product-brief` | 116 B | 11.4 KB | 0.0 KB | 2026-08-24 | 有 | 有 |
+| `bmad-project-context` | `vendor/bmad/skills/bmad-project-context` | 198 B | 8.3 KB | 7.5 KB | 2026-08-24 | 有 | 有 |
+| `bmad-qa-generate-e2e-tests` | `vendor/bmad/skills/bmad-qa-generate-e2e-tests` | 123 B | 5.5 KB | 0.0 KB | 2026-08-24 | 有 | 有 |
+| `bmad-quick-dev` | `vendor/bmad/skills/bmad-quick-dev` | 70 B | 1.9 KB | 0.0 KB | 2026-08-24 | 有 | 有 |
+| `bmad-retrospective` | `vendor/bmad/skills/bmad-retrospective` | 234 B | 13.1 KB | 26.9 KB | 2026-08-24 | 有 | 有 |
+| `bmad-review` | `vendor/bmad/skills/bmad-review` | 357 B | 7.4 KB | 24.3 KB | 2026-08-24 | 有 | 有 |
+| `bmad-review-adversarial-general` | `vendor/bmad/skills/bmad-review-adversarial-general` | 39 B | 0.4 KB | 0.0 KB | 2026-08-24 | 有 | 有 |
+| `bmad-review-edge-case-hunter` | `vendor/bmad/skills/bmad-review-edge-case-hunter` | 39 B | 0.5 KB | 0.0 KB | 2026-08-24 | 有 | 有 |
+| `bmad-review-verification-gap` | `vendor/bmad/skills/bmad-review-verification-gap` | 39 B | 0.4 KB | 0.0 KB | 2026-08-24 | 有 | 有 |
+| `bmad-spec` | `vendor/bmad/skills/bmad-spec` | 277 B | 16.8 KB | 0.0 KB | 2026-08-24 | 有 | 有 |
+| `bmad-sprint-planning` | `vendor/bmad/skills/bmad-sprint-planning` | 312 B | 5.1 KB | 9.2 KB | 2026-08-24 | 有 | 有 |
+| `bmad-sprint-status` | `vendor/bmad/skills/bmad-sprint-status` | 62 B | 2.3 KB | 0.0 KB | 2026-08-24 | 有 | 有 |
+| `bmad-technical-research` | `vendor/bmad/skills/bmad-technical-research` | 60 B | 1.8 KB | 0.0 KB | 2026-08-24 | 有 | 有 |
+| `bmad-ux` | `vendor/bmad/skills/bmad-ux` | 145 B | 10.4 KB | 13.9 KB | 2026-08-24 | 有 | 有 |
+| `bmad-validate-prd` | `vendor/bmad/skills/bmad-validate-prd` | 54 B | 2.9 KB | 0.0 KB | 2026-08-24 | 有 | 有 |
 
 ## 复核依据
 
@@ -230,9 +230,9 @@
 
 组级 · 覆盖 49 个成员｜来源 `appraisals.json · groups.bmad`｜上次复核 2026-08-24
 
-**什么会让它失效** 上游 bmad-code-org/BMAD-METHOD 发布高于 v6.11.0 的版本；或本仓再次出现对 .agents/skills、.claude/skills 的本地改动（fork 承诺零改动，一旦有改动即降级为 vendor）。
+**什么会让它失效** 上游 bmad-code-org/BMAD-METHOD 发布高于 v6.11.0 的版本；或本仓再次出现对 vendor/bmad/skills 的本地改动（fork 承诺零改动，一旦有改动即降级为 vendor）。
 
-**下次最少复核步骤** ① git diff --stat 7024901 -- .agents/skills .claude/skills 应为空，且 diff -rq .agents/skills .claude/skills 无差异——两条任一不空即 fork 承诺已破。② 查 https://github.com/bmad-code-org/BMAD-METHOD/releases 是否有高于 v6.11.0 的版本。③ 升级后跑 uv run .agents/skills/bmad-retrospective/scripts/tests/test_sprint_status.py，Windows 基线为 87 passed / 4 failed；那 4 个失败（atomic_write_preserves_mode、unreadable_target、symlinked_target、write_failure_restore）全部源于 Windows 没有 POSIX 权限语义，与本仓无关，多出任何失败才需下钻。
+**下次最少复核步骤** ① 对 vendor/bmad/skills 与上游 v6.11.0 的内容做比对，有差异即 fork 承诺已破（此前的「两份副本互比」判据已随单份 vendor 化于 2026-08-25 退役）。② 查 https://github.com/bmad-code-org/BMAD-METHOD/releases 是否有高于 v6.11.0 的版本。③ 升级后跑 uv run vendor/bmad/skills/bmad-retrospective/scripts/tests/test_sprint_status.py，Windows 基线为 87 passed / 4 failed；那 4 个失败（atomic_write_preserves_mode、unreadable_target、symlinked_target、write_failure_restore）全部源于 Windows 没有 POSIX 权限语义，与本仓无关，多出任何失败才需下钻。
 
 **本次判定依据** 2026-08-24 核实：epic-1-retro-item-5 声称的『无法写入 epic 级状态』不成立。sprint_plan.py（bmad-sprint-planning，epic 键的真正属主）自 v6.11.0 起就有 generate --set KEY=STATUS，docstring 明写 the repair path is allowed to downgrade，_parse_sets 用 classify_key + RANKS[kind] 按 epic 词表校验。已 dry-run 验证 --set epic-3=done 返回 explicit_set 且零写入。此前加在 sprint_status.py（bmad-retrospective）的 65 行是功能重复且放错脚本，已于本次全部回退。注意：generate --set 会从 epics.md 重新生成，当前会 drop 5 条 epics.md 未覆盖的 story 键——那是本仓 epics.md 与 sprint-status.yaml 的漂移，不是 bmad 的问题。
 

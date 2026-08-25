@@ -63,7 +63,7 @@ BMAD_INSTALL_MANIFEST_RELATIVE_PATH = "_bmad/_config/manifest.yaml"
 CLI_RELATIVE_PATH = "packages/control-plane/src/cli/index.ts"
 
 #: bmad 安装器清单声明的那批 Skill 在本仓的落点组。
-BMAD_GROUP = ".agents"
+BMAD_GROUP = "vendor/bmad"
 #: 入口点名的 Skill 所在的组前缀。
 PLUGIN_GROUP_PREFIX = "plugins/"
 

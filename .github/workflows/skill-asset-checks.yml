@@ -3,19 +3,11 @@ name: Skill asset checks
 # 守两条不变量，都只校验版本化来源，不代表任何运行端已安装或生效：
 #   1. Skill 资产面（tools/skill_registry）与选型面（plugins/docs/skills-overview.md）
 #      对同一批 Skill 的 L1 读数一致，且 registry.md 与其来源没有漂移；
-#   2. BMad 安装器按 ides: [claude-code, codex, pi] 写出的两份副本保持逐字节相同。
 #
-# 第 2 条不是洁癖：两份副本是同一个组的两个安装点，登记面的全部统计都建立在
-# "两份相同"之上。历史上有过只改一边的先例（137aeb0，已于 2026-08-24 回退），
-# 少改一边会静默分叉且没有任何机制会发现。
-#
-# 去重不是「等 Epic 4」就能拿到的。2026-08-24 核实：Epic 4 的 Claude adapter 只把
-# 已在磁盘上的 skill 目录物化进它自己启动的 fresh 会话（content-materializer.ts 的
-# resolveSourcePath 直接返回 sourceRef 路径、再 cp -r），它既不获取 skill 本体，也
-# 够不到原生启动的会话——AD-20 的 2026-08-24 澄清已定论：这两份是 Claude Code／Codex
-# 从 git 跟踪文件原生发现的，与本产品渲染管线无关。真正缺的是上游的「供给 + 分发」
-# 能力面，当前无任何 Epic 覆盖，记在 #173。在它落地并通过 parity 验证之前，两份都
-# 必须保持被跟踪，本检查继续防分叉。
+# 原第 2 条不变量「两份 IDE 副本逐字节相同」已于 2026-08-25 退役：负责人裁定
+# 第三方 Skill 组按 vendor 内容跟踪一份（vendor/bmad/skills/），不再按客户端
+# 投影成两份，因此不存在可分叉的第二份，该门失去对象。装配改由 configs 承担
+# （AD-22：configs 的修订是唯一装配权威），客户端原生发现目录不再承载字节。
 
 on:
   pull_request:
@@ -24,8 +16,7 @@ on:
     paths:
       - "tools/skill_registry/**"
       - "plugins/**"
-      - ".agents/skills/**"
-      - ".claude/skills/**"
+      - "vendor/bmad/skills/**"
       - ".github/workflows/skill-asset-checks.yml"
   push:
     branches:
@@ -33,8 +24,7 @@ on:
     paths:
       - "tools/skill_registry/**"
       - "plugins/**"
-      - ".agents/skills/**"
-      - ".claude/skills/**"
+      - "vendor/bmad/skills/**"
       - ".github/workflows/skill-asset-checks.yml"
 
 permissions:
@@ -56,13 +46,3 @@ jobs:
 
       - name: Check skill registry cross-reads and generated output
         run: node tools/skill_registry/skill-registry.ts --check
-
-      # 只比较 SKILL.md 与 references 等版本化内容；__pycache__、.pytest_cache 等
-      # 本机运行残留不属于来源，排除后再比。
-      - name: Check BMad install copies have not diverged
-        run: |
-          diff -r \
-            --exclude=__pycache__ \
-            --exclude=.pytest_cache \
-            --exclude='*.pyc' \
-            .agents/skills .claude/skills
