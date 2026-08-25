@@ -1,0 +1,23 @@
+version = 3
+prompt = ".cap/prompts/implementation.md"
+runtime = { omp = "default" }
+
+[skills]
+allow = ["implementation-skill"]
+deny = []
+override = []
+
+[mcps]
+allow = ["implementation-mcp"]
+deny = []
+override = []
+
+[hooks]
+allow = ["implementation-hook"]
+deny = []
+override = []
+
+[plugins]
+allow = ["implementation-plugin"]
+deny = []
+override = []

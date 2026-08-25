@@ -1,0 +1,452 @@
+{
+  "capability_semantics": {
+    "hooks": "opaque-staging",
+    "mcp": "native-config",
+    "plugins": "opaque-staging",
+    "skills": "native-staging"
+  },
+  "clients": {
+    "claude": {
+      "adapter_version": 1,
+      "executable": "claude"
+    },
+    "codex": {
+      "adapter_version": 8,
+      "executable": "codex"
+    },
+    "omp": {
+      "adapter_version": 8,
+      "executable": "omp"
+    },
+    "qoder": {
+      "adapter_version": 8,
+      "executable": "qoder"
+    }
+  },
+  "external_imports": [],
+  "inputs": {
+    ".cap/capabilities": {
+      "type": "directory"
+    },
+    ".cap/capabilities/hooks": {
+      "type": "directory"
+    },
+    ".cap/capabilities/hooks/implementation-hook": {
+      "type": "directory"
+    },
+    ".cap/capabilities/hooks/implementation-hook/targets": {
+      "type": "directory"
+    },
+    ".cap/capabilities/hooks/implementation-hook/targets/claude": {
+      "type": "directory"
+    },
+    ".cap/capabilities/hooks/implementation-hook/targets/claude/hooks": {
+      "type": "directory"
+    },
+    ".cap/capabilities/hooks/implementation-hook/targets/claude/hooks/implementation-hook.sentinel": {
+      "mode": "0644",
+      "sha256": "e8dde3e8c9e1820d217049be481c39b6e2292b0ab82e6b91ee08328263f586a9",
+      "type": "file"
+    },
+    ".cap/capabilities/hooks/implementation-hook/targets/codex": {
+      "type": "directory"
+    },
+    ".cap/capabilities/hooks/implementation-hook/targets/codex/hooks": {
+      "type": "directory"
+    },
+    ".cap/capabilities/hooks/implementation-hook/targets/codex/hooks/implementation-hook.sentinel": {
+      "mode": "0644",
+      "sha256": "b2b9254ff0d317ed3c37aaf5c20e23f08fc839d566f5c798300043377cba2892",
+      "type": "file"
+    },
+    ".cap/capabilities/hooks/implementation-hook/targets/omp": {
+      "type": "directory"
+    },
+    ".cap/capabilities/hooks/implementation-hook/targets/omp/hooks": {
+      "type": "directory"
+    },
+    ".cap/capabilities/hooks/implementation-hook/targets/omp/hooks/implementation-hook.sentinel": {
+      "mode": "0644",
+      "sha256": "62b98ed86714414a0e8ec22a6f82eedc219251053d09ce2b0d73bff00ceeef8e",
+      "type": "file"
+    },
+    ".cap/capabilities/hooks/implementation-hook/targets/qoder": {
+      "type": "directory"
+    },
+    ".cap/capabilities/hooks/implementation-hook/targets/qoder/hooks": {
+      "type": "directory"
+    },
+    ".cap/capabilities/hooks/implementation-hook/targets/qoder/hooks/implementation-hook.sentinel": {
+      "mode": "0644",
+      "sha256": "2d96afe1dc4bcbbaffd7544f2996af684ad27992216f80347b152ec121425bbe",
+      "type": "file"
+    },
+    ".cap/capabilities/hooks/review-hook": {
+      "type": "directory"
+    },
+    ".cap/capabilities/hooks/review-hook/targets": {
+      "type": "directory"
+    },
+    ".cap/capabilities/hooks/review-hook/targets/claude": {
+      "type": "directory"
+    },
+    ".cap/capabilities/hooks/review-hook/targets/claude/hooks": {
+      "type": "directory"
+    },
+    ".cap/capabilities/hooks/review-hook/targets/claude/hooks/review-hook.sentinel": {
+      "mode": "0644",
+      "sha256": "b29e2230a23f65419547970938a9fefcd28436985d387dd20832ead7c318b679",
+      "type": "file"
+    },
+    ".cap/capabilities/hooks/review-hook/targets/codex": {
+      "type": "directory"
+    },
+    ".cap/capabilities/hooks/review-hook/targets/codex/hooks": {
+      "type": "directory"
+    },
+    ".cap/capabilities/hooks/review-hook/targets/codex/hooks/review-hook.sentinel": {
+      "mode": "0644",
+      "sha256": "e3803a4a988ec8f386bd949fe0e846919ab0dd3144db81c8e4fd12c30305cee7",
+      "type": "file"
+    },
+    ".cap/capabilities/hooks/review-hook/targets/omp": {
+      "type": "directory"
+    },
+    ".cap/capabilities/hooks/review-hook/targets/omp/hooks": {
+      "type": "directory"
+    },
+    ".cap/capabilities/hooks/review-hook/targets/omp/hooks/review-hook.sentinel": {
+      "mode": "0644",
+      "sha256": "8a65c605be4ec32f91ce71294d9cf6b1bf2e93135e6835d277a3b3b63fbfb778",
+      "type": "file"
+    },
+    ".cap/capabilities/hooks/review-hook/targets/qoder": {
+      "type": "directory"
+    },
+    ".cap/capabilities/hooks/review-hook/targets/qoder/hooks": {
+      "type": "directory"
+    },
+    ".cap/capabilities/hooks/review-hook/targets/qoder/hooks/review-hook.sentinel": {
+      "mode": "0644",
+      "sha256": "290a06729a32c014e7e5abf2defe3e76e123d62781202c169a8dc2b770eca3d2",
+      "type": "file"
+    },
+    ".cap/capabilities/mcp": {
+      "type": "directory"
+    },
+    ".cap/capabilities/mcp/implementation-mcp.json": {
+      "mode": "0644",
+      "sha256": "4d79995cf87c78109002e8ce169131d5aab4a31fe22fce74c90ea6d074a4232c",
+      "type": "file"
+    },
+    ".cap/capabilities/mcp/review-mcp.json": {
+      "mode": "0644",
+      "sha256": "e112599bbc66ad340b50c50371683a3aa2bb53d71a1e5e89cc50210e714e959c",
+      "type": "file"
+    },
+    ".cap/capabilities/plugins": {
+      "type": "directory"
+    },
+    ".cap/capabilities/plugins/implementation-plugin": {
+      "type": "directory"
+    },
+    ".cap/capabilities/plugins/implementation-plugin/targets": {
+      "type": "directory"
+    },
+    ".cap/capabilities/plugins/implementation-plugin/targets/claude": {
+      "type": "directory"
+    },
+    ".cap/capabilities/plugins/implementation-plugin/targets/claude/plugins": {
+      "type": "directory"
+    },
+    ".cap/capabilities/plugins/implementation-plugin/targets/claude/plugins/implementation-plugin.sentinel": {
+      "mode": "0644",
+      "sha256": "b75a2e967ada1387503ef18237391dc5329b0cf9015a820c13e2b3012fad95eb",
+      "type": "file"
+    },
+    ".cap/capabilities/plugins/implementation-plugin/targets/codex": {
+      "type": "directory"
+    },
+    ".cap/capabilities/plugins/implementation-plugin/targets/codex/plugins": {
+      "type": "directory"
+    },
+    ".cap/capabilities/plugins/implementation-plugin/targets/codex/plugins/implementation-plugin.sentinel": {
+      "mode": "0644",
+      "sha256": "02f5364e738798cb51377a48cca47f21277b64be8e116ee32ff00f6bfd2a8286",
+      "type": "file"
+    },
+    ".cap/capabilities/plugins/implementation-plugin/targets/omp": {
+      "type": "directory"
+    },
+    ".cap/capabilities/plugins/implementation-plugin/targets/omp/plugins": {
+      "type": "directory"
+    },
+    ".cap/capabilities/plugins/implementation-plugin/targets/omp/plugins/implementation-plugin.sentinel": {
+      "mode": "0644",
+      "sha256": "29ac355099a6fd3dafb78c688e1792cede112d02b30e9f39da43be182496f7ab",
+      "type": "file"
+    },
+    ".cap/capabilities/plugins/implementation-plugin/targets/qoder": {
+      "type": "directory"
+    },
+    ".cap/capabilities/plugins/implementation-plugin/targets/qoder/plugins": {
+      "type": "directory"
+    },
+    ".cap/capabilities/plugins/implementation-plugin/targets/qoder/plugins/implementation-plugin.sentinel": {
+      "mode": "0644",
+      "sha256": "b9880e318c7e719b170e4ca5e9568f7a4588ed17e27a883bdcebec98dd8dc8cc",
+      "type": "file"
+    },
+    ".cap/capabilities/plugins/review-plugin": {
+      "type": "directory"
+    },
+    ".cap/capabilities/plugins/review-plugin/targets": {
+      "type": "directory"
+    },
+    ".cap/capabilities/plugins/review-plugin/targets/claude": {
+      "type": "directory"
+    },
+    ".cap/capabilities/plugins/review-plugin/targets/claude/plugins": {
+      "type": "directory"
+    },
+    ".cap/capabilities/plugins/review-plugin/targets/claude/plugins/review-plugin.sentinel": {
+      "mode": "0644",
+      "sha256": "89e77ff79cd0ade641d54fb1ddcb08695d1c7d8a86376875b23b1da3b7cb7662",
+      "type": "file"
+    },
+    ".cap/capabilities/plugins/review-plugin/targets/codex": {
+      "type": "directory"
+    },
+    ".cap/capabilities/plugins/review-plugin/targets/codex/plugins": {
+      "type": "directory"
+    },
+    ".cap/capabilities/plugins/review-plugin/targets/codex/plugins/review-plugin.sentinel": {
+      "mode": "0644",
+      "sha256": "22bed07e9601ae79b4a6cc2477b46af8ddb43f9f9de865e00f8e099c9b3ee83a",
+      "type": "file"
+    },
+    ".cap/capabilities/plugins/review-plugin/targets/omp": {
+      "type": "directory"
+    },
+    ".cap/capabilities/plugins/review-plugin/targets/omp/plugins": {
+      "type": "directory"
+    },
+    ".cap/capabilities/plugins/review-plugin/targets/omp/plugins/review-plugin.sentinel": {
+      "mode": "0644",
+      "sha256": "3c434bcb04a4feeb874aa60427fecdb4dbbf0a01d598467f1832a19156f61772",
+      "type": "file"
+    },
+    ".cap/capabilities/plugins/review-plugin/targets/qoder": {
+      "type": "directory"
+    },
+    ".cap/capabilities/plugins/review-plugin/targets/qoder/plugins": {
+      "type": "directory"
+    },
+    ".cap/capabilities/plugins/review-plugin/targets/qoder/plugins/review-plugin.sentinel": {
+      "mode": "0644",
+      "sha256": "278a0084c03e2f36fab807a9dfd4b442fafec2e47c7972654071a0b17e9d8f3a",
+      "type": "file"
+    },
+    ".cap/capabilities/skills": {
+      "type": "directory"
+    },
+    ".cap/capabilities/skills/implementation-skill": {
+      "type": "directory"
+    },
+    ".cap/capabilities/skills/implementation-skill/SKILL.md": {
+      "mode": "0644",
+      "sha256": "36660322dd42ec7c9c7e091eab2cbfd23bbf445bed1838f77bd8c60d78cf8857",
+      "type": "file"
+    },
+    ".cap/capabilities/skills/review-skill": {
+      "type": "directory"
+    },
+    ".cap/capabilities/skills/review-skill/SKILL.md": {
+      "mode": "0644",
+      "sha256": "9bd002262fd78120a289577122972eaacd9c0c470d338d5f4e49e6bb2e9eb461",
+      "type": "file"
+    },
+    ".cap/manifest.toml": {
+      "mode": "0644",
+      "sha256": "0db0dadf69f5564b2c58cf1d254d0cbc564891ed1bbda2288e67f696e1488492",
+      "type": "file"
+    },
+    ".cap/profiles/implementation.toml": {
+      "mode": "0644",
+      "sha256": "26c3e31873420073479f552277a1e7451433489e6938ac3c77ac38f673084b53",
+      "type": "file"
+    },
+    ".cap/profiles/review.toml": {
+      "mode": "0644",
+      "sha256": "ed0d3e4527f62fb12545fa5d842d54114a3239cede6549009d28d5260ebe9d11",
+      "type": "file"
+    },
+    ".cap/project-defaults.toml": {
+      "mode": "0644",
+      "sha256": "e0fc85719cd802e78a2acb13f9220878dff823d063ebe553f43d66279642d204",
+      "type": "file"
+    },
+    ".cap/prompts/implementation.md": {
+      "mode": "0644",
+      "sha256": "37e597509bce794adae7a81123e17946b4344362dc45656176f1ae1102286e99",
+      "type": "file"
+    },
+    ".cap/prompts/review.md": {
+      "mode": "0644",
+      "sha256": "7b4902e0f98337dc6bb9fd52f3756eda37663c51747b631c6ddf22a2e5f0fdcd",
+      "type": "file"
+    },
+    ".cap/runtime/omp.toml": {
+      "mode": "0644",
+      "sha256": "a82e3af68edcc297fd0b9dedf35180aafaf479cad3fcc95ca9393446bbbe8350",
+      "type": "file"
+    },
+    "AGENTS.md": {
+      "mode": "0644",
+      "sha256": "628e7bfe7e2f5abfb87dea40adae99a5dbaa69084a7ffbf64d8bbf6a7934c198",
+      "type": "file"
+    }
+  },
+  "profiles": {
+    "implementation": {
+      "chain": [
+        "project-defaults",
+        "implementation"
+      ],
+      "clients": {
+        "claude": {
+          "tree_hash": "sha256:cb04c8695aecd8910caacf69b96624fdda92f5e677bdffe637b29a06c63ac713"
+        },
+        "codex": {
+          "tree_hash": "sha256:34d0d2d491540dd77de99f03ff66d180e87d2257e703fcb88b525c23d5414c16"
+        },
+        "omp": {
+          "tree_hash": "sha256:f995d0726c231d61680fe65dfaf4a9f0353fd0df8bbd372269fdc4b45a9ca384"
+        },
+        "qoder": {
+          "tree_hash": "sha256:0c33261e1810c70238a545c41e0f6a9ec3c48129d77018c459fd8d3d44a5a7d2"
+        }
+      },
+      "defaults": "project-defaults",
+      "inventory": {
+        "hooks": [
+          "implementation-hook"
+        ],
+        "mcps": [
+          "implementation-mcp"
+        ],
+        "plugins": [
+          "implementation-plugin"
+        ],
+        "skills": [
+          "implementation-skill"
+        ]
+      },
+      "layer_digest": "sha256:204389d74edc1c4ec569f2b742f722e880540463911b524cb404ed0e80b8eac7",
+      "operations": {
+        "hooks": {
+          "allow": [
+            "implementation-hook"
+          ],
+          "deny": [],
+          "override": []
+        },
+        "mcps": {
+          "allow": [
+            "implementation-mcp"
+          ],
+          "deny": [],
+          "override": []
+        },
+        "plugins": {
+          "allow": [
+            "implementation-plugin"
+          ],
+          "deny": [],
+          "override": []
+        },
+        "skills": {
+          "allow": [
+            "implementation-skill"
+          ],
+          "deny": [],
+          "override": []
+        }
+      },
+      "runtime": {
+        "omp": "default"
+      }
+    },
+    "review": {
+      "chain": [
+        "project-defaults",
+        "review"
+      ],
+      "clients": {
+        "claude": {
+          "tree_hash": "sha256:3fc54cba344c00ac66e0b6dda0ad66971a25585b8e3a07c727067f17344918f4"
+        },
+        "codex": {
+          "tree_hash": "sha256:a3184e9cf4bd3ee3b829b389cb63339df4c3f1171d5884ac22803ccdff8856fe"
+        },
+        "omp": {
+          "tree_hash": "sha256:2b4d6b258740697fae6ae0118b3ac4fcb80365a06d1d9c64327cf697071839ec"
+        },
+        "qoder": {
+          "tree_hash": "sha256:4509a221f78da3768bb9885caec8b2eb029962fc200501910da747f23a607ee6"
+        }
+      },
+      "defaults": "project-defaults",
+      "inventory": {
+        "hooks": [
+          "review-hook"
+        ],
+        "mcps": [
+          "review-mcp"
+        ],
+        "plugins": [
+          "review-plugin"
+        ],
+        "skills": [
+          "review-skill"
+        ]
+      },
+      "layer_digest": "sha256:670c64798a2c80c86c32e799958835ecccff2807899bb5c217d05361f8753e34",
+      "operations": {
+        "hooks": {
+          "allow": [
+            "review-hook"
+          ],
+          "deny": [],
+          "override": []
+        },
+        "mcps": {
+          "allow": [
+            "review-mcp"
+          ],
+          "deny": [],
+          "override": []
+        },
+        "plugins": {
+          "allow": [
+            "review-plugin"
+          ],
+          "deny": [],
+          "override": []
+        },
+        "skills": {
+          "allow": [
+            "review-skill"
+          ],
+          "deny": [],
+          "override": []
+        }
+      },
+      "runtime": {
+        "omp": "default"
+      }
+    }
+  },
+  "renderer_version": "profile-renderer-v3",
+  "version": 3
+}

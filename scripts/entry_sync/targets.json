@@ -1,0 +1,103 @@
+{
+  "schema": "agent-control.entry-sync-targets",
+  "version": 1,
+  "source": "entrypoints/agent-system.md",
+  "targets": [
+    {
+      "id": "repository-source",
+      "scope": "repository",
+      "strategy": "copy",
+      "destination": {
+        "base": "repository",
+        "path": "entrypoints/agent-system.md"
+      },
+      "output": "repository/entrypoints/agent-system.md"
+    },
+    {
+      "id": "repository-readme",
+      "scope": "repository",
+      "strategy": "overlay",
+      "destination": {
+        "base": "repository",
+        "path": "README.md"
+      },
+      "output": "repository/README.md",
+      "preserve_unselected": true,
+      "sections": [
+        {
+          "mode": "target_specific",
+          "source": {
+            "heading": "持久实现语言",
+            "level": 2
+          },
+          "target": {
+            "heading": "持久实现语言",
+            "level": 2
+          },
+          "reason": "README 保留仓库贡献者所需的项目级语言规则摘要。"
+        },
+        {
+          "mode": "target_specific",
+          "source": {
+            "heading": "扩大工作范围",
+            "level": 3
+          },
+          "target": {
+            "heading": "扩大工作范围",
+            "level": 3
+          },
+          "reason": "README 只保留指向版本化入口同名章节的最短回指。"
+        },
+        {
+          "mode": "target_specific",
+          "source": {
+            "heading": "在线续接与负责人事项",
+            "level": 2
+          },
+          "target": {
+            "heading": "在线续接与负责人事项",
+            "level": 2
+          },
+          "reason": "README 只保留指向版本化入口同名章节的最短回指。"
+        }
+      ]
+    },
+    {
+      "id": "repository-agents",
+      "scope": "repository",
+      "strategy": "overlay",
+      "destination": {
+        "base": "repository",
+        "path": "AGENTS.md"
+      },
+      "output": "repository/AGENTS.md",
+      "preserve_unselected": true,
+      "sections": [
+        {
+          "mode": "target_specific",
+          "source": {
+            "heading": "Agent 系统任务路由",
+            "level": 2
+          },
+          "target": {
+            "heading": "仓库任务路由",
+            "level": 2
+          },
+          "reason": "仓库入口保留先读 README 与 _archive/authority/00-map.md 的仓内路由。"
+        },
+        {
+          "mode": "target_specific",
+          "source": {
+            "heading": "知识按名问路",
+            "level": 2
+          },
+          "target": {
+            "heading": "知识按名问路",
+            "level": 2
+          },
+          "reason": "仓库入口使用当前 worktree 的相对路径；安装入口使用稳定主仓绝对路径，均保持主动按名问路。"
+        }
+      ]
+    }
+  ]
+}

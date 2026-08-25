@@ -1,0 +1,2 @@
+# 物化树、observer state 和收据必须显式放在受管项目之外。
+__pycache__/
