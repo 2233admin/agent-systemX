@@ -48,11 +48,15 @@ describe('lease state transitions', () => {
   test('rejects a second holder unless stale proof is explicit', () => {
     const first = claimLease(undefined, executionClaim);
     if (first.kind !== 'claimed') throw new Error('initial claim failed');
-
+    const proof = {
+      reason: 'worker-1 lease is stale',
+      observedAt: '2026-08-27T12:00:00.000Z',
+      evidence: { source: 'lease-test', observedAt: '2026-08-27T12:00:00.000Z' },
+    };
     const rejected = claimLease(first.lease, { ...executionClaim, holderId: 'worker-2' });
     expect(rejected.kind).toBe('blocked');
     expect(canStealLease(first.lease)).toBe(false);
-    expect(canStealLease(first.lease, { reason: 'worker-1 lease is stale' })).toBe(true);
+    expect(canStealLease(first.lease, proof)).toBe(true);
   });
 
   test('increments the fencing token when a stale lease is stolen', () => {
@@ -62,9 +66,8 @@ describe('lease state transitions', () => {
     const stolen = claimLease(
       first.lease,
       { ...executionClaim, holderId: 'worker-2', claimedAt: '2026-08-27T12:02:00.000Z' },
-      { reason: 'lease heartbeat is stale' },
+      { reason: 'lease heartbeat is stale', observedAt: '2026-08-27T12:00:00.000Z', evidence: { source: 'lease-test', observedAt: '2026-08-27T12:00:00.000Z' } },
     );
-
     expect(stolen).toEqual({
       kind: 'claimed',
       lease: { ...executionClaim, holderId: 'worker-2', fencingToken: 2, claimedAt: '2026-08-27T12:02:00.000Z' },

@@ -29,17 +29,15 @@ export function validateStableIdentity(value: StableIdentity): StableIdentity {
   return value;
 }
 
-export function validateArtifactRevision(value: ArtifactRevision): ArtifactRevision {
-  if (
-    !isRecord(value) ||
-    typeof value.schemaVersion !== 'number' ||
-    typeof value.revision !== 'number' ||
-    typeof value.updatedAt !== 'string'
-  ) {
-    throw new TypeError('ArtifactRevision requires numeric schemaVersion/revision and updatedAt');
+export function validateArtifactRevision(value: unknown): ArtifactRevision {
+  if (!isRecord(value)
+    || typeof value.schemaVersion !== 'number' || !Number.isSafeInteger(value.schemaVersion) || value.schemaVersion < 0
+    || typeof value.revision !== 'number' || !Number.isSafeInteger(value.revision) || value.revision < 0
+    || typeof value.updatedAt !== 'string') {
+    throw new TypeError('ArtifactRevision requires non-negative safe integer versions and updatedAt');
   }
   if (!isRfc3339Timestamp(value.updatedAt)) {
     throw new TypeError('ArtifactRevision updatedAt must be an RFC 3339 timestamp');
   }
-  return value;
+  return value as unknown as ArtifactRevision;
 }

@@ -7,7 +7,17 @@ export type {
   Unknown,
   Violation,
 } from './core/result';
-export type { ArtifactRevision, StableIdentity } from './core/ids';
+export {
+  isGateResult,
+  isKnown,
+  isUnknown,
+  validateEvidenceRef,
+  validateGateResult,
+  validateKnown,
+  validateRecoveryAction,
+  validateUnknown,
+  validateViolation,
+} from './core/result';
 export {
   isPlanStatus,
   transitionPlanStatus,
@@ -30,7 +40,6 @@ export type {
   LeaseReleaseResult,
   LeaseState,
   ReleasedLease,
-  ResumedLease,
   StaleProof,
 } from './domain/lease';
 export {
@@ -38,6 +47,7 @@ export {
   claimLease,
   releaseLease,
   validateLease,
+  validateStaleProof,
 } from './domain/lease';
 export type {
   WorktreeAlignment,
@@ -53,7 +63,6 @@ export type {
 } from './domain/assignment';
 export {
   parseAssignmentBranchForms,
-  parseAssignmentExecutionMode,
   parseAssignmentFields,
 } from './domain/assignment';
 export type {
@@ -61,7 +70,6 @@ export type {
   DispatchDecision,
   DispatchInput,
   DispatchLeaseState,
-  HostCapability,
 } from './gates/dispatch';
 export { validateDispatch } from './gates/dispatch';
 export type { ReviewPackage } from './domain/review';
@@ -73,16 +81,12 @@ export { evaluateIterationGate } from './gates/iteration';
 export type {
   MergeReady,
   PrReviewInput,
-  PushCadenceInput,
-  PushDecision,
   RequiredCheck,
   RequiredReview,
   ReviewTally,
   ReviewVerdict,
 } from './gates/pr-review';
-export { calculateReviewTally, evaluatePrReview, evaluatePushCadence } from './gates/pr-review';
-export type { ArtifactStore } from './ports/artifacts';
-export { JsonArtifactStore } from './adapters/json/json-artifact-store';
+export { calculateReviewTally, evaluatePrReview, evaluatePushCadence, validateMergeReady } from './gates/pr-review';
 export type {
   AdapterMetadata,
   CoordinationAdapter,

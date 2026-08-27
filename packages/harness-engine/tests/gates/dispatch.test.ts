@@ -17,7 +17,12 @@ const baseInput = {
   taskId: 'task-1',
   planStatus: 'Todo' as const,
   branchProtection: { defaultBranch: 'main', protectedBranches: ['main', 'master'] },
-  hostCapability: { kind: 'known' as const, value: 'bun' },
+  hostCapability: {
+    status: 'supported' as const,
+    hostId: 'host-1',
+    hostVersion: '2026.08',
+    evidence: { source: 'dispatch-host', observedAt: '2026-08-27T12:00:00.000Z', hostId: 'host-1', hostVersion: '2026.08' },
+  },
   leaseState: {
     kind: 'execution' as const,
     workflowId: 'workflow-1',
@@ -158,11 +163,11 @@ describe('dispatch gate', () => {
     expect(violationCodes(result)).toContain('host.capability.unknown');
   });
 
-  test('allows pure dispatch without optional observation evidence', () => {
+  test('retains host capability evidence without optional observation evidence', () => {
     const result = validateDispatch({ ...baseInput, observedAt: undefined });
     expect(result.kind).toBe('pass');
     if (result.kind !== 'pass') return;
-    expect(result.evidence).toEqual([]);
+    expect(result.evidence).toEqual([{ source: 'dispatch-host', observedAt: '2026-08-27T12:00:00.000Z' }]);
   });
 
   test('requires exactly one branch form for writable work', () => {

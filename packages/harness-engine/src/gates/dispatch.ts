@@ -2,6 +2,7 @@ import type { GateResult, RecoveryAction, Violation } from '../core/result.ts';
 import { isRfc3339Timestamp } from '../core/result.ts';
 import { isPlanStatus, type PlanStatus } from '../domain/workflow.ts';
 import { validateLease, type ExecutionLease } from '../domain/lease.ts';
+import { validateCapabilityResult, type CapabilityResult } from '../ports/host.ts';
 import {
   parseAssignmentBranchForms,
   parseAssignmentExecutionMode,
@@ -13,15 +14,6 @@ export interface BranchProtection {
   readonly protectedBranches?: readonly string[];
   readonly protected?: boolean;
   readonly allowDirectOn?: boolean;
-  readonly [key: string]: unknown;
-}
-
-export interface HostCapability {
-  readonly kind?: 'known' | 'unknown';
-  readonly value?: unknown;
-  readonly evidence?: unknown;
-  readonly known?: boolean;
-  readonly [key: string]: unknown;
 }
 
 export type DispatchLeaseState = ExecutionLease;
@@ -34,7 +26,7 @@ export interface DispatchInput {
   readonly planStatus?: PlanStatus | string;
   readonly status?: PlanStatus | string;
   readonly branchProtection?: BranchProtection | boolean;
-  readonly hostCapability?: HostCapability | string | undefined;
+  readonly hostCapability?: CapabilityResult;
   readonly leaseState?: unknown;
   readonly worktree?: string;
   readonly worktreePath?: string;
@@ -42,8 +34,8 @@ export interface DispatchInput {
   readonly executorId?: string;
   readonly writable?: boolean;
   readonly observedAt?: string;
-  readonly [key: string]: unknown;
 }
+
 
 export interface DispatchDecision {
   readonly planId: string;
@@ -73,34 +65,33 @@ function failure(
   };
 }
 
-function isHostUnknown(capability: unknown): boolean {
-  if (capability === undefined || capability === null || capability === 'unknown') return true;
-  if (typeof capability !== 'object') return false;
-  const record = capability as Record<string, unknown>;
-  return record.kind === 'unknown' || record.status === 'unknown' || record.known === false;
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
 
-function hasKnownHostCapability(capability: unknown): boolean {
-  if (typeof capability !== 'object' || capability === null) return false;
-  const record = capability as Record<string, unknown>;
-  if (record.kind !== 'known') return false;
-  const hasValue = record.value !== undefined;
-  const hasEvidence = typeof record.evidence === 'object' && record.evidence !== null;
-  return hasValue || hasEvidence;
+function validBranchProtection(value: unknown): value is BranchProtection | boolean | undefined {
+  if (value === undefined || typeof value === 'boolean') return true;
+  if (!isRecord(value) || Object.keys(value).some((key) => !['defaultBranch', 'protectedBranches', 'protected', 'allowDirectOn'].includes(key))) {
+    return false;
+  }
+  if (value.defaultBranch !== undefined && (typeof value.defaultBranch !== 'string' || value.defaultBranch.trim().length === 0)) return false;
+  if (value.protectedBranches !== undefined) {
+    if (!Array.isArray(value.protectedBranches)) return false;
+    for (let index = 0; index < value.protectedBranches.length; index += 1) {
+      if (!(index in value.protectedBranches) || typeof value.protectedBranches[index] !== 'string' || value.protectedBranches[index].trim().length === 0) return false;
+    }
+  }
+  return (value.protected === undefined || typeof value.protected === 'boolean')
+    && (value.allowDirectOn === undefined || typeof value.allowDirectOn === 'boolean');
 }
-
 
 function protectedBranches(protection: BranchProtection | boolean | undefined): readonly string[] {
-  if (typeof protection === 'object' && protection !== null && protection.protectedBranches !== undefined) {
-    return protection.protectedBranches;
-  }
+  if (isRecord(protection) && protection.protectedBranches !== undefined) return protection.protectedBranches as readonly string[];
   return ['main', 'master'];
 }
 
 function defaultBranch(protection: BranchProtection | boolean | undefined): string {
-  if (typeof protection === 'object' && protection !== null && typeof protection.defaultBranch === 'string') {
-    return protection.defaultBranch.trim();
-  }
+  if (isRecord(protection) && typeof protection.defaultBranch === 'string') return protection.defaultBranch.trim();
   return 'main';
 }
 
@@ -111,14 +102,19 @@ function isProtectedBranch(branch: string, protection: BranchProtection | boolea
 }
 
 /** 只做 Assignment、身份和能力的纯校验；不会创建 worktree、调用 Orca 或修改租约。 */
-export function validateDispatch(input: DispatchInput): GateResult<DispatchDecision> {
-  const assignment = typeof input.assignment === 'string' ? input.assignment : input.assignmentText;
+export function validateDispatch(input: unknown): GateResult<DispatchDecision> {
+  if (!isRecord(input)) return failure('fail', [violation('dispatch.input.invalid', 'Dispatch input must be an object')]);
+  const data = input as DispatchInput;
+  const assignment = typeof data.assignment === 'string' ? data.assignment : data.assignmentText;
   const fields = typeof assignment === 'string' ? parseAssignmentFields(assignment) : {};
   const branchForms = typeof assignment === 'string'
     ? parseAssignmentBranchForms(assignment)
     : { forms: [] as const };
   const violations: Violation[] = [];
 
+  if (!validBranchProtection(data.branchProtection)) {
+    violations.push(violation('branch.protection.invalid', 'Branch protection must use a valid object or boolean'));
+  }
   if (fields.executeAs === undefined) violations.push(violation('assignment.field.missing-execute-as', 'Execute as is required'));
   if (fields.delegation === undefined) violations.push(violation('assignment.field.missing-delegation', 'Delegation is required'));
   if (fields.taskCategory === undefined) violations.push(violation('assignment.field.missing-task-category', 'Task category is required'));
@@ -137,28 +133,29 @@ export function validateDispatch(input: DispatchInput): GateResult<DispatchDecis
 
   const branch = branchForms.workingBranch ?? branchForms.branchPolicy;
   const directOnReason = branchForms.directOnReason?.trim();
-  if (branch !== undefined && isProtectedBranch(branch, input.branchProtection) && directOnReason === undefined) {
+  if (branch !== undefined && validBranchProtection(data.branchProtection)
+    && isProtectedBranch(branch, data.branchProtection) && directOnReason === undefined) {
     violations.push(violation('branch.protected-default', 'Protected main/master requires an explicit direct-on reason'));
   }
 
-  const currentExecutor = input.currentExecutor ?? input.executorId;
-  if (fields.executeAs !== undefined && currentExecutor !== undefined && fields.executeAs === currentExecutor) {
+  const currentExecutor = data.currentExecutor !== undefined ? data.currentExecutor : data.executorId;
+  if (fields.executeAs !== undefined && typeof currentExecutor === 'string' && fields.executeAs === currentExecutor) {
     violations.push(violation('dispatch.anti-recursion', 'The current executor cannot dispatch to itself'));
   }
 
-  const planStatus = input.planStatus ?? input.status;
+  const planStatus = data.planStatus !== undefined ? data.planStatus : data.status;
   if (planStatus !== undefined && !isPlanStatus(planStatus)) {
     violations.push(violation('plan.status.unknown', 'Plan status is not recognized'));
   }
 
-  const planId = typeof input.planId === 'string' ? input.planId.trim() : '';
-  const taskId = typeof input.taskId === 'string' ? input.taskId.trim() : '';
-  const worktree = typeof input.worktree === 'string' ? input.worktree.trim() : typeof input.worktreePath === 'string' ? input.worktreePath.trim() : '';
+  const planId = typeof data.planId === 'string' ? data.planId.trim() : '';
+  const taskId = typeof data.taskId === 'string' ? data.taskId.trim() : '';
+  const worktree = typeof data.worktree === 'string' ? data.worktree.trim() : typeof data.worktreePath === 'string' ? data.worktreePath.trim() : '';
   if (planId.length === 0) violations.push(violation('dispatch.plan-id.missing', 'planId is required'));
   if (taskId.length === 0) violations.push(violation('dispatch.task-id.missing', 'taskId is required'));
   if (worktree.length === 0) violations.push(violation('dispatch.worktree.missing', 'worktree is required'));
 
-  const lease = input.leaseState;
+  const lease = data.leaseState;
   if (lease === undefined) {
     violations.push(violation('lease.missing', 'A canonical execution lease is required'));
   } else if (!validateLease(lease) || lease.kind !== 'execution') {
@@ -167,7 +164,7 @@ export function validateDispatch(input: DispatchInput): GateResult<DispatchDecis
     violations.push(violation('lease.misaligned', 'Execution lease must align with plan and worktree'));
   }
 
-  if (input.observedAt !== undefined && !isRfc3339Timestamp(input.observedAt)) {
+  if (data.observedAt !== undefined && !isRfc3339Timestamp(data.observedAt)) {
     violations.push(violation('evidence.observed-at.invalid', 'Dispatch evidence observedAt must be RFC 3339'));
   }
 
@@ -175,10 +172,18 @@ export function validateDispatch(input: DispatchInput): GateResult<DispatchDecis
     const onlyLeaseAlignment = violations.every((item) => item.code === 'lease.misaligned');
     return failure(onlyLeaseAlignment ? 'blocked' : 'fail', violations);
   }
-  if (isHostUnknown(input.hostCapability) || !hasKnownHostCapability(input.hostCapability)) {
+
+  let capability: CapabilityResult;
+  try {
+    capability = validateCapabilityResult(data.hostCapability);
+  } catch {
     return failure('unknown', [violation('host.capability.unknown', 'Host capability is not known')]);
   }
+  if (capability.status !== 'supported') {
+    return failure('unknown', [violation('host.capability.unknown', 'Host capability is not supported')]);
+  }
 
+  const { hostId: _hostId, hostVersion: _hostVersion, ...capabilityEvidence } = capability.evidence;
   return {
     kind: 'pass',
     value: {
@@ -189,8 +194,9 @@ export function validateDispatch(input: DispatchInput): GateResult<DispatchDecis
       worktree,
       qcSeats: executionMode === 'sdd' ? 3 : 1,
     },
-    evidence: input.observedAt === undefined
-      ? []
-      : [{ source: 'harness-engine.dispatch', observedAt: input.observedAt }],
+    evidence: [
+      capabilityEvidence,
+      ...(data.observedAt === undefined ? [] : [{ source: 'harness-engine.dispatch', observedAt: data.observedAt }]),
+    ],
   };
 }

@@ -75,13 +75,13 @@ function nonEmpty(value: unknown): value is string {
 
 function validateCapabilityEvidence(value: unknown, hostId: string, hostVersion: string): boolean {
   if (!isRecord(value)
-    || Object.keys(value).some((key) => !['source', 'observedAt', 'locator', 'hostId', 'hostVersion'].includes(key))) {
-    return false;
-  }
-  if (value.hostId !== hostId || value.hostVersion !== hostVersion) return false;
+    || Object.keys(value).some((key) => !['source', 'observedAt', 'locator', 'hostId', 'hostVersion'].includes(key))
+    || value.hostId !== hostId || value.hostVersion !== hostVersion
+    || !nonEmpty(value.hostId) || !nonEmpty(value.hostVersion)) return false;
+  const { hostId: _hostId, hostVersion: _hostVersion, ...evidence } = value;
   try {
-    validateEvidenceRef(value as unknown as EvidenceRef);
-    return nonEmpty(value.source) && nonEmpty(value.hostId) && nonEmpty(value.hostVersion);
+    validateEvidenceRef(evidence);
+    return nonEmpty(value.source);
   } catch {
     return false;
   }

@@ -45,8 +45,34 @@ const RFC_3339_TIMESTAMP =
   /^(\d{4})-(\d{2})-(\d{2})T(?:[01]\d|2[0-3]):[0-5]\d:[0-5]\d(?:\.\d+)?(?:Z|[+-](?:[01]\d|2[0-3]):[0-5]\d)$/i;
 
 function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === 'object' && value !== null;
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
+
+function hasOnlyKeys(value: Record<string, unknown>, allowed: readonly string[]): boolean {
+  return Object.keys(value).every((key) => allowed.includes(key));
+}
+
+function hasOwn(value: Record<string, unknown>, key: string): boolean {
+  return Object.hasOwn(value, key);
+}
+
+function nonEmptyString(value: unknown): value is string {
+  return typeof value === 'string' && value.trim().length > 0;
+}
+
+function isDenseArray(value: unknown): value is readonly unknown[] {
+  if (!Array.isArray(value)) return false;
+  for (let index = 0; index < value.length; index += 1) {
+    if (!(index in value)) return false;
+  }
+  return true;
+}
+
+const EVIDENCE_KEYS = ['source', 'observedAt', 'locator'] as const;
+const KNOWN_KEYS = ['kind', 'value', 'evidence'] as const;
+const UNKNOWN_KEYS = ['kind', 'reasonCode', 'observedAt', 'recovery'] as const;
+const VIOLATION_KEYS = ['code', 'message'] as const;
+const RECOVERY_KEYS = ['code', 'description'] as const;
 
 export function isRfc3339Timestamp(value: unknown): value is string {
   const timestamp = typeof value === 'string' ? value : null;
@@ -75,15 +101,16 @@ export function validateTimestamp(value: string): string {
   return value;
 }
 
-export function validateEvidenceRef(value: EvidenceRef): EvidenceRef {
-  if (!isRecord(value) || typeof value.source !== 'string' || typeof value.observedAt !== 'string') {
-    throw new TypeError('EvidenceRef requires source and observedAt strings');
+export function validateEvidenceRef(value: unknown): EvidenceRef {
+  if (!isRecord(value) || !hasOnlyKeys(value, EVIDENCE_KEYS)
+    || !hasOwn(value, 'source') || !hasOwn(value, 'observedAt')
+    || !nonEmptyString(value.source) || !isRfc3339Timestamp(value.observedAt)) {
+    throw new TypeError('EvidenceRef requires non-empty source and RFC 3339 observedAt');
   }
-  validateTimestamp(value.observedAt);
-  if (value.locator !== undefined && typeof value.locator !== 'string') {
+  if (hasOwn(value, 'locator') && value.locator !== undefined && typeof value.locator !== 'string') {
     throw new TypeError('EvidenceRef locator must be a string when present');
   }
-  return value;
+  return value as unknown as EvidenceRef;
 }
 
 export function known<T>(value: T, evidence: EvidenceRef): Known<T>;
@@ -101,60 +128,102 @@ export function known<T>(
   validateEvidenceRef(evidence);
   return { kind: 'known', value, evidence };
 }
-
 export function unknown(reasonCode: string, observedAt: string, recovery?: string): Unknown {
+  if (!nonEmptyString(reasonCode)) throw new TypeError('Unknown requires a non-empty reasonCode');
   validateTimestamp(observedAt);
+  if (recovery !== undefined && !nonEmptyString(recovery)) {
+    throw new TypeError('Unknown recovery must be non-empty when present');
+  }
   return recovery === undefined
     ? { kind: 'unknown', reasonCode, observedAt }
     : { kind: 'unknown', reasonCode, observedAt, recovery };
 }
 
+export function validateKnown<T>(value: unknown): Known<T> {
+  if (!isRecord(value) || !hasOnlyKeys(value, KNOWN_KEYS)
+    || value.kind !== 'known' || !hasOwn(value, 'value') || value.value === null || value.value === undefined
+    || !hasOwn(value, 'evidence')) {
+    throw new TypeError('Known requires non-null value and valid evidence');
+  }
+  validateEvidenceRef(value.evidence);
+  return value as unknown as Known<T>;
+}
+
 export function isKnown<T>(value: unknown): value is Known<T> {
-  return isRecord(value) && value.kind === 'known';
+  try {
+    validateKnown<T>(value);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+export function validateUnknown(value: unknown): Unknown {
+  if (!isRecord(value) || !hasOnlyKeys(value, UNKNOWN_KEYS)
+    || value.kind !== 'unknown' || !hasOwn(value, 'reasonCode') || !hasOwn(value, 'observedAt')
+    || !nonEmptyString(value.reasonCode) || !isRfc3339Timestamp(value.observedAt)
+    || (hasOwn(value, 'recovery') && value.recovery !== undefined && !nonEmptyString(value.recovery))) {
+    throw new TypeError('Unknown requires a non-empty reasonCode and RFC 3339 observedAt');
+  }
+  return value as unknown as Unknown;
 }
 
 export function isUnknown(value: unknown): value is Unknown {
-  return isRecord(value) && value.kind === 'unknown';
+  try {
+    validateUnknown(value);
+    return true;
+  } catch {
+    return false;
+  }
 }
 
-export function validateViolation(value: Violation): Violation {
-  if (!isRecord(value) || typeof value.code !== 'string' || value.code.trim().length === 0) {
+
+export function validateViolation(value: unknown): Violation {
+  if (!isRecord(value) || !hasOnlyKeys(value, VIOLATION_KEYS) || !hasOwn(value, 'code') || !nonEmptyString(value.code)) {
     throw new TypeError('Violation requires a non-empty code');
   }
-  if (value.message !== undefined && typeof value.message !== 'string') {
+  if (hasOwn(value, 'message') && value.message !== undefined && typeof value.message !== 'string') {
     throw new TypeError('Violation message must be a string when present');
   }
-  return value;
+  return value as unknown as Violation;
+}
+
+export function validateRecoveryAction(value: unknown): RecoveryAction {
+  if (!isRecord(value) || !hasOnlyKeys(value, RECOVERY_KEYS) || !hasOwn(value, 'code') || !nonEmptyString(value.code)) {
+    throw new TypeError('RecoveryAction requires a non-empty code');
+  }
+  if (hasOwn(value, 'description') && value.description !== undefined && typeof value.description !== 'string') {
+    throw new TypeError('RecoveryAction description must be a string when present');
+  }
+  return value as unknown as RecoveryAction;
 }
 
 export function validateGateResult<T>(value: unknown): GateResult<T> {
-  if (!isRecord(value)) {
-    throw new TypeError('GateResult must be an object');
-  }
+  if (!isRecord(value)) throw new TypeError('GateResult must be an object');
   if (value.kind === 'pass') {
-    if (!Object.hasOwn(value, 'value') || !Array.isArray(value.evidence)) {
-      throw new TypeError('A passing GateResult requires value and evidence fields');
+    if (!hasOnlyKeys(value, ['kind', 'value', 'evidence'])
+      || !hasOwn(value, 'value') || !hasOwn(value, 'evidence') || !isDenseArray(value.evidence)) {
+      throw new TypeError('A passing GateResult requires value and dense evidence fields');
     }
-    for (const item of value.evidence) {
-      validateEvidenceRef(item);
-    }
+    for (const item of value.evidence) validateEvidenceRef(item);
     return value as GateResult<T>;
   }
   if (value.kind !== 'fail' && value.kind !== 'blocked' && value.kind !== 'unknown') {
     throw new TypeError('GateResult kind must be pass, fail, blocked, or unknown');
   }
-  if (!Array.isArray(value.violations) || !Array.isArray(value.recovery)) {
-    throw new TypeError('A failing GateResult requires violations and recovery arrays');
+  if (!hasOnlyKeys(value, ['kind', 'violations', 'recovery'])
+    || !hasOwn(value, 'violations') || !hasOwn(value, 'recovery')
+    || !isDenseArray(value.violations) || !isDenseArray(value.recovery)) {
+    throw new TypeError('A failing GateResult requires dense violations and recovery arrays');
   }
-  for (const violation of value.violations) {
-    validateViolation(violation);
-  }
+  for (const item of value.violations) validateViolation(item);
+  for (const item of value.recovery) validateRecoveryAction(item);
   return value as GateResult<T>;
 }
 
 export function isGateResult<T>(value: unknown): value is GateResult<T> {
   try {
-    validateGateResult(value as GateResult<T>);
+    validateGateResult<T>(value);
     return true;
   } catch {
     return false;

@@ -1,4 +1,4 @@
-import { isRfc3339Timestamp } from '../core/result.ts';
+import { isRfc3339Timestamp, validateEvidenceRef, type EvidenceRef } from '../core/result.ts';
 
 export interface ExecutionLease {
   readonly kind: 'execution';
@@ -37,9 +37,9 @@ export interface LeaseState {
 }
 
 export interface StaleProof {
-  readonly reason?: string;
-  readonly observedAt?: string;
-  readonly [key: string]: unknown;
+  readonly reason: string;
+  readonly observedAt: string;
+  readonly evidence: EvidenceRef;
 }
 
 export interface ClaimedLease<T extends Lease = Lease> {
@@ -125,10 +125,18 @@ function validClaim(value: unknown): value is LeaseClaim {
     && nonEmptyString(candidate.integrationBranch);
 }
 
-function isStaleProof(value: unknown): value is StaleProof | true {
-  if (value === true) return true;
+export function validateStaleProof(value: unknown): value is StaleProof {
   if (typeof value !== 'object' || value === null || Array.isArray(value)) return false;
-  return Object.keys(value).length > 0;
+  const candidate = value as Record<string, unknown>;
+  if (Object.keys(candidate).some((key) => !['reason', 'observedAt', 'evidence'].includes(key))
+    || !nonEmptyString(candidate.reason)
+    || !validClaimedAt(candidate.observedAt)) return false;
+  try {
+    validateEvidenceRef(candidate.evidence);
+    return true;
+  } catch {
+    return false;
+  }
 }
 function currentIsValid(value: Lease | LeaseState | LeaseReleaseResult | undefined | null): boolean {
   if (value === undefined || value === null || validateLease(value)) return true;
@@ -191,12 +199,13 @@ function sameLeaseIdentity(current: Lease, claim: LeaseClaim): boolean {
 }
 
 export function canStealLease(lease: unknown, staleProof?: unknown): boolean {
-  return validateLease(lease) && isStaleProof(staleProof);
+  return validateLease(lease) && validateStaleProof(staleProof);
 }
+
 export function claimLease(
   current: Lease | LeaseState | LeaseReleaseResult | undefined | null,
   claim: LeaseClaim,
-  staleProof?: StaleProof | true,
+  staleProof?: StaleProof,
 ): LeaseClaimResult {
   if (!validClaim(claim)) return { kind: 'blocked', reason: 'Malformed lease claim' };
   if (!currentIsValid(current)) return { kind: 'blocked', reason: 'Current lease state is malformed' };

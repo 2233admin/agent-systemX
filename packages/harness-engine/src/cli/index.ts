@@ -40,15 +40,12 @@ function failureBlock(
 }
 
 function dispatchDefaults(input: DispatchInput): DispatchInput {
-  const planId = typeof input.planId === 'string' && input.planId.trim().length > 0
-    ? input.planId
-    : CLI_PLAN_ID;
-  const taskId = typeof input.taskId === 'string' && input.taskId.trim().length > 0
-    ? input.taskId
-    : CLI_TASK_ID;
-  const worktree = typeof input.worktree === 'string' && input.worktree.trim().length > 0
+  const hasOwn = (key: string): boolean => Object.hasOwn(input as object, key);
+  const planId = hasOwn('planId') ? input.planId : CLI_PLAN_ID;
+  const taskId = hasOwn('taskId') ? input.taskId : CLI_TASK_ID;
+  const worktree = hasOwn('worktree')
     ? input.worktree
-    : typeof input.worktreePath === 'string' && input.worktreePath.trim().length > 0
+    : hasOwn('worktreePath')
       ? input.worktreePath
       : CLI_WORKTREE;
 
@@ -57,17 +54,26 @@ function dispatchDefaults(input: DispatchInput): DispatchInput {
     planId,
     taskId,
     worktree,
-    branchProtection: input.branchProtection ?? { defaultBranch: 'main', protectedBranches: ['main', 'master'] },
-    hostCapability: input.hostCapability ?? { kind: 'known', value: 'local' },
-    leaseState: input.leaseState ?? {
-      kind: 'execution',
-      workflowId: CLI_WORKFLOW_ID,
-      planId,
-      holderId: 'harness-cli',
-      worktreePath: worktree,
-      fencingToken: 1,
-      claimedAt: CLI_CLAIMED_AT,
-    },
+    ...(hasOwn('branchProtection') ? {} : { branchProtection: { defaultBranch: 'main', protectedBranches: ['main', 'master'] } }),
+    ...(hasOwn('hostCapability') ? {} : {
+      hostCapability: {
+        status: 'supported' as const,
+        hostId: 'harness-cli',
+        hostVersion: 'local',
+        evidence: { source: 'harness-cli.local-host', observedAt: CLI_CLAIMED_AT, hostId: 'harness-cli', hostVersion: 'local' },
+      },
+    }),
+    ...(hasOwn('leaseState') ? {} : {
+      leaseState: {
+        kind: 'execution' as const,
+        workflowId: CLI_WORKFLOW_ID,
+        planId: planId as string,
+        holderId: 'harness-cli',
+        worktreePath: worktree as string,
+        fencingToken: 1,
+        claimedAt: CLI_CLAIMED_AT,
+      },
+    }),
   };
 }
 

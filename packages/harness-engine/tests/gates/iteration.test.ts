@@ -9,6 +9,23 @@ const residualClosure = {
   target: 'v1.1',
   closureEvidence: evidence,
 } as const;
+const currentHeadSha = 'b'.repeat(40);
+const prResult = {
+  kind: 'pass' as const,
+  value: {
+    planId: 'plan-1',
+    taskId: 'task-1',
+    baseSha: 'a'.repeat(40),
+    headSha: currentHeadSha,
+    mergeReady: true as const,
+    tally: { total: 1, approved: 1, changesRequested: 0, pending: 0, unresolved: 0, score: 100, verdict: 'approve' as const },
+    score: 100,
+    verdict: 'approve' as const,
+    residualClosure,
+  },
+  evidence,
+};
+const donePlan = { id: 'plan-1', title: 'Plan', status: 'Done' as const, metadata: {} };
 const complete: IterationGateInput = {
   phase: 'phase-3-close',
   planId: 'plan-1',
@@ -17,10 +34,12 @@ const complete: IterationGateInput = {
   reviewComplete: true,
   qaComplete: true,
   residualClosure,
+  planRows: [donePlan],
   executionLeaseReleased: true,
   integrationMergeLeaseReleased: true,
   evidence,
 };
+
 
 describe('iteration gates', () => {
   test('worker_done is delivery evidence and stops at InReview', () => {
@@ -113,7 +132,7 @@ describe('iteration gates', () => {
     expect(result.value.nextPhase).toBe('phase-4-pr-delivery');
   });
 
-  test('requires close evidence before phase 4 PR delivery', () => {
+  test('requires a current structured PR result before phase 4 delivery', () => {
     const result = evaluateIterationGate({
       phase: 'phase-4-pr-delivery',
       planId: 'plan-1',
@@ -122,14 +141,16 @@ describe('iteration gates', () => {
       reviewComplete: true,
       qaComplete: true,
       residualClosure,
+      planRows: [donePlan],
       executionLeaseReleased: true,
       integrationMergeLeaseReleased: true,
+      currentHeadSha,
       mergeReady: false,
       evidence,
     });
     expect(result.kind).toBe('blocked');
     if (result.kind !== 'blocked') return;
-    expect(result.violations.map(({ code }) => code)).toContain('iteration.merge-not-ready');
+    expect(result.violations.map(({ code }) => code)).toContain('iteration.pr-result.invalid');
   });
 
   test('phase 4 merge-ready is terminal and produces Done', () => {
@@ -141,9 +162,11 @@ describe('iteration gates', () => {
       reviewComplete: true,
       qaComplete: true,
       residualClosure,
+      planRows: [donePlan],
       executionLeaseReleased: true,
       integrationMergeLeaseReleased: true,
-      mergeReady: true,
+      currentHeadSha,
+      prResult,
       evidence,
     });
     expect(result.kind).toBe('pass');

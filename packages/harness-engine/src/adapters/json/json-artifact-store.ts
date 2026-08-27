@@ -34,7 +34,12 @@ function isRecord(value: unknown): value is JsonRecord {
 }
 
 function privateKey(value: string): boolean {
-  const normalized = value.replace(/[^a-zA-Z0-9]/g, '').toLowerCase();
+  // 先检查原始 Unicode key，再做兼容性归一化，避免 task正文 等动态字段逃逸。
+  const raw = value.trim().toLowerCase();
+  if (raw.includes('task正文') || raw.includes('prompt正文') || raw.includes('task body') || raw.includes('prompt body')) {
+    return true;
+  }
+  const normalized = raw.normalize('NFKC').replace(/[^a-zA-Z0-9]/g, '');
   return PRIVATE_KEYS[normalized] === true
     || normalized.startsWith('dynamictask')
     || normalized.startsWith('toolpayload');
@@ -185,18 +190,22 @@ async function acquireWriteLock(lockPath: string): Promise<void> {
   }
 }
 
-
 function validatePlan(value: unknown): PlanRow {
   if (!isRecord(value)
-    || typeof value.id !== 'string'
-    || typeof value.title !== 'string'
-    || !isPlanStatus(value.status)
-    || !isRecord(value.metadata)) {
+    || Object.keys(value).some((key) => !['id', 'title', 'status', 'metadata', 'executionLease'].includes(key))
+    || !Object.hasOwn(value, 'id') || !Object.hasOwn(value, 'title') || !Object.hasOwn(value, 'status')
+    || !Object.hasOwn(value, 'metadata')
+    || typeof value.id !== 'string' || value.id.trim().length === 0
+    || typeof value.title !== 'string' || value.title.trim().length === 0
+    || !isPlanStatus(value.status) || !isRecord(value.metadata)) {
     throw new TypeError('Workflow plan row is malformed');
   }
   const executionLease = value.executionLease === undefined
     ? undefined
     : assertLease(value.executionLease, 'Workflow execution lease', 'execution') as ExecutionLease;
+  if (value.status === 'Done' && executionLease !== undefined) {
+    throw new TypeError('A Done workflow plan cannot retain an execution lease');
+  }
   return {
     id: value.id,
     title: value.title,
@@ -222,6 +231,10 @@ function validateWorkflowDto(value: unknown): WorkflowDto {
   }
   if (!Array.isArray(value.plans)) {
     throw new TypeError('Workflow artifact plans must be an array');
+  }
+  for (let index = 0; index < value.plans.length; index += 1) {
+    if (!(index in value.plans)) throw new TypeError('Workflow artifact plans must be dense');
+    validatePlan(value.plans[index]);
   }
   if (typeof value.updatedAt !== 'string') {
     throw new TypeError('Workflow artifact requires updatedAt');
@@ -258,6 +271,10 @@ function toDto(snapshot: WorkflowSnapshot): WorkflowDto {
   }
   if (!Array.isArray(snapshot.plans)) {
     throw new TypeError('Workflow snapshot plans must be an array');
+  }
+  for (let index = 0; index < snapshot.plans.length; index += 1) {
+    if (!(index in snapshot.plans)) throw new TypeError('Workflow snapshot plans must be dense');
+    validatePlan(snapshot.plans[index]);
   }
   const integrationMergeLease = snapshot.integrationMergeLease === undefined
     ? undefined
@@ -307,6 +324,9 @@ export class JsonArtifactStore implements ArtifactStore {
 
   public async writeWorkflow(expectedRevision: number, next: WorkflowSnapshot): Promise<void> {
     validateRevision(expectedRevision);
+    if (!Number.isSafeInteger(expectedRevision + 1) || next.revision !== expectedRevision + 1) {
+      throw new Error(`Workflow revision must advance exactly once: expected ${expectedRevision + 1}, received ${next.revision}`);
+    }
     const destination = workflowPath(this.rootDirectory, next.workflowId);
     const directory = join(this.rootDirectory, 'workflows');
     await mkdir(directory, { recursive: true });

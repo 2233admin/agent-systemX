@@ -62,6 +62,7 @@ describe('PR review and push cadence gates', () => {
       tally: { total: 1, approved: 1, changesRequested: 0, pending: 0, unresolved: 0, score: 100, verdict: 'approve' },
       score: 100,
       verdict: 'approve',
+      residualClosure,
     });
     expect(result.evidence).toEqual(evidence);
   });
@@ -89,7 +90,7 @@ describe('PR review and push cadence gates', () => {
   test('requires every check and review to bind a concrete current head', () => {
     const check = evaluatePrReview({ ...review, requiredChecks: [{ name: 'ci', status: 'passed', headSha: '' }] });
     expect(check.kind).toBe('fail');
-    if (check.kind === 'fail') expect(check.violations.map(({ code }) => code)).toContain('pr.check.head-sha.missing');
+    if (check.kind === 'fail') expect(check.violations.map(({ code }) => code)).toContain('pr.checks.invalid');
 
     const staleReview = evaluatePrReview({ ...review, requiredReviews: [{ reviewerId: 'qc-1', status: 'approved', headSha: 'c'.repeat(40) }] });
     expect(staleReview.kind).toBe('fail');

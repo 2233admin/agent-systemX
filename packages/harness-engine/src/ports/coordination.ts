@@ -1,6 +1,5 @@
 import type { EvidenceRef, Known, Unknown } from '../core/result.ts';
-import { isRfc3339Timestamp, validateEvidenceRef } from '../core/result.ts';
-
+import { isRfc3339Timestamp, isUnknown, validateEvidenceRef, validateKnown } from '../core/result.ts';
 export interface AdapterMetadata {
   readonly source: string;
   readonly version: string;
@@ -103,23 +102,21 @@ export type DispatchDto = CoordinationDispatchDto;
 export type WorkerDto = CoordinationWorkerDto;
 export type DeliveryDto = CoordinationDeliveryDto;
 
-export function validatePortResult<T>(value: unknown): PortResult<T> {
+export function validatePortResult<T>(
+  value: unknown,
+  validateValue?: (payload: unknown) => boolean,
+): PortResult<T> {
   if (!isRecord(value)) throw new TypeError('PortResult must be an object');
   if (value.kind === 'known') {
-    if (Object.keys(value).some((key) => !['kind', 'value', 'evidence'].includes(key))
-      || !Object.hasOwn(value, 'value') || value.value === null || value.value === undefined
-      || !Object.hasOwn(value, 'evidence')) {
-      throw new TypeError('A known PortResult requires non-null value, evidence, and no dynamic fields');
+    if (validateValue === undefined || !validateValue(value.value)) {
+      throw new TypeError('A known PortResult requires a concrete validated payload');
     }
-    try {
-      validateEvidenceRef(value.evidence as unknown as EvidenceRef);
-    } catch {
-      throw new TypeError('A known PortResult requires valid evidence');
-    }
+    validateKnown<T>(value);
+    validateEvidenceRef(value.evidence);
     return value as unknown as PortResult<T>;
   }
   if (Object.keys(value).some((key) => !['kind', 'reasonCode', 'observedAt', 'recovery'].includes(key))
-    || value.kind !== 'unknown' || !nonEmpty(value.reasonCode) || !isRfc3339Timestamp(value.observedAt)) {
+    || value.kind !== 'unknown' || !isUnknown(value)) {
     throw new TypeError('An unknown PortResult requires reasonCode, RFC 3339 observedAt, and no dynamic fields');
   }
   if (value.recovery !== undefined && !nonEmpty(value.recovery)) {
