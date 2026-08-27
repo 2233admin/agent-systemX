@@ -484,6 +484,30 @@ describe('configs search', () => {
     expect(await main(['search', 'permission', '--limit', '51'])).toBe(2);
     expect(errors.join('\n')).toContain('limit');
   });
+  test('supports equals-form limits, option conflicts, and the option terminator without broadening unknown flags', async () => {
+    seed([sampleRevision({ configName: 'general', revisionId: 'rev-general', skills: [ref('skill', 'permission-control')] })]);
+
+    expect(await main(['search', 'permission', '--limit=1', '--json'])).toBe(0);
+    expect(JSON.parse(logs.at(-1) ?? '[]')).toHaveLength(1);
+    expect(await main(['search', 'permission', '--limit', '0'])).toBe(2);
+    expect(await main(['search', 'permission', '--limit', '-1'])).toBe(2);
+    expect(await main(['search', 'permission', '--limit', '51'])).toBe(2);
+    expect(await main(['search', 'permission', '--json', '--json'])).toBe(2);
+    expect(await main(['search', 'permission', '--limit', '1', '--limit=2'])).toBe(2);
+    expect(await main(['search', '--rebuild', 'permission'])).toBe(2);
+    expect(await main(['search', '--', '--foo'])).toBe(0);
+    expect(await main(['search', '--foo'])).toBe(2);
+  });
+
+  test('localizes search parser errors in both supported languages', async () => {
+    process.env.CONFIGS_LANG = 'zh';
+    expect(await main(['search', 'permission', '--limit', '51'])).toBe(2);
+    expect(errors.join('\n')).toContain('值无效');
+    errors = [];
+    process.env.CONFIGS_LANG = 'en';
+    expect(await main(['search', '--rebuild', '--rebuild'])).toBe(2);
+    expect(errors.join('\n')).toContain('can only be passed once');
+  });
 });
 
 describe('configs usage errors', () => {

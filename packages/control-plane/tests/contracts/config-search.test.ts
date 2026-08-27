@@ -10,6 +10,7 @@ import { SqliteConfigRevisionRepository } from '../../src/adapters/sqlite/reposi
 import { SqliteConfigRevisionWriter } from '../../src/adapters/sqlite/config-revision-writer';
 import { known } from '../../src/domain/facts';
 import type { CapabilityReference, StableConfigRevision } from '../../src/domain/config';
+import type { ConfigSearchResult } from '../../src/application/ports';
 
 function capability(name: string, summary: string): CapabilityReference {
   return { kind: 'skill', name, sourceCategory: known('project-capability'), summary: known(summary), sourceRef: known('private-source-ref-do-not-index'), contentFingerprint: known('private-fingerprint-do-not-index') };
@@ -25,7 +26,7 @@ function seed(revisions: readonly StableConfigRevision[]): void { const repo = n
 function database(): Database { return new Database(dbPath); }
 function jsonOutput(): unknown { return JSON.parse(logs.at(-1) ?? ''); }
 
-async function search(query: string, limit = 20): Promise<readonly unknown[]> {
+async function search(query: string, limit = 20): Promise<readonly ConfigSearchResult[]> {
   const repository = new SqliteConfigRevisionRepository(dbPath);
   try {
     return await (queries as typeof queries & { searchConfigRevisions: Function }).searchConfigRevisions(repository, query, limit);
@@ -80,8 +81,53 @@ describe('FTS5 BM25 configuration search contract', () => {
       db.close();
     }
   });
-  test('searches English names and capability summaries at revision level with numeric BM25 rank', async () => { seed([revision({ configName: 'general', revisionId: 'rev-general', skills: [capability('permission-control', 'Manage permission controls')] }), revision({ configName: 'reviewer', revisionId: 'rev-reviewer', skills: [capability('review-workflow', 'Review changes')] })]); const results = await search('permission'); expect(results[0]).toMatchObject({ revisionId: 'rev-general', configName: 'general', triggerCategory: 'new-scenario' }); expect(typeof (results[0] as { rank: unknown }).rank).toBe('number'); expect(results[0]).not.toHaveProperty('recommendation'); });
-  test('matches Chinese overlapping bigrams without duplicate revision rows', async () => { seed([revision({ configName: '权限配置', revisionId: 'rev-zh', skills: [capability('权限控制', '权限控制与访问管理')] }), revision({ configName: 'other', revisionId: 'rev-other', skills: [capability('审查流程', '代码审查流程')] })]); const results = await search('权限控制'); expect(results.filter((row) => (row as { revisionId: string }).revisionId === 'rev-zh')).toHaveLength(1); });
+  test('searches English capability names at revision level with numeric BM25 rank', async () => { seed([revision({ configName: 'general', revisionId: 'rev-general', skills: [capability('permission-control', 'Manage permission controls')] }), revision({ configName: 'reviewer', revisionId: 'rev-reviewer', skills: [capability('review-workflow', 'Review changes')] })]); const results = await search('permission'); expect(results[0]).toMatchObject({ revisionId: 'rev-general', configName: 'general', triggerCategory: 'new-scenario' }); expect(typeof (results[0] as { rank: unknown }).rank).toBe('number'); expect(results[0]).not.toHaveProperty('recommendation'); });
+  test('searches each trigger category through the public revision-level result', async () => {
+    seed([
+      revision({ configName: 'scenario', revisionId: 'rev-scenario', triggerCategory: 'new-scenario' }),
+      revision({ configName: 'insufficient', revisionId: 'rev-insufficient', triggerCategory: 'known-insufficiency' }),
+      revision({ configName: 'bad-case', revisionId: 'rev-bad-case', triggerCategory: 'bad-case' }),
+    ]);
+    expect((await search('known-insufficiency')).map((row) => row.revisionId)).toEqual(['rev-insufficient']);
+    expect((await search('bad-case')).map((row) => row.revisionId)).toEqual(['rev-bad-case']);
+  });
+  test('indexes capability names across all five capability groups without indexing summaries', async () => {
+    const makeCapability = (kind: CapabilityReference['kind'], name: string): CapabilityReference => ({
+      kind,
+      name,
+      sourceCategory: known('project-capability'),
+      summary: known(`private summary for ${name}`),
+      sourceRef: known(`private-source-${name}`),
+      contentFingerprint: known(`private-fingerprint-${name}`),
+    });
+    seed([
+      revision({
+        configName: 'all-groups',
+        revisionId: 'rev-all-groups',
+        instructions: [makeCapability('instruction', 'instruction-token')],
+        skills: [makeCapability('skill', 'skill-token')],
+        mcp: [makeCapability('mcp', 'mcp-token')],
+        hooks: [makeCapability('hook', 'hook-token')],
+        plugins: [makeCapability('plugin', 'plugin-token')],
+      }),
+    ]);
+    for (const token of ['instruction-token', 'skill-token', 'mcp-token', 'hook-token', 'plugin-token']) {
+      expect((await search(token)).map((row) => row.revisionId)).toEqual(['rev-all-groups']);
+    }
+    expect(await search('private summary')).toEqual([]);
+  });
+  test('keeps projection and FTS synchronized when an existing revision is upserted', async () => {
+    seed([revision({ configName: 'general', revisionId: 'rev-upsert', skills: [capability('old-token', 'old summary')] })]);
+    const db = database();
+    try {
+      new SqliteConfigSearchAdapter(db).indexRevision(revision({ configName: 'general', revisionId: 'rev-upsert', skills: [capability('new-token', 'new summary')] }));
+      expect(await new SqliteConfigSearchAdapter(db).search('new-token', 20)).toEqual([expect.objectContaining({ revisionId: 'rev-upsert' })]);
+      expect(await new SqliteConfigSearchAdapter(db).search('old-token', 20)).toEqual([]);
+    } finally {
+      db.close();
+    }
+  });
+  test('matches Chinese overlapping bigrams without duplicate revision rows', async () => { seed([revision({ configName: '权限配置', revisionId: 'rev-zh', skills: [capability('权限控制', '权限控制与访问管理')] }), revision({ configName: 'other', revisionId: 'rev-other', skills: [capability('审查流程', '代码审查流程')] })]); const results = await search('权限控制'); expect(results.filter((row) => row.revisionId === 'rev-zh')).toHaveLength(1); });
   test('treats punctuation-only input safely and returns no results', async () => { seed([revision({ configName: 'general', revisionId: 'rev-general' })]); expect(await search('!!! ???')).toEqual([]); });
   test('honors explicit and default search limits', async () => { seed(Array.from({ length: 6 }, (_, i) => revision({ configName: `config-${i}`, revisionId: `rev-${i}`, skills: [capability('permission', 'permission management')] }))); expect((await search('permission', 2)).length).toBe(2); expect((await search('permission')).length).toBeLessThanOrEqual(20); });
   test('rebuild restores searchable rows after derived state deletion', async () => {
@@ -283,6 +329,36 @@ describe('FTS5 BM25 configuration search contract', () => {
       repository.close();
     }
   });
+
+  test('repairs an orphan FTS row on startup', async () => {
+    seed([revision({ configName: 'general', revisionId: 'rev-orphan', skills: [capability('permission', 'permission summary')] })]);
+    const db = database();
+    try {
+      db.exec("INSERT INTO config_revision_fts(rowid, config_name, scope_boundary, capability_names, capability_summaries, trigger_category) VALUES (999, 'orphan', '', 'orphan-token', '', 'new-scenario')");
+    } finally {
+      db.close();
+    }
+    const repository = new SqliteConfigRevisionRepository(dbPath);
+    try {
+      expect(await repository.search('orphan-token', 20)).toEqual([]);
+      expect(await repository.search('permission', 20)).toEqual([expect.objectContaining({ revisionId: 'rev-orphan' })]);
+    } finally {
+      repository.close();
+    }
+  });
+
+  test('keeps FTS terms synchronized when a projection row is updated through its trigger', async () => {
+    seed([revision({ configName: 'general', revisionId: 'rev-trigger', skills: [capability('old-token', 'old summary')] })]);
+    const db = database();
+    try {
+      db.exec("UPDATE config_search_document SET capability_names = 'new-token' WHERE revision_id = 'rev-trigger'");
+    } finally {
+      db.close();
+    }
+    expect(await search('new-token')).toEqual([expect.objectContaining({ revisionId: 'rev-trigger' })]);
+    expect(await search('old-token')).toEqual([]);
+  });
+
 
   test('matches ASCII queries against full-width compatibility forms', async () => {
     seed([revision({ configName: 'compatibility', revisionId: 'rev-compatibility', skills: [capability('Ｐｅｒｍｉｓｓｉｏｎ', 'full-width permission')] })]);
