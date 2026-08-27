@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
+import { Database } from 'bun:sqlite';
 import { existsSync, mkdtempSync, rmSync } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
@@ -389,6 +390,85 @@ describe('configs compare', () => {
     expect(output).toContain('[source: different]');
     expect(output).toContain('rev-a: project-capability');
     expect(output).toContain('rev-b: project-skill-import');
+  });
+});
+
+describe('configs search', () => {
+  test('searches revisions and emits only the public JSON result shape', async () => {
+    seed([
+      sampleRevision({ configName: 'general', revisionId: 'rev-general', skills: [ref('skill', 'permission-control')] }),
+      sampleRevision({ configName: 'reviewer', revisionId: 'rev-reviewer', skills: [ref('skill', 'review-workflow')] }),
+    ]);
+
+    const code = await main(['search', 'permission', '--json', '--limit', '1']);
+
+    expect(code).toBe(0);
+    const result = JSON.parse(logs.join('\n')) as Array<Record<string, unknown>>;
+    expect(result).toHaveLength(1);
+    expect(result[0]).toMatchObject({ revisionId: 'rev-general', configName: 'general' });
+    expect(Object.keys(result[0]!).sort()).toEqual(['configName', 'rank', 'revisionId', 'triggerCategory']);
+  });
+
+  test('searches Chinese Han bigrams and safely accepts special characters in text output', async () => {
+    seed([
+      sampleRevision({ configName: '权限配置', revisionId: 'rev-zh', skills: [ref('skill', '权限控制')] }),
+      sampleRevision({ configName: 'other', revisionId: 'rev-other', skills: [ref('skill', '审查流程')] }),
+      sampleRevision({ configName: 'general', revisionId: 'rev-general', skills: [ref('skill', 'permission-control')] }),
+    ]);
+
+    expect(await main(['search', '权限控制'])).toBe(0);
+    expect(logs.join('\n')).toContain('rev-zh');
+    expect(logs.join('\n')).toContain('权限配置');
+    logs = [];
+    expect(await main(['search', 'permission!!!'])).toBe(0);
+    expect(logs.join('\n')).toContain('rev-general');
+  });
+
+  test('uses the default limit and rejects malformed, missing, and extra queries', async () => {
+    seed(
+      Array.from({ length: 25 }, (_, index) =>
+        sampleRevision({ configName: `config-${index}`, revisionId: `rev-${index}`, skills: [ref('skill', 'permission-control')] }),
+      ),
+    );
+
+    expect(await main(['search', 'permission', '--json'])).toBe(0);
+    expect(JSON.parse(logs.join('\n'))).toHaveLength(20);
+    expect(await main(['search', 'permission', '--limit', 'not-a-number'])).toBe(2);
+    expect(await main(['search'])).toBe(2);
+    expect(await main(['search', 'permission', 'extra'])).toBe(2);
+    expect(errors.join('\n')).toMatch(/limit|requires a query|one query/i);
+  });
+
+  test('text and JSON rendering omit recommendation and private fields', async () => {
+    seed([sampleRevision({ configName: 'general', revisionId: 'rev-general', skills: [ref('skill', 'permission-control')] })]);
+
+    expect(await main(['search', 'permission'])).toBe(0);
+    const text = logs.join('\n');
+    expect(text).toContain('rev-general');
+    expect(text).not.toMatch(/recommendation|evidence|sourceRef|fingerprint|prompt|transcript/i);
+    logs = [];
+    expect(await main(['search', 'permission', '--json'])).toBe(0);
+    expect(logs.join('\n')).not.toMatch(/recommendation|evidence|sourceRef|fingerprint|prompt|transcript/i);
+  });
+
+  test('rebuilds derived search state after it is deleted', async () => {
+    seed([sampleRevision({ configName: 'general', revisionId: 'rev-general', skills: [ref('skill', 'permission-control')] })]);
+    const db = new Database(dbPath);
+    try {
+      db.exec('DELETE FROM config_revision_fts');
+      db.exec('DELETE FROM config_search_document');
+    } finally {
+      db.close();
+    }
+
+    expect(await main(['search', '--rebuild'])).toBe(0);
+    expect(await main(['search', 'permission', '--json'])).toBe(0);
+    expect(JSON.parse(logs.at(-1) ?? '[]')).toEqual([expect.objectContaining({ revisionId: 'rev-general' })]);
+  });
+
+  test('rejects a limit above the contract maximum', async () => {
+    expect(await main(['search', 'permission', '--limit', '51'])).toBe(2);
+    expect(errors.join('\n')).toContain('limit');
   });
 });
 

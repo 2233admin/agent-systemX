@@ -7,11 +7,12 @@ import { Database } from 'bun:sqlite';
 // and no `migrations/*.sql` file exists on disk next to the binary at all.
 import INIT_SQL from '../../../migrations/0001_init.sql' with { type: 'text' };
 import SUPPLY_SQL from '../../../migrations/0003_supply.sql' with { type: 'text' };
-
+import SEARCH_SQL from '../../../migrations/0004_config_search.sql' with { type: 'text' };
 import { type Fact, unknown } from '../../domain/facts';
 import type { CapabilityReference, SourceCategory, StableConfigRevision } from '../../domain/config';
-import type { ConfigRevisionRepository } from '../../application/ports';
+import type { ConfigRevisionRepository, ConfigSearchPort, ConfigSearchResult } from '../../application/ports';
 import { ConfigUnsupportedError } from '../../application/queries';
+import { SqliteConfigSearchAdapter } from './config-search';
 import { factColumns, factColumnToFact } from './fact-columns';
 import { isDatabaseLocked, openSqliteDatabase } from './connection';
 
@@ -316,6 +317,68 @@ function columnExists(db: Database, table: string, column: string): boolean {
   );
 }
 
+function tableExists(db: Database, table: string): boolean {
+  return (
+    (db.query<{ present: number }, [string]>("SELECT COUNT(*) AS present FROM sqlite_master WHERE type = 'table' AND name = ?").get(table)?.present ?? 0) > 0
+  );
+}
+
+function triggerExists(db: Database, trigger: string): boolean {
+  return (
+    (db.query<{ present: number }, [string]>("SELECT COUNT(*) AS present FROM sqlite_master WHERE type = 'trigger' AND name = ?").get(trigger)?.present ?? 0) > 0
+  );
+}
+
+function searchSchemaComplete(db: Database): boolean {
+  return (
+    tableExists(db, 'config_search_document') &&
+    tableExists(db, 'config_revision_fts') &&
+    triggerExists(db, 'config_search_document_ai') &&
+    triggerExists(db, 'config_search_document_ad') &&
+    triggerExists(db, 'config_search_document_au')
+  );
+}
+
+function rowCount(db: Database, table: string): number {
+  return db.query<{ count: number }, []>(`SELECT COUNT(*) AS count FROM ${table}`).get()?.count ?? 0;
+}
+
+function derivedRevisionIdsMatch(db: Database): boolean {
+  const row = db
+    .query<
+      { missingAuthoritative: number; extraProjection: number; missingFts: number; extraFts: number },
+      []
+    >(
+      `SELECT
+         EXISTS (
+           SELECT 1 FROM stable_config_revision AS r
+           WHERE NOT EXISTS (
+             SELECT 1 FROM config_search_document AS d WHERE d.revision_id = r.revision_id
+           )
+         ) AS missingAuthoritative,
+         EXISTS (
+           SELECT 1 FROM config_search_document AS d
+           WHERE NOT EXISTS (
+             SELECT 1 FROM stable_config_revision AS r WHERE r.revision_id = d.revision_id
+           )
+         ) AS extraProjection,
+         EXISTS (
+           SELECT 1 FROM config_search_document AS d
+           WHERE NOT EXISTS (
+             SELECT 1 FROM config_revision_fts AS f WHERE f.rowid = d.rowid
+           )
+         ) AS missingFts,
+         EXISTS (
+           SELECT 1 FROM config_revision_fts AS f
+           WHERE NOT EXISTS (
+             SELECT 1 FROM config_search_document AS d WHERE d.rowid = f.rowid
+           )
+         ) AS extraFts`,
+    )
+    .get();
+  return row?.missingAuthoritative === 0 && row.extraProjection === 0 && row.missingFts === 0 && row.extraFts === 0;
+}
+
 /**
  * 另一个连接正在跑同一次迁移造成的竞态——熬过 `PRAGMA busy_timeout` 的锁争用，
  * 或者 `duplicate column name` 竞态里输掉的那一方——不是真的失败。
@@ -328,8 +391,8 @@ function isConcurrentMigrationRace(error: unknown): boolean {
   const message = ((error as Error).message ?? '').toLowerCase();
   return message.includes('duplicate column name') || isDatabaseLocked(error);
 }
-
-export function runConfigRevisionMigrations(db: Database): void {
+export function runConfigRevisionMigrations(db: Database): boolean {
+  const searchSchemaWasComplete = searchSchemaComplete(db);
   db.transaction(() => {
     db.exec(INIT_SQL);
   })();
@@ -361,6 +424,35 @@ export function runConfigRevisionMigrations(db: Database): void {
       // 另一个连接赢下了这一列／这个索引的竞态——幂等空操作，不是失败。
     }
   }
+  db.transaction(() => {
+    db.exec(SEARCH_SQL);
+  })();
+  const authoritativeCount = rowCount(db, 'stable_config_revision');
+  const derivedCount = rowCount(db, 'config_search_document');
+  const ftsCount = rowCount(db, 'config_revision_fts');
+  return !searchSchemaWasComplete || derivedCount !== authoritativeCount || ftsCount !== authoritativeCount || !derivedRevisionIdsMatch(db);
+}
+
+export function readConfigRevisions(db: Database): readonly StableConfigRevision[] {
+  const rows = db
+    .query<RevisionRow, []>(`SELECT ${REVISION_COLUMNS} FROM stable_config_revision ORDER BY config_name, revision_id`)
+    .all();
+  return rows.map(mapRowLenient);
+}
+
+export function rebuildConfigSearchAtomically(
+  db: Database,
+  readRevisions: () => readonly StableConfigRevision[],
+  searchAdapter: SqliteConfigSearchAdapter,
+): void {
+  db.exec('BEGIN IMMEDIATE');
+  try {
+    searchAdapter.rebuildWithinTransaction(readRevisions());
+    db.exec('COMMIT');
+  } catch (error) {
+    db.exec('ROLLBACK');
+    throw error;
+  }
 }
 
 /**
@@ -368,19 +460,25 @@ export function runConfigRevisionMigrations(db: Database): void {
  * explicit columns; no `SELECT *`. Runs the migration inside a transaction
  * on construction so the schema is always present before use.
  */
-export class SqliteConfigRevisionRepository implements ConfigRevisionRepository {
+export class SqliteConfigRevisionRepository implements ConfigRevisionRepository, ConfigSearchPort {
   private readonly db: Database;
+  private readonly searchAdapter: SqliteConfigSearchAdapter;
 
   constructor(dbPath: string) {
     this.db = openSqliteDatabase(dbPath);
-    runConfigRevisionMigrations(this.db);
+    const searchRepairNeeded = runConfigRevisionMigrations(this.db);
+    this.searchAdapter = new SqliteConfigSearchAdapter(this.db);
+    if (searchRepairNeeded) {
+      rebuildConfigSearchAtomically(this.db, () => this.readAllRevisions(), this.searchAdapter);
+    }
+  }
+
+  private readAllRevisions(): readonly StableConfigRevision[] {
+    return readConfigRevisions(this.db);
   }
 
   async listAll(): Promise<readonly StableConfigRevision[]> {
-    const rows = this.db
-      .query<RevisionRow, []>(`SELECT ${REVISION_COLUMNS} FROM stable_config_revision ORDER BY config_name, revision_id`)
-      .all();
-    return rows.map(mapRowLenient);
+    return this.readAllRevisions();
   }
 
   async findById(revisionId: string): Promise<StableConfigRevision | null> {
@@ -391,6 +489,14 @@ export class SqliteConfigRevisionRepository implements ConfigRevisionRepository 
       return null;
     }
     return mapRowStrict(row);
+  }
+
+  async search(query: string, limit: number): Promise<readonly ConfigSearchResult[]> {
+    return this.searchAdapter.search(query, limit);
+  }
+
+  async rebuild(): Promise<void> {
+    rebuildConfigSearchAtomically(this.db, () => this.readAllRevisions(), this.searchAdapter);
   }
 
   /**
@@ -440,6 +546,7 @@ export class SqliteConfigRevisionRepository implements ConfigRevisionRepository 
     );
 
     this.db.transaction(() => {
+      this.db.exec('DELETE FROM config_search_document');
       this.db.exec('DELETE FROM stable_config_revision');
       this.db.exec('DELETE FROM stable_config');
       for (const revision of revisions) {
@@ -475,6 +582,7 @@ export class SqliteConfigRevisionRepository implements ConfigRevisionRepository 
           revision.evidenceRef,
           revision.supersedesRevisionId,
         );
+        this.searchAdapter.indexRevision(revision);
       }
     })();
   }

@@ -1,6 +1,6 @@
 import { buildSupersedesChain, compareRevisions } from '../domain/config';
 import type { ComparisonResult, StableConfigRevision, SupersedesChain } from '../domain/config';
-import type { ConfigRevisionRepository } from './ports';
+import type { ConfigRevisionRepository, ConfigSearchPort, ConfigSearchResult } from './ports';
 
 /** The requested configuration revision id does not exist in storage. */
 export class ConfigNotFoundError extends Error {
@@ -36,6 +36,18 @@ export async function listConfigRevisions(
   repository: ConfigRevisionRepository,
 ): Promise<readonly StableConfigRevision[]> {
   return repository.listAll();
+}
+
+export async function searchConfigRevisions(
+  repository: ConfigSearchPort,
+  query: string,
+  limit: number,
+): Promise<readonly ConfigSearchResult[]> {
+  return repository.search(query, limit);
+}
+
+export async function rebuildConfigSearch(repository: ConfigSearchPort): Promise<void> {
+  await repository.rebuild();
 }
 
 /**

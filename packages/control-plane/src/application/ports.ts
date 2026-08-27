@@ -15,6 +15,18 @@ export interface ConfigRevisionRepository {
   listAll(): Promise<readonly StableConfigRevision[]>;
   findById(revisionId: string): Promise<StableConfigRevision | null>;
 }
+export interface ConfigSearchResult {
+  readonly revisionId: string;
+  readonly configName: string;
+  readonly triggerCategory: TriggerCategory;
+  readonly rank: number;
+}
+
+export interface ConfigSearchPort {
+  search(query: string, limit: number): Promise<readonly ConfigSearchResult[]>;
+  rebuild(): Promise<void>;
+}
+
 
 /**
  * `[Story 3.1]` Everything `create` needs besides the candidate itself.

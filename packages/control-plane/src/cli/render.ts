@@ -33,6 +33,7 @@ import type { LaunchPlan, LaunchStatus } from '../domain/activation';
 import type { CompareConfigRevisionsResult, ConfigQueryError } from '../application/queries';
 import type {
   InvalidCandidateError,
+  ConfigSearchResult,
   InvalidTriggerCategoryError,
   MissingEvidenceError,
   MissingSupersedesError,
@@ -128,6 +129,21 @@ export function renderList(revisions: readonly StableConfigRevision[]): string {
     return `- ${revision.configName}  ${t('list.revisionLabel')}=${revision.revisionId}  [${marker}]  ${t('list.statusLabel')}=${formatAvailability(revision)}\n    ${t('list.boundaryLabel')}: ${boundary}`;
   });
   return lines.join('\n');
+}
+
+export function renderSearchResults(results: readonly ConfigSearchResult[], json = false): string {
+  const publicResults = results.map(({ revisionId, configName, triggerCategory, rank }) => ({
+    revisionId,
+    configName,
+    triggerCategory,
+    rank,
+  }));
+  if (json) {
+    return JSON.stringify(publicResults);
+  }
+  return publicResults
+    .map((result) => `${result.revisionId}  ${result.configName}  ${result.triggerCategory}  ${result.rank}`)
+    .join('\n');
 }
 
 export function renderDetail(revision: StableConfigRevision): string {
