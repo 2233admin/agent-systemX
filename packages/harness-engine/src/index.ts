@@ -64,5 +64,20 @@ export type {
   HostCapability,
 } from './gates/dispatch';
 export { validateDispatch } from './gates/dispatch';
+export type { ReviewPackage } from './domain/review';
+export { createReviewPackage, isConcreteRevision, validateReviewPackage } from './domain/review';
+export type { QcIdentity, ReviewReady, SddGateInput } from './gates/sdd';
+export { validateSddGate } from './gates/sdd';
+export type { IterationGateInput, IterationPhase, PhaseTransition } from './gates/iteration';
+export { evaluateIterationGate } from './gates/iteration';
+export type {
+  MergeReady,
+  PrReviewInput,
+  PushCadenceInput,
+  PushDecision,
+  RequiredCheck,
+  RequiredReview,
+} from './gates/pr-review';
+export { evaluatePrReview, evaluatePushCadence } from './gates/pr-review';
 export type { ArtifactStore } from './ports/artifacts';
 export { JsonArtifactStore } from './adapters/json/json-artifact-store';
