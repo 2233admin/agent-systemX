@@ -33,9 +33,21 @@ function normalizeKey(value: string): string {
     .replace(/^\*+|\*+$/g, '')
     .replace(/^`+|`+$/g, '')
     .trim()
-    .toLocaleLowerCase()
+    .toLowerCase()
     .replace(/[‐‑‒–—−]/g, '-')
     .replace(/[\s_-]+/g, ' ');
+}
+
+function isAssignmentHeading(line: string): boolean {
+  return /^#{1,6}\s+assignment\s*$/i.test(line.trim());
+}
+
+function isHeading(line: string): boolean {
+  return /^#{1,6}\s+/.test(line.trim());
+}
+
+function isHorizontalRule(line: string): boolean {
+  return /^(?:-{3,}|_{3,}|\*{3,})\s*$/.test(line.trim());
 }
 
 function cleanValue(value: string): string {
@@ -54,16 +66,21 @@ function isTaskBodyMarker(line: string): boolean {
     .replace(/^\*+|\*+$/g, '')
     .trim();
   const key = normalizeKey(candidate.replace(/\s*:.*$/, ''));
-  return /^(?:task|task body|task details|prompt|prompt body|body|instructions|dynamic task|task正文|prompt正文)$/.test(key);
+  return /^(?:task(?: \d+)?(?: details?| body)?|prompt(?: body)?|body|instructions|dynamic task|task正文|prompt正文)$/.test(key);
 }
 
 function readHeaderEntries(text: string): readonly HeaderEntry[] {
   const entries: HeaderEntry[] = [];
   const lines = text.split(/\r?\n/);
+  let inAssignment = false;
 
   for (let index = 0; index < lines.length; index += 1) {
     const rawLine = lines[index] ?? '';
-    if (isTaskBodyMarker(rawLine)) break;
+    if (!inAssignment) {
+      if (isAssignmentHeading(rawLine)) inAssignment = true;
+      continue;
+    }
+    if (isTaskBodyMarker(rawLine) || isHorizontalRule(rawLine) || isHeading(rawLine)) break;
 
     let line = rawLine.trim();
     line = line.replace(/^[-*+]\s+/, '');
@@ -94,7 +111,7 @@ export function parseAssignmentFields(text: string): Partial<AssignmentFields> {
   const taskCategory = first(['task category']);
   const workingBranch = first(['working branch', 'branch', 'worktree branch']);
   const branchPolicy = first(['branch policy']);
-  const executionMode = first(['execution mode'])?.toLocaleLowerCase();
+  const executionMode = first(['execution mode'])?.toLowerCase();
 
   return {
     ...(executeAs === undefined ? {} : { executeAs }),
@@ -133,5 +150,5 @@ export function parseAssignmentBranchForms(text: string): AssignmentBranchForms 
 
 /** 供 dispatch gate 检测未知 mode；不返回正文，也不放宽字段联合类型。 */
 export function parseAssignmentExecutionMode(text: string): string | undefined {
-  return entriesFor(text, ['execution mode'])[0]?.value.toLocaleLowerCase();
+  return entriesFor(text, ['execution mode'])[0]?.value.toLowerCase();
 }

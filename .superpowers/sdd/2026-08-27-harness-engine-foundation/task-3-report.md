@@ -19,11 +19,15 @@
 
 ## Tests run and observed result
 
-- `bun test packages/harness-engine/tests/domain/assignment.test.ts packages/harness-engine/tests/gates/dispatch.test.ts`
-  - PASS: 16 tests, 0 failures, 31 assertions.
-- `bunx tsc --noEmit -p packages/harness-engine/tsconfig.json`
+- Initial focused command before implementation:
+  - `bun test packages/harness-engine/tests/domain/assignment.test.ts packages/harness-engine/tests/gates/dispatch.test.ts`
+  - FAIL: both modules were absent, producing the expected missing-module errors.
+- Review-fix focused command:
+  - `bun test packages/harness-engine/tests/domain/assignment.test.ts packages/harness-engine/tests/gates/dispatch.test.ts`
+  - PASS: 27 tests, 0 failures, 47 assertions.
+- Review-fix typecheck:
+  - `bunx tsc --noEmit -p packages/harness-engine/tsconfig.json`
   - PASS: no type errors.
-- The focused test command was also run before implementation and failed with the expected missing-module errors for the absent parser and gate.
 
 ## Public API summary
 
@@ -36,5 +40,7 @@
 ## Concerns
 
 - The brief does not define the concrete `AssignmentBranchForms` shape or all input property spellings. The implementation accepts the explicit labels `Working branch`/`Branch`/`Worktree branch`, `Branch policy`, and `Direct-on reason` (including hyphen/space variants), plus `assignmentText`, `worktreePath`, `executorId`, and `status` aliases at the gate boundary.
-- Lease transitions remain intentionally out of scope. The gate only consumes structural lease state and rejects an already held/active lease.
-- The gate uses a deterministic static evidence timestamp because this task has no clock/evidence adapter; it performs no host or Orca side effects.
+- Assignment parsing is fail-closed around an explicit `Assignment` heading and stops at numbered task headings and horizontal rules.
+- Writable dispatch is fail-closed on lease state: only an explicitly held/active lease aligned to plan, task, and worktree passes; lease transitions remain out of scope.
+- Host capability must be explicitly known (or a Known-style object with `kind` plus `value`/`evidence`); malformed and unknown shapes stay `unknown`.
+- Passing dispatch evidence uses the caller-supplied `observedAt`; no timestamp is fabricated, and the gate performs no host or Orca side effects.

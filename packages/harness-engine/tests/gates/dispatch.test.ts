@@ -18,10 +18,21 @@ const baseInput = {
   planStatus: 'Todo' as const,
   branchProtection: { defaultBranch: 'main', protectedBranches: ['main', 'master'] },
   hostCapability: { kind: 'known' as const, value: 'bun' },
-  leaseState: { held: false },
+  leaseState: {
+    held: true,
+    planId: 'plan-1',
+    taskId: 'task-1',
+    worktreePath: 'D:/worktrees/dispatch',
+  },
   worktree: 'D:/worktrees/dispatch',
   currentExecutor: 'coordinator',
+  observedAt: '2026-08-27T12:00:00.000Z',
 };
+
+function violationCodes(result: { readonly kind: string; readonly violations?: readonly { code: string }[] }): readonly string[] {
+  return result.violations?.map((violation) => violation.code) ?? [];
+}
+
 
 describe('dispatch gate', () => {
   test('maps a valid SDD assignment to three QC seats without dynamic task data', () => {
@@ -111,6 +122,41 @@ describe('dispatch gate', () => {
     expect(result.kind).toBe('unknown');
     if (result.kind !== 'unknown') return;
     expect(result.violations.map((violation) => violation.code)).toContain('host.capability.unknown');
+  });
+
+  test.each([
+    ['undefined lease', undefined],
+    ['empty lease', {}],
+  ])('fails closed for %s', (_label, leaseState) => {
+    const result = validateDispatch({ ...baseInput, leaseState });
+    expect(result.kind).toBe('fail');
+    expect(violationCodes(result)).toContain('lease.missing');
+  });
+
+  test('requires the held lease to align with plan, task, and worktree', () => {
+    const result = validateDispatch({
+      ...baseInput,
+      leaseState: {
+        held: true,
+        planId: 'other-plan',
+        taskId: 'other-task',
+        worktreePath: 'D:/other-worktree',
+      },
+    });
+    expect(result.kind).toBe('blocked');
+    expect(violationCodes(result)).toContain('lease.misaligned');
+  });
+
+  test('rejects malformed host capability objects', () => {
+    const result = validateDispatch({ ...baseInput, hostCapability: { value: 'bun' } });
+    expect(result.kind).toBe('unknown');
+    expect(violationCodes(result)).toContain('host.capability.unknown');
+  });
+
+  test('requires caller-supplied observation time instead of fabricating evidence', () => {
+    const result = validateDispatch({ ...baseInput, observedAt: undefined });
+    expect(result.kind).toBe('fail');
+    expect(violationCodes(result)).toContain('evidence.observed-at.missing');
   });
 
   test('requires exactly one branch form for writable work', () => {

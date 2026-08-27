@@ -1,4 +1,5 @@
 import type { GateResult, RecoveryAction, Violation } from '../core/result.ts';
+import { isRfc3339Timestamp } from '../core/result.ts';
 import { isPlanStatus, type PlanStatus } from '../domain/workflow.ts';
 import {
   parseAssignmentBranchForms,
@@ -17,6 +18,7 @@ export interface BranchProtection {
 export interface HostCapability {
   readonly kind?: 'known' | 'unknown';
   readonly value?: unknown;
+  readonly evidence?: unknown;
   readonly known?: boolean;
   readonly [key: string]: unknown;
 }
@@ -25,6 +27,10 @@ export interface DispatchLeaseState {
   readonly held?: boolean;
   readonly active?: boolean;
   readonly holder?: string;
+  readonly planId?: string;
+  readonly taskId?: string;
+  readonly worktreePath?: string;
+  readonly worktree?: string;
   readonly [key: string]: unknown;
 }
 
@@ -43,6 +49,7 @@ export interface DispatchInput {
   readonly currentExecutor?: string;
   readonly executorId?: string;
   readonly writable?: boolean;
+  readonly observedAt?: string;
   readonly [key: string]: unknown;
 }
 
@@ -54,11 +61,6 @@ export interface DispatchDecision {
   readonly worktree: string;
   readonly qcSeats: 1 | 3;
 }
-
-const DISPATCH_EVIDENCE = {
-  source: 'harness-engine.dispatch',
-  observedAt: '1970-01-01T00:00:00Z',
-} as const;
 
 function violation(code: string, message: string): Violation {
   return { code, message };
@@ -87,13 +89,12 @@ function isHostUnknown(capability: unknown): boolean {
 }
 
 function hasKnownHostCapability(capability: unknown): boolean {
-  if (isHostUnknown(capability)) return false;
-  if (capability === 'known') return true;
-  if (typeof capability === 'object' && capability !== null) {
-    const record = capability as Record<string, unknown>;
-    return record.kind === 'known' || record.known === true || record.capable === true || record.value !== undefined;
-  }
-  return true;
+  if (typeof capability !== 'object' || capability === null) return false;
+  const record = capability as Record<string, unknown>;
+  if (record.kind !== 'known') return false;
+  const hasValue = record.value !== undefined;
+  const hasEvidence = typeof record.evidence === 'object' && record.evidence !== null;
+  return hasValue || hasEvidence;
 }
 
 function protectedBranches(protection: BranchProtection | boolean | undefined): readonly string[] {
@@ -111,14 +112,12 @@ function defaultBranch(protection: BranchProtection | boolean | undefined): stri
 }
 
 function isProtectedBranch(branch: string, protection: BranchProtection | boolean | undefined): boolean {
-  const normalized = branch.trim().toLocaleLowerCase();
-  const configured = protectedBranches(protection).some((candidate) => candidate.trim().toLocaleLowerCase() === normalized);
-  return configured || normalized === 'main' || normalized === 'master' || normalized === defaultBranch(protection).toLocaleLowerCase();
+  const normalized = branch.trim().toLowerCase();
+  const configured = protectedBranches(protection).some((candidate) => candidate.trim().toLowerCase() === normalized);
+  return configured || normalized === 'main' || normalized === 'master' || normalized === defaultBranch(protection).toLowerCase();
 }
 
-/**
- * 只做 Assignment、身份和能力的纯校验；不会创建 worktree、调用 Orca 或修改租约。
- */
+/** 只做 Assignment、身份和能力的纯校验；不会创建 worktree、调用 Orca 或修改租约。 */
 export function validateDispatch(input: DispatchInput): GateResult<DispatchDecision> {
   const assignment = typeof input.assignment === 'string' ? input.assignment : input.assignmentText;
   const fields = typeof assignment === 'string' ? parseAssignmentFields(assignment) : {};
@@ -167,11 +166,27 @@ export function validateDispatch(input: DispatchInput): GateResult<DispatchDecis
   if (worktree.length === 0) violations.push(violation('dispatch.worktree.missing', 'worktree is required'));
 
   const lease = input.leaseState;
-  if (lease?.held === true || lease?.active === true) {
-    violations.push(violation('lease.already-held', 'An active execution lease blocks dispatch'));
+  if (lease === undefined || Object.keys(lease).length === 0) {
+    violations.push(violation('lease.missing', 'A held execution lease is required'));
+  } else if (lease.held !== true && lease.active !== true) {
+    violations.push(violation('lease.not-held', 'Execution lease must be explicitly held'));
+  } else {
+    const leaseWorktree = lease.worktreePath ?? lease.worktree;
+    if (lease.planId !== planId || lease.taskId !== taskId || leaseWorktree !== worktree) {
+      violations.push(violation('lease.misaligned', 'Execution lease must align with plan, task, and worktree'));
+    }
   }
 
-  if (violations.length > 0) return failure('fail', violations);
+  if (input.observedAt === undefined) {
+    violations.push(violation('evidence.observed-at.missing', 'Dispatch evidence requires caller-supplied observedAt'));
+  } else if (!isRfc3339Timestamp(input.observedAt)) {
+    violations.push(violation('evidence.observed-at.invalid', 'Dispatch evidence observedAt must be RFC 3339'));
+  }
+
+  if (violations.length > 0) {
+    const onlyLeaseAlignment = violations.every((item) => item.code === 'lease.misaligned');
+    return failure(onlyLeaseAlignment ? 'blocked' : 'fail', violations);
+  }
   if (isHostUnknown(input.hostCapability) || !hasKnownHostCapability(input.hostCapability)) {
     return failure('unknown', [violation('host.capability.unknown', 'Host capability is not known')]);
   }
@@ -186,6 +201,6 @@ export function validateDispatch(input: DispatchInput): GateResult<DispatchDecis
       worktree,
       qcSeats: executionMode === 'sdd' ? 3 : 1,
     },
-    evidence: [DISPATCH_EVIDENCE],
+    evidence: [{ source: 'harness-engine.dispatch', observedAt: input.observedAt as string }],
   };
 }
