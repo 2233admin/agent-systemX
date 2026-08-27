@@ -1,0 +1,15 @@
+# Changelog
+
+本文件记录本仓库面向用户的可见变更。
+
+## [0.1.0.0] - 2026-08-27
+
+### Added
+
+- `configs search` 支持基于 SQLite FTS5 的 BM25 配置修订搜索，并提供可重建索引与 JSON 输出。
+
+### Changed
+
+- 明确 OMP 核心 MVP、已激活的 Claude Code adapter 与仍 Deferred 的 Codex CLI 之间的合同边界。
+- 将 explicit resume、opaque native Session locator 与 lease-fencing 明确为当前版本的 `N/A / Deferred` 目标态能力，不再作为当前 MVP 验收门。
+- 同步 Epic 3/4 的完成状态、Claude adapter parity gate、物化清理与验证证据，保持外部 `ValidationDecision` 的 append-only 边界。
