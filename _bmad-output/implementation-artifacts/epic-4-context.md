@@ -15,9 +15,9 @@
 - Story 4.3：fresh target 的启动与观察（done）
 - Story 4.4：already-running session target 的 requires-restart 路径（done）
 - Story 4.5：`.cap/` parity 验证与本仓自身切换（done，AC2 已收窄为存档调查结论）
-- Story 4.5b：Claude adapter 内容物化能力（backlog）
-- Story 4.6：`configs` CLI 的 Claude 入口（backlog）
-- Story 4.7：退役 `.cap/` 本体（backlog，原 Story 4.6）
+- Story 4.5b：Claude adapter 内容物化能力（done）
+- Story 4.6：`configs` CLI 的 Claude 入口（done）
+- Story 4.7：退役 `.cap/` 本体（done，真实 parity 与运行时依赖门已核实）
 
 ## Requirements & Constraints
 
@@ -34,8 +34,8 @@
 - 新 adapter 落在 `packages/control-plane/src/adapters/clients/claude/`，复用既有 domain/application 层，不另起新包，与 `adapters/clients/omp/` 并列。已交付：`process-port.ts`、`capability-probe.ts`（Story 4.1）、`assembly-manifest.ts`（原 `plan.ts`，Story 4.2）、`adapter-plan.ts`（真正的 AD-19 `AdapterPlan`，含 `ClaudeLaunchTarget`，Story 4.3）；`application/claude-launch.ts` 提供 `prepareClaudeFreshLaunchPlan`/`launchClaudeFresh`（Story 4.3）与 `prepareClaudeAlreadyRunningLaunchPlan`（Story 4.4）。
 - 会话模型分两种 launch target，共享同一状态转换表：**fresh**（本产品新 spawn 一个隔离 Claude 进程，完整走 `prepared → awaiting-confirmation → applying → observing → succeeded | degraded | failed | incomplete`）与 **already-running session**（`apply` 只能解析为既有终态 `requires-restart`，`observationStage` 在用户实际重启前保持 `planned`）；`plan` 阶段无法判断 target 类型时按更保守的 already-running 处理（fail closed）。
 - **AD-21（2026-08-24 新增）：Claude adapter 内容物化。** OMP 与 Claude Code 在内容装配上存在真实能力非对称：OMP 的 `buildOmpArgv` 只传能力名字交给 OMP 自身原生机制解析，从不物化内容；Claude Code 的 `--plugin-dir` 只接受真实文件目录路径，没有"给名字帮你解析"的原生机制，因此 Claude adapter 必须自己把 `CapabilityReference.sourceRef` 解析为真实内容，写入 `ClaudeInvocationDirPort` 隔离目录下的专用 `materialized/` 子目录（不写入目录根，根同时是 `cwd` 与 `CLAUDE_CONFIG_DIR`，直接写入有真实碰撞风险）：Skills 重建 `.cap` 已实测的真实 Claude plugin 包布局（`materialized/plugin/.claude-plugin/plugin.json` + `materialized/plugin/skills/<name>/`）经 `--plugin-dir` 交付；Instructions 直接作为 `--append-system-prompt` 的参数文本；MCP 生成 `materialized/mcp.json`（原生 `mcpServers` 格式）经 `--mcp-config` + `--strict-mcp-config` 交付。内容本身从不进入 SQLite/投影/receipt（AD-6 边界不变），调用终态后随 invocation 目录一并清理，不早于 Claude 进程或其子进程可能仍在读取期间。
-- **阻塞前提：** 今天经 `src/adapters/sources/cap-fs.ts`（`loadCapConfigRevisions`，由 `scripts/seed-from-cap.ts` 调用）从 `.cap/` 灌入的修订，其每个 `CapabilityReference` 的 `sourceRef`/`contentFingerprint` 都被硬编码为 `CAP_FS_FIELD_NOT_CAPTURED`（`Unknown`）——Story 4.5b 必须先修 `cap-fs.ts`，让它把本就读得到的真实磁盘路径写进 `sourceRef`，而不是发明新的名字→路径映射规则；否则 AD-10 fail-closed 会让本仓现存的每条 `.cap`-seeded 修订在 Claude 侧全部降级/不支持。
-- **Probe 前提：** `--plugin-dir`、`--append-system-prompt` 当前只有 `.cap` 既有证据与文档核实过，未被 Story 4.1 的 `BunClaudeCapabilityProbe` 纳入探测；Story 4.5b 必须先扩展 probe 覆盖这两个 flag，并重新执行一次完整 probe（不复用旧版本快照——`.cap` 核实基线 2.1.236 与本机实测 2.1.241 已知漂移）。
+- **已解决的内容来源前置：** Story 4.5b 已修复 `cap-fs.ts` 的 `sourceRef` 硬编码：instructions 与 skills 记录真实可读路径；无法解析的 mcp/hooks/plugins 仍按 required/optional 诚实 fail-closed。`.cap/` 与 `scripts/seed-from-cap.ts` 随 Story 4.7 退役，新的真实数据源按各自协议提供。
+- **已满足的 Probe 前置：** Story 4.5b 已把 `--plugin-dir`、`--append-system-prompt` 纳入 `BunClaudeCapabilityProbe` 并重新执行完整 probe。该证据仅证明 adapter 所需 native surface，不等同于真实 Claude interactive launch 或外部任务验收；未被 release-pinned probe/smoke 证实的能力仍为 `Unknown`。
 - **CLI 入口（Story 4.6）：** `domain/client.ts` 的 `resolveClientSupport('claude-code')` 从硬编码 `unsupported` 改为基于 Story 4.1 真实探测结果；`configs use/switch --client claude-code` 复用 Story 1.2 已确立的确认/生命周期流程与 Story 4.3/4.4 已实现的 fresh/already-running 分支，成功路径经 Story 4.5b 的内容物化真实交付。不改变 OMP 侧既有行为。
 - **`.cap/` 退役三步顺序（2026-08-24 收窄，原四步）：** (1) 落地新 adapter——probe/plan/launch/interpret + AD-21 内容物化 + CLI 真实入口（Story 4.1～4.4、4.5b、4.6）；(2) 一次性真实烟雾 parity 验证——物化后实际交付的 `--plugin-dir`/`--append-system-prompt`/`--mcp-config` 内容与 `cap use <role> --cli claude` 真实产出对照（Story 4.5 的 AC1 已完成静态结构比对，真实烟雾验证并入 Story 4.7 的前置条件）；(3) 退役 `.cap/` 本体（Story 4.7），需先核实 `.cap/` 不在产品运行时路径上（已确认只被开发期 `scripts/seed-from-cap.ts` 及其测试读取），并把 `openspec/specs/` 下与 `.cap/` 相关的现存 spec（`v3-assembly-executor` 已确认相关）收敛为归档。原"本仓自身切换"步骤已删除：调查证明该对象不存在，AD-20 已原地澄清。
 - 明确排除 OMP extension 路线：经核实其机制无法声明 Skills/Instructions，对 MCP 只能被动监听通知，也不能代表独立客户端身份，技术上无法承担本 Epic 要求的能力。

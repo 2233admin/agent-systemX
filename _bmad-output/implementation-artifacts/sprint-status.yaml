@@ -4,7 +4,7 @@
 #   - backlog: Epic not yet started
 #   - in-progress: Epic actively being worked on
 #   - done: All stories in epic completed
-
+#   - Epic 'done' means only all stories listed under that epic are done; external validation gates and action_items remain independently tracked.
 # Story Status:
 #   - backlog: Story only exists in epic file
 #   - ready-for-dev: Story file created, ready for development
@@ -29,7 +29,7 @@
 # - Dev moves story to 'review', then runs code-review (fresh context, different LLM recommended)
 # - Retrospective appends its action items to action_items; the status view surfaces open ones
 generated: 08-22-2026 00:00
-last_updated: 08-25-2026 12:45
+last_updated: 08-27-2026 14:06
 project: agent-system
 project_key: NOKEY
 tracking_system: file-system
@@ -45,7 +45,7 @@ development_status:
   2-2-自更新客户端: done
   epic-2-retrospective: done
 
-  epic-3: in-progress
+  epic-3: done
   3-1-建立新配置修订-configs-establish: done
   3-2-修订现有配置-configs-revise: done
   3-3-查看装配来源与替代链: done
@@ -54,7 +54,7 @@ development_status:
   3-6-本仓装配意图从既有权威推导-并建立一致性门: done
   epic-3-retrospective: optional
 
-  epic-4: in-progress
+  epic-4: done
   4-1-建立-claude-code-adapter-骨架与硬控制能力探测: done
   4-2-装配-claude-code-的确定性-adapterplan: done
   4-3-fresh-target-的启动与观察: done
@@ -207,71 +207,51 @@ action_items:
     resolved_ref: "_bmad-output/implementation-artifacts/spec-4-7-退役-cap-本体.md"
   - id: "epic-4-retro-item-11-getlaunchstatus-application-launch-ts-36"
     epic: 4
-    action: "getLaunchStatus (application/launch.ts:366-394) unconditionally calls
-      the OMP-only computeKnownDifferences (same file, line 104) even for Claude Code
-      plans -- runClaudeLaunchFlow (cli/index.ts) reuses getLaunchStatus assuming
-      it is client-neutral by type signature, but its body is not. A genuinely successful
-      Claude fresh launch (Story 4.5b real content materialization delivered) prints
-      a self-contradictory final status: Apply result: applied alongside Known differences:
-      - instructions-content-not-materialized-in-mvp. computeClaudeKnownDifferences
-      (application/claude-launch.ts:103-128) already computes the correct client-aware
-      differences internally but is never exposed via ClaudeLaunchOutcome for the
-      status view to use. Untested: tests/integration/cli-claude-launch.test.ts success-path
-      test never asserts on the Known differences section. Confirmed via direct code
-      read by the retrospective coordinator, not just the review fork that first found
-      it."
+    action: >-
+      历史发现：`getLaunchStatus` 曾对 Claude plan 无条件复用 OMP 专属
+      `computeKnownDifferences`，导致成功状态把 `applied` 与错误的“未物化”并列展示。该问题已在
+      Epic 4 回顾第一轮 fix outcome 中修复：按 `plan.client` 分流，Claude 状态不再套用 OMP 专属差异。
     owner: "control-plane maintainer"
     status: done
     ref: "_bmad-output/implementation-artifacts/epic-4-retro-2026-08-24.md"
   - id: "epic-4-retro-item-12-bare-configs-status-no-planid-hardcodes"
     epic: 4
-    action: "Bare configs status (no planId) hardcodes launchPlanRepository.findActiveForClient('omp')
-      at application/launch.ts:370 -- an Epic 1-era single-client assumption never
-      updated when Story 4.6 introduced a real second client. A user who only ever
-      ran configs use --client claude-code gets not found from bare configs status
-      even with a genuinely active Claude launch plan; only configs status <planId>
-      works for them. Confirmed via direct code read."
+    action: >-
+      历史发现：不带 planId 的 `configs status` 曾硬编码只查询 OMP active plan，纯 Claude 用户无法
+      查看状态。该问题已在 Epic 4 回顾第一轮 fix outcome 中修复：改为跨已知 client 取最近 active plan。
     owner: "control-plane maintainer"
     status: done
     ref: "_bmad-output/implementation-artifacts/epic-4-retro-2026-08-24.md"
   - id: "epic-4-retro-item-13-materialized-invocation-directories-ad-2"
     epic: 4
-    action: "materialized/ invocation directories (AD-21 content materialization,
-      Story 4.5b) are never cleaned up -- src/adapters/system/claude-invocation-dir.ts
-      has zero cleanup/remove logic despite ARCHITECTURE-SPINE.md AD-21 Rule literally
-      promising cleanup at any terminal state. Every real fresh Claude launch leaves
-      an orphaned materialized/ directory on disk indefinitely. Already disclosed
-      as a known, pre-existing gap in three separate stories' (4.5b, 4.7) residual-risk
-      sections but never actually scheduled as a fix in any Story's Tasks. Recommend
-      this epic's follow-up formally schedules it rather than re-disclosing it a fourth
-      time."
+    action: >-
+      历史发现：materialized/ invocation 目录在初次回顾核验时尚无自动清理，若不处理会在真实
+      Claude fresh 启动后留下孤儿目录。该缺口已在 Epic 4 回顾第二轮 fix outcome 中完成修复：
+      `ClaudeInvocationDirPort.cleanup` 由 `FsClaudeInvocationDirPort` 实现，`launchClaudeFresh`
+      在 invocation 目录创建后的完整流程中以 `finally` 无条件调用；清理为 best-effort，不掩盖真实启动结果。
+      `ClaudeProcessPort.spawn` 等待子进程退出后才返回，故清理时机满足 AD-21 约束。
     owner: "control-plane maintainer"
     status: done
     ref: "_bmad-output/implementation-artifacts/epic-4-retro-2026-08-24.md"
+    note: >-
+      `status: done` 以当前代码证据为准，不表示历史发现从未存在；对应实现见
+      `packages/control-plane/src/adapters/system/claude-invocation-dir.ts` 与
+      `packages/control-plane/src/application/claude-launch.ts`，回顾 fix outcome 见 ref。
   - id: "epic-4-retro-item-14-application-claude-launch-ts-calls-conte"
     epic: 4
-    action: "application/claude-launch.ts calls content-materializer.ts (adapters/clients/claude/content-materializer.ts,
-      real fs IO via readFile/writeFile/cp/mkdir/rename) directly rather than through
-      an injected port, unlike every other side-effecting collaborator in the same
-      file (ClaudeProcessPort, ClaudeCapabilityProbePort, ClaudeLaunchContextWriter,
-      ClaudeInvocationDirPort, all in LaunchClaudeFreshDeps). This is the one real-IO
-      dependency in that file with no port abstraction and no comment explaining the
-      omission -- visible consequence: tests/application/claude-launch.test.ts's real-materialization
-      tests must use a real mkdtemp temp dir instead of a fake, because no interface
-      exists to fake against. Recommend introducing a ClaudeContentMaterializerPort."
+    action: >-
+      历史发现：`application/claude-launch.ts` 直接调用真实 IO 的
+      `content-materializer.ts`，未经过注入端口。该问题已在 Epic 4 回顾第一轮 fix outcome 中修复：
+      新增 `ClaudeContentMaterializerPort`，并由 `LaunchClaudeFreshDeps` 注入使用。
     owner: "control-plane maintainer"
     status: done
     ref: "_bmad-output/implementation-artifacts/epic-4-retro-2026-08-24.md"
   - id: "epic-4-retro-item-15-two-stale-code-comments-left-by-later-st"
     epic: 4
-    action: "Two stale code comments left by later stories changing facts earlier
-      stories' comments relied on: (1) application/claude-launch.ts's top-of-file
-      Design Note still says resolveClientSupport('claude-code') is pinned to always
-      return supported:false by an OMP test -- Story 4.6 flipped it to true, making
-      this rationale misleading to future readers judging blast radius. (2) adapters/sources/cap-fs.ts's
-      resolveSkillSourceRef Design Notes cite 'this repo's own .cap/capabilities/skills/*
-      directories' as existing evidence -- Story 4.7 deleted .cap/ entirely, so the
-      cited directories no longer exist. Both are pure documentation fixes, low effort."
+    action: >-
+      历史发现：后续 Story 改变了前置事实后，`claude-launch.ts` 与 `cap-fs.ts` 的设计说明出现过时
+      引用。该问题已在 Epic 4 回顾第一轮 fix outcome 中修复：前者改为说明 Claude Code 入口已启用，
+      后者改为引用 fixture/历史时点，不再把已删除的 `.cap/` 路径当作当前证据。
     owner: "control-plane maintainer"
     status: done
     ref: "_bmad-output/implementation-artifacts/epic-4-retro-2026-08-24.md"
@@ -297,19 +277,19 @@ action_items:
     ref: "_bmad-output/implementation-artifacts/epic-4-retro-2026-08-24.md"
   - id: "epic-4-retro-item-17-content-materializer-ts-s-writefileatomi"
     epic: 4
-    action: "content-materializer.ts's writeFileAtomic and adapters/self-update/github-release-updater.ts's
-      replaceBinary independently reimplement the same same-directory temp-file-then-rename
-      discipline (~6 lines each); the former's comment cites the latter by name as
-      design precedent but the code itself is not shared. Low-value, small candidate
-      for a shared helper."
+    action: >-
+      历史发现：`content-materializer.ts` 与 `github-release-updater.ts` 曾各自实现同目录临时文件
+      + rename 的原子写入纪律。该问题已在 Epic 4 回顾第二轮 fix outcome 中修复，二者现在共用
+      `adapters/system/atomic-write.ts`；调用方保留各自必要的命名与备份步骤。
     owner: "control-plane maintainer"
     status: done
     ref: "_bmad-output/implementation-artifacts/epic-4-retro-2026-08-24.md"
   - id: "epic-4-retro-item-18-fslaunchcontextwriter-omp-adapters-launc"
     epic: 4
-    action: "FsLaunchContextWriter（OMP，adapters/launch-context/fs-launch-context-writer.ts）与
-      FsClaudeLaunchContextWriter（Claude，adapters/launch-context/fs-claude-launch-context-writer.ts）近乎逐字重复（mkdir
-      + writeFileSync(JSON.stringify(...)) 四行体），且是 Epic 4 唯一一处没有注释解释为什么不共享的重复。"
+    action: >-
+      历史发现：OMP 的 `FsLaunchContextWriter` 与 Claude 的
+      `FsClaudeLaunchContextWriter` 曾重复实现 JSON launch context 写入。该问题已在 Epic 4
+      回顾第二轮 fix outcome 中修复，二者现在共用 `fs-json-context-writer.ts`。
     owner: "control-plane maintainer"
     status: done
-    ref: ""
+    ref: "_bmad-output/implementation-artifacts/epic-4-retro-2026-08-24.md"

@@ -4,10 +4,10 @@ type: architecture-spine
 purpose: build-substrate
 altitude: feature
 paradigm: '六边形模块化单体（Hexagonal Modular Monolith）'
-scope: '以 OMP 为首个客户端的稳定配置、启动装配、观察、验证、Bad Case 演进与跨 Session 追溯；保留后续 Claude Code/Codex CLI 接入边界（完整目标态；当前锁定 MVP 见 epics.md，是本范围的严格子集，见下方“MVP 范围边界”小节）'
+scope: '以 OMP 为首个客户端的稳定配置、启动装配、观察、验证、Bad Case 演进与跨 Session 追溯；当前已激活交付面包括 OMP 侧 Epic 1～3 与独立的 Claude Code adapter 能力域 Epic 4，Codex CLI 仍为 Deferred（完整目标态及其余边界见下方“MVP 范围边界”小节）'
 status: final
 created: '2026-08-22'
-updated: '2026-08-25'
+updated: '2026-08-27'
 binds: [WF-1, WF-2, WF-3, FR-1, FR-2, FR-3, FR-4, FR-5, FR-6, FR-7, FR-8, FR-9, FR-10, FR-11, FR-12, FR-13, FR-14, NFR-1, NFR-2, NFR-3, NFR-4, NFR-5, NFR-6, NFR-7, NFR-8, NFR-9]
 sources:
   - '../../prds/prd-agent-system-2026-08-21/prd.md'
@@ -36,7 +36,7 @@ companions: ['.memlog.md']
 
 ## 设计范式
 
-采用**六边形模块化单体**，以外部 Agent System CLI 为唯一组合根。领域内核定义稳定配置、装配事实、激活、验证与演进规则；应用层拥有全部产品状态变更入口；客户端、SQLite、可读投影、时钟、指纹和进程启动均为适配器。MVP 只实现 OMP adapter；薄 OMP extension 只桥接 PRD 已要求的会话内命令/工具与生命周期观察，不拥有领域状态或配置决定。部署为一个 Bun CLI 加一个同语言薄扩展，不引入 daemon、服务、队列或通用 IPC 总线。
+采用**六边形模块化单体**，以外部 Agent System CLI 为唯一组合根。领域内核定义稳定配置、装配事实、激活、验证与演进规则；应用层拥有全部产品状态变更入口；客户端、SQLite、可读投影、时钟、指纹和进程启动均为适配器。**核心 OMP MVP 仍只实现 OMP adapter；Epic 4 已激活的 Claude Code adapter 是其外部独立能力域，不改变 Epic 1～3 的 OMP 完成门槛。**薄 OMP extension 只桥接 PRD 已要求的会话内命令/工具与生命周期观察，不拥有领域状态或配置决定。部署为一个 Bun CLI 加一个同语言薄扩展，不引入 daemon、服务、队列或通用 IPC 总线。
 
 ```mermaid
 flowchart LR
@@ -51,17 +51,17 @@ flowchart LR
   OMP --> HOST[OMP 客户端进程]
 ```
 
-依赖只能指向内层。`domain` 不得导入 OMP、Bun、SQLite、文件系统、进程环境或投影格式；adapter 不得自行做产品决定。OMP、未来 Claude Code/Codex adapter 均实现同一窄端口，但端口只统一装配意图、能力声明和证据，不统一客户端配置文件、Session 或 hook 语义。
+依赖只能指向内层。`domain` 不得导入 OMP、Bun、SQLite、文件系统、进程环境或投影格式；adapter 不得自行做产品决定。OMP、已激活的 Claude Code 与未来的 Codex adapter 均实现同一窄端口，但端口只统一装配意图、能力声明和证据，不统一客户端配置文件、Session 或 hook 语义。
 
 ## MVP 范围边界（epics.md 为准）
 
-当前锁定的 MVP 范围由 [`epics.md`](../../epics.md) 权威定义：1 个 Epic（查看、选择并使用 OMP 配置）、2 条 Story（1.1 查看与比较配置内容、1.2 选择配置并使用 OMP），覆盖 MVP-FR1～MVP-FR10，OMP-only。本架构脊柱其余正文描述的是完整目标态架构，供未来阶段参考；epics.md AR15 记录了负责人本轮对以下条款的明确裁决，覆盖内容详见对应 AD 内嵌的"MVP 边界"标注与文末 `## Deferred` 小节：
+当前已激活的交付范围由 [`epics.md`](../../epics.md) 权威定义：Epic 1（查看、选择并使用 OMP 配置，覆盖 MVP-FR1～MVP-FR10）、Epic 2（控制面发布与自更新）和 Epic 3（配置供应与装配）共同构成 OMP 侧当前工作面；Epic 4（装配并激活 Claude Code 客户端）是已激活但独立的第二客户端能力域，Codex CLI 仍为 Deferred。Epic 1～3 的 OMP 核心 MVP 仍以既有 MVP-FR1～MVP-FR10 为完成门槛，Epic 4 不追溯改变其范围或验收。本架构脊柱其余正文描述的是完整目标态架构，供已激活能力与未来阶段参考；epics.md AR15 记录了负责人对以下条款的明确裁决，覆盖内容详见对应 AD 内嵌的“MVP 边界”标注与文末 `## Deferred` 小节：
 
-- **AD-16（候选、推荐与用户裁决）：** MVP 不实现，用户直接从已存在的配置修订中选择。
-- **AD-7、AD-13、AD-19 对应条款（explicit resume 启动参数、opaque native Session locator 持久化、Session lease/fencing）：** MVP 不实现，resume 完全由 OMP 原生界面负责。
-- **AD-11、AD-17（三层验证独立取证、首轮样本与退出门）：** MVP 期间是外部开发验收门，不是 Story 1.1/1.2 交付给终端用户的产品运行时功能。
+- **AD-16（候选、推荐与用户裁决）：** OMP 核心 MVP 不实现，用户直接从已存在的配置修订中选择；Epic 3 的配置供应与装配已作为后续已激活能力域单独交付。
+- **AD-7、AD-13、AD-19 对应条款（explicit resume 启动参数、opaque native Session locator 持久化、Session lease/fencing）：** OMP 核心 MVP 不实现，resume 完全由 OMP 原生界面负责；Claude Code adapter 复用同一窄端口与状态语义，但不因此打开这些 OMP MVP 收窄项。
+- **AD-11、AD-17（三层验证独立取证、首轮样本与退出门）：** OMP 核心 MVP 期间是 OMP 侧外部开发验收门，不是 Story 1.1/1.2 交付给终端用户的产品运行时功能；Epic 4 另有独立 parity/adapter gate，不由本合同自动覆盖。
 
-上述条款保留为已确认的未来架构描述，不因写在本文档中而自动获得当前实施授权；重开需要新证据与负责人明确裁决（epics.md AR13、AR15、AR16）。
+上述条款保留为已确认的未来架构描述，不因写在本文档中而自动获得 OMP 核心 MVP 的实施授权；已激活的 Epic 3/4 只按各自 Story、spec 与独立验收门执行，重开其他能力仍需要新证据与负责人明确裁决（epics.md AR13、AR15、AR16）。
 
 ## 不变量与规则
 
@@ -69,8 +69,8 @@ flowchart LR
 
 - **Binds:** 全部能力
 - **Prevents:** 从现有 Python CAP 或历史行为恢复需求，以及把未来三端愿景误写成当前支持。
-- **Rule:** 只以 PRD、addendum、当前核实的客户端合同和本轮技术研究为设计输入。现有 Python CAP 仅作 Bad Case 证据，不是需求、架构或迁移基线。MVP 只实现并验收 OMP；Claude Code/Codex CLI 不进入 MVP 完成门。允许且必须保留客户端中立的 manifest、receipt、opaque Session locator 与 adapter port；不得预建第二客户端实现、配置等价层或跨客户端 Session 翻译。
-- **2026-08-23 追溯澄清（见 PRD §4.4/§7 的 2026-08-23 裁决更新、`sprint-change-proposal-2026-08-23-cap-claude-codex-adapter.md`）：** Claude Code 已由负责人明确裁决激活为第二客户端，纳入 epics.md Epic 4；"Claude Code/Codex CLI 不进入 MVP 完成门"改为——Claude Code adapter 是 Epic 1～3 锁定 MVP 之外新增的独立能力域（见 AD-19、AD-20），不追溯改变 Epic 1～3 已完成/进行中范围本身的完成门槛。**Codex CLI 继续 Deferred**：现有 `.cap/runtime/` 下只有 `claude.toml`，没有 `codex.toml`——即当前没有 Codex 侧真实装配的 Bad Case 证据支持同批激活；Codex 需要独立的新证据与负责人裁决，不因本次 Claude Code 的裁决被顺带打开。"不得预建配置等价层或跨客户端 Session 翻译"这条约束继续原样适用：Claude Code adapter 与 OMP adapter 之间、与未来可能的 Codex adapter 之间都不追求配置或 Session 等价。
+- **Rule:** 只以 PRD、addendum、当前核实的客户端合同和本轮技术研究为设计输入。现有 Python CAP 仅作 Bad Case 证据，不是需求、架构或迁移基线。**核心 OMP MVP 只实现并验收 OMP；Claude Code adapter 已作为 Epic 4 的独立能力域激活，不追溯改变 Epic 1～3 的完成门槛；Codex CLI 仍不在当前激活范围内。**允许且必须保留客户端中立的 manifest、receipt、opaque Session locator 与 adapter port；不得预建配置等价层或跨客户端 Session 翻译。
+- **2026-08-23 追溯澄清（见 PRD §4.4/§7 的 2026-08-23 裁决更新、`sprint-change-proposal-2026-08-23-cap-claude-codex-adapter.md`）：** Claude Code 已由负责人明确裁决激活为第二客户端，纳入 epics.md Epic 4；该 adapter 的独立能力域由 Epic 4 自身 Story 与 parity gate 验收，不把 OMP 核心 MVP 的外部验收门改写为 Claude Code 验收。**Codex CLI 继续 Deferred**：`.cap/` 退役前快照只有 `claude.toml`，没有 `codex.toml`——即当时没有 Codex 侧真实装配的 Bad Case 证据支持同批激活；Codex 需要独立的新证据与负责人裁决，不因本次 Claude Code 的裁决被顺带打开。"不得预建配置等价层或跨客户端 Session 翻译"这条约束继续原样适用：Claude Code adapter 与 OMP adapter 之间、与未来可能的 Codex adapter 之间都不追求配置或 Session 等价。
 
 ### AD-2 — 外部 TypeScript/Bun 控制面 [ADOPTED]
 
@@ -89,6 +89,7 @@ flowchart LR
 - **Binds:** FR-3、FR-5~7、FR-12~14
 - **Prevents:** 多文件部分提交、索引漂移、跨 Session 丢失，以及复制客户端凭据/transcript 形成第二权威。
 - **Rule:** 外部 CLI 进程内的 Bun SQLite 保存稳定配置修订、候选与裁决、激活、装配快照、差异、观察、验证证据、样本、Bad Case、替代链和 opaque native Session locator。JSON/Markdown 仅为 allowlist 投影，可删除重建；invocation-local manifest/plan/event 文件是传输与诊断工件，不是长期权威。凭据、transcript、客户端缓存和原生 Session 内容始终由客户端拥有，禁止导入产品数据库。SQLite 不意味着 daemon；只有多 writer 查询/订阅或恢复压力被实证后才重开服务化。
+- **MVP 边界（epics.md AR15）：** 上述 SQLite 目标态模型中的 opaque native Session locator 持久化不属于当前版本；MVP 不保存 locator、不实现 explicit resume，也不实现依赖它的 Session lease/fencing。resume 由 OMP 原生界面负责，重开需要新证据与负责人明确裁决。
 
 ### AD-5 — 期望状态采用不可变修订
 
@@ -157,7 +158,7 @@ flowchart LR
 
 - **Binds:** WF-1、WF-2、NFR-8、NFR-9
 - **Prevents:** 每次激活安装/升级依赖或插件、OMP 客户端 contract churn 无门进入，以及外部 CLI 自更新引入未经完整性校验的供应链风险或阻塞正常激活。
-- **Rule:** 外部 CLI 以 Bun standalone artifact 分平台发布；OMP 薄扩展通过 Marketplace、Git 或本地 link 分发，但必须与 CLI protocol version 显式兼容。安装/升级默认是低频显式操作，普通激活不得安装依赖、改插件或为 OMP/薄扩展联网更新。**唯一例外：外部 CLI 自身版本可以在进程启动时后台静默检查并原地自更新**——这是本架构唯一允许发生在普通激活路径上的联网行为，且必须同时满足：只读 GET 一个固定、版本化的发布端点（不得从用户可控或运行时派生的 URL 拉取）；下载工件必须先通过完整性校验（签名或已知哈希）才允许替换本地二进制；替换前保留可回滚的旧二进制（如 `.bak`）；检查、下载或校验的任一步骤失败一律静默降级为"本次不更新、继续用当前版本完成本次启动"，不得阻塞或使当前激活失败；更新检查/下载过程不得携带或上报任何遥测、使用数据或产品状态。OMP 自身的版本升级不受本条例外覆盖，继续是低频显式操作：每个支持客户端的实际版本升级先运行 capability probe、adapter fixtures 与 fresh→locator→explicit resume 目标 smoke，再更新兼容 snapshot。文档声称但 release-pinned CLI/help/source 或 smoke 未证实的能力保持 Unknown。"失败静默降级"只约束失败路径；更新成功（二进制已替换）时允许打印一行简洁提示（如版本号），不要求也不因此产生额外确认或阻塞——这一句是 2026-08-23 追溯澄清（见 `sprint-change-proposal-2026-08-23-configs-self-update-visible-success.md`），不改变上述固定端点、完整性校验、`.bak` 回滚、失败静默降级、零遥测等既有约束的实质内容。
+- **Rule:** 外部 CLI 以 Bun standalone artifact 分平台发布；OMP 薄扩展通过 Marketplace、Git 或本地 link 分发，但必须与 CLI protocol version 显式兼容。安装/升级默认是低频显式操作，普通激活不得安装依赖、改插件或为 OMP/薄扩展联网更新。**唯一例外：外部 CLI 自身版本可以在进程启动时后台静默检查并原地自更新**——这是本架构唯一允许发生在普通激活路径上的联网行为，且必须同时满足：只读 GET 一个固定、版本化的发布端点（不得从用户可控或运行时派生的 URL 拉取）；下载工件必须先通过完整性校验（签名或已知哈希）才允许替换本地二进制；替换前保留可回滚的旧二进制（如 `.bak`）；检查、下载或校验的任一步骤失败一律静默降级为"本次不更新、继续用当前版本完成本次启动"，不得阻塞或使当前激活失败；更新检查/下载过程不得携带或上报任何遥测、使用数据或产品状态。OMP 自身的版本升级不受本条例外覆盖，继续是低频显式操作：每个支持客户端的实际版本升级先运行 capability probe、adapter fixtures 以及当前 MVP 实际支持的 native/configuration/start observation 证据，再更新兼容 snapshot；`fresh → 取得 opaque locator → explicit resume` 仅是未来目标态 smoke，当前标为 `N/A / Deferred`，只有新证据与负责人明确裁决后才可纳入升级门。文档声称但 release-pinned CLI/help/source 或 smoke 未证实的能力保持 Unknown。"失败静默降级"只约束失败路径；更新成功（二进制已替换）时允许打印一行简洁提示（如版本号），不要求也不因此产生额外确认或阻塞——这一句是 2026-08-23 追溯澄清（见 `sprint-change-proposal-2026-08-23-configs-self-update-visible-success.md`），不改变上述固定端点、完整性校验、`.bak` 回滚、失败静默降级、零遥测等既有约束的实质内容。
 
 ### AD-16 — 候选、推荐与用户裁决可追溯 [ADOPTED]
 
@@ -207,10 +208,10 @@ flowchart LR
   - **Instructions** → 解析后的文本直接作为 `--append-system-prompt <text>` 的参数值，不需要落文件。
   - **MCP** → 生成原生 `mcpServers` 格式的 `mcp.json` 到 `materialized/mcp.json`，通过 `--mcp-config materialized/mcp.json` + `--strict-mcp-config` 交付。
   - 物化文件的写入遵守 AD-9 已有的同目录临时文件原子替换纪律，不产生可被读者观察到的半写状态。
-  - 调用达到任一终态（`succeeded | degraded | failed | incomplete`）后，`materialized/` 随其余 invocation 目录一并清理；清理时机绑定 invocation 目录整体既有的清理节点（AD-9），不早于——invocation 目录当前对两个 adapter 都还没有真正落地清理代码，这是既有缺口，不是本条新引入的；本条只额外约束：不得在 Claude 进程本身或其显式 spawn 的子进程（MCP server、hooks）已知仍可能读取 `materialized/` 期间执行清理。
+  - 调用达到任一终态（`succeeded | degraded | failed | incomplete`）后，`materialized/` 随其余 invocation 目录一并清理；当前实现由 `ClaudeInvocationDirPort.cleanup` 在 `launchClaudeFresh` 的 `finally` 中执行，清理失败按既有 best-effort 合同不掩盖启动结果。清理时机仍不得早于 Claude 进程或其显式 spawn 的子进程（MCP server、hooks）可能读取 `materialized/` 的期间。
   - `sourceRef` 无法解析为真实可读内容时，该 capability 按 AD-10 fail-closed 记为 `unsupported`（必需）或 `degraded`（可选），不得静默跳过或用占位内容伪装已物化。
-- **阻塞前提（Story 4.5b 必须先修，不是可选项）：** 今天经 `src/adapters/sources/cap-fs.ts`（`loadCapConfigRevisions`，由 `scripts/seed-from-cap.ts` 调用）从 `.cap/` 灌入的修订，其每个 `CapabilityReference` 的 `sourceRef`/`contentFingerprint` 都被硬编码为 `CAP_FS_FIELD_NOT_CAPTURED`（即 `Unknown`）——本条设想的"当前可靠可解析来源"在实现落地前并不存在，若不修复，AD-10 fail-closed 会让本仓现存的每一条 `.cap`-seeded 修订在 Claude 侧全部降级/不支持，`.cap/` 退役顺序第 2 步的真实烟雾 parity 也无法通过。修复范围有界：`cap-fs.ts` 读取 `.cap/` 时本就知道每个 Skill/Instruction/MCP 条目的真实磁盘路径，只是当前丢弃未记录；Story 4.5b 必须先让它把这个已知路径写入 `sourceRef`，而不是发明新的名字→路径映射规则（`epic-3-context.md` 的"不应在实现层面自行发明映射规则"约束的是尚无协议的真实数据源接入，如 GitHub/本地目录导入，不是修正一个已知但被丢弃的字段）。真实数据源接入协议本身仍是 Epic 3 未拍板的开放问题，不阻塞本条——遇到那类当前无法解析的来源时按上方 fail-closed 规则处理。
-- **Probe 前提：** `--plugin-dir`、`--append-system-prompt` 当前只有文档/`.cap` 既有证据核实过，Story 4.1 的 `BunClaudeCapabilityProbe` 尚未把它们纳入探测（与已探测的 `--permission-mode`/`--setting-sources`/`--strict-mcp-config` 不同）；按 AD-15"文档声称但未经 release-pinned probe/smoke 证实的能力保持 Unknown"的既有原则，Story 4.5b 必须先把这两个 flag 纳入 probe 覆盖，不能只凭本轮文档核实就当作 `supported`。同时，Story 4.1/4.5 已记录的版本漂移（`.cap` 核实基线 2.1.236 vs 本机实测 2.1.241，目前只有 `console.warn`、未持久化）在 Story 4.5b 落地前必须重新 probe 一次，不得复用旧快照证据。
+- **已解决的 Story 4.5b 前置：** 历史上 `cap-fs.ts` 曾把从 `.cap/` 灌入修订的 `sourceRef`/`contentFingerprint` 硬编码为 `CAP_FS_FIELD_NOT_CAPTURED`，导致 AD-10 无法解析内容；Story 4.5b 已让 instructions 与 skills 记录本就可读的真实路径，无法解析的 mcp/hooks/plugins 继续按 required/optional 诚实 fail-closed。`.cap/` 及其 `seed-from-cap.ts` 已由 Story 4.7 退役，新的真实数据源仍按各自协议提供。
+- **已满足的 Probe 前置：** Story 4.5b 已将 `--plugin-dir`、`--append-system-prompt` 纳入 `BunClaudeCapabilityProbe` 并重新执行完整 probe；这只证明 adapter 所需的 native surface probe 证据，不等同于一次真实 Claude interactive launch 或 Claude 外部任务验收。版本漂移或未被 release-pinned probe/smoke 证实的能力仍按 AD-15 保持 Unknown。
 
 ### AD-22 — 自我开发装配与产品装配面共用同一条路径；客户端原生发现不是装配面 [ADOPTED]
 
@@ -291,7 +292,7 @@ packages/
     src/index.ts               # 低频 request 与 lifecycle event；无领域状态/DB
 ```
 
-不新增 `adapters/clients/codex/`：现有 `.cap/runtime/` 只有 `claude.toml`，没有 `codex.toml`，当前没有 Codex 侧真实装配的 Bad Case 证据支持同批建目录；Codex 需要独立证据与负责人裁决后再补（AD-1、Deferred）。下方时序图描述的是 OMP adapter 的 fresh/resume 流程；Claude Code adapter 的 `already-running session` 分支不经过这条 spawn→退出码路径，按 AD-20 在 `apply` 即解析为 `requires-restart`，不产出独立时序图（未构成与 OMP 不兼容的新协议，只是同一状态机下的另一条终态路径）。
+不新增 `adapters/clients/codex/`：`.cap/` 退役前快照只有 `claude.toml`，没有 `codex.toml`，当时没有 Codex 侧真实装配的 Bad Case 证据支持同批建目录；Codex 需要独立证据与负责人裁决后再补（AD-1、Deferred）。下方时序图描述的是 OMP adapter 的完整目标态 fresh/resume 流程；当前 MVP 只验证实际支持的 native/configuration/start observation。图中的 resume 不表示 Agent System 当前提供 locator/resume：OMP native resume 由用户在已启动客户端内执行，不经 Agent System；Claude Code adapter 的 `already-running session` 分支不经过这条 spawn→退出码路径，按 AD-20 在 `apply` 即解析为 `requires-restart`，不产出独立时序图。
 
 ```mermaid
 sequenceDiagram
@@ -303,7 +304,7 @@ sequenceDiagram
   participant O as OMP Runtime
   participant B as OMP Thin Bridge
 
-  U->>C: 选择配置 + fresh/resume
+  U->>C: 选择配置 + fresh（当前 MVP；目标态 resume 由 OMP native 用户操作）
   C->>A: prepare(revision, input refs, isolation intent)
   A->>P: probe + plan
   P-->>A: capabilities + argv/env/files + residual sources
@@ -313,11 +314,11 @@ sequenceDiagram
   U->>C: 确认
   C->>A: apply(operationId, planHash, manifestHash)
   A->>S: 原子消费确认并认领
-  A->>P: launch/resume(invocation directory)
+  A->>P: launch(invocation directory)（当前 MVP；目标态 resume 不经 Agent System）
   P->>O: argv spawn
   O->>B: Session/tool/lifecycle events
   B-->>C: 原子追加 allowlist observation envelopes
-  P-->>A: exit + opaque Session locator
+  P-->>A: exit + opaque Session locator（目标态字段；当前 MVP 不产出/持久化）
   C->>A: reconcile(operation, invocation directory)
   A->>S: 校验、去重并追加 receipt/difference/evidence
 ```
@@ -361,13 +362,14 @@ erDiagram
 | 跨 Session 追溯 | SQLite adapter、queries、projection、opaque locator | AD-4、AD-7、AD-13 |
 | 隐私与授权；NFR-4~6 | reference policy、projection、client adapter/bridge | AD-6、AD-10、AD-14 |
 | 机械检查与低激活负担；NFR-7~9 | application、CLI、capability probe、测试门 | AD-11、AD-15、AD-19 |
-| 后续客户端接入边界 | client adapter port、manifest/plan/receipt schemas | AD-1、AD-3、AD-19 |
+| 客户端接入边界（Claude Code 已激活；Codex CLI 仍 Deferred） | client adapter port、manifest/plan/receipt schemas | AD-1、AD-3、AD-19 |
 | Epic 4：Claude Code 装配（Instructions/Skills/MCP 硬控制、内容物化、CLI 入口）| domain/activation（复用）、application、Claude client adapter | AD-1、AD-19、AD-20、AD-21 |
 | 本仓自我开发装配（Skill 资产存放、组织与进入会话的路径） | `plugins/`、`_bmad/` pin、`configs` 修订与 Claude/OMP client adapter | AD-4、AD-8、AD-19、AD-21、AD-22 |
 
-> **MVP 范围提示：** 当前锁定 MVP（epics.md）只落地与 MVP-FR1～MVP-FR10 对应的部分。"WF-1 配置建立与修订"行中的候选/推荐（AD-16）与"跨 Session 追溯"行中的 opaque locator 持久化（AD-7/AD-13/AD-19 对应条款）延后；"三层验证与首轮样本"行（AD-8、AD-11、AD-17）在 MVP 期间是外部开发验收门，AD-8 的事实层级/Known-Unknown 表达本身仍在 MVP 内用于状态视图。
+> **范围提示：** OMP 核心 MVP（Epic 1）只落地与 MVP-FR1～MVP-FR10 对应的部分；Epic 2/3 是已激活的 OMP 侧后续能力域，Epic 4 是独立的 Claude Code 能力域。"WF-1 配置建立与修订"行中的候选/推荐（AD-16）与"跨 Session 追溯"行中的 opaque locator 持久化（AD-7/AD-13/AD-19 对应条款）仍按各自 MVP 边界延后；"三层验证与首轮样本"行（AD-8、AD-11、AD-17）在 OMP 核心 MVP 期间是 OMP 侧外部开发验收门，AD-8 的事实层级/Known-Unknown 表达本身仍在 MVP 内用于状态视图。Epic 4 的 adapter/parity 验收走独立 gate，不由 OMP 合同自动覆盖。
 
 ## 验证边界
+- **验证作用域说明：** 本节中涉及 `resume selector`、opaque native Session locator 或 Session lease/fencing 的条目，若未明确标为当前 MVP，均是完整目标态合同；当前 MVP 验证只覆盖实际支持的 native/configuration/start observation，不将这些目标态条目纳入当前 acceptance pass。
 
 - **Schema/类型合同：**独立 TypeScript 检查锁定领域 union、应用端口、manifest/plan/receipt/bridge schemas；未知字段或版本不得被宽松吞掉。
 - **领域层：**`bun:test` 覆盖唯一转换表、确认消费、Known/Unknown、capability/evidence levels、AssemblySnapshot/VerificationSubject、修订替代、fail-closed、degraded 与 Verified 派生；不加载 OMP 或真实 SQLite。
@@ -375,27 +377,28 @@ erDiagram
 - **隐私合同：**以含 prompt、凭据、私域原文、transcript、工具 payload 和未知新增字段的夹具验证数据库、日志、投影、manifest/plan/receipt、bridge envelope 与 invocation 诊断不泄露；runtime secret 只存在于调用作用域，任一受限字段落盘时测试失败。
 - **Adapter contract：**同一 manifest 生成确定的持久 plan 与非持久 RuntimeLaunchSpec；持久 plan 只含环境键/引用/hash，不含 secret/content；覆盖 capabilityId/subject、required/optional、SourceId 完备 disposition、supported/degraded/unsupported/unknown、resume selector、cwd/env、退出码与 receipt 解释。
 - **故障实验：**实际杀死 wrapper 或 OMP，验证工件 hash/权限/关联不匹配只产生 incomplete/Unknown、envelope 可幂等导入、runtime secret 与终态工件按合同清理；覆盖同一 native Session 两个 writer 只有一个 fencing lease，不能证明遗留进程停止时 locator 保持 blocked。
-- **目标 OMP smoke：**在钉住 OMP/Bun artifact 上执行 fresh→取得 opaque locator→explicit resume；完成配置修订、Skills/MCP 启动装配、extension observation、失败重试与导出；覆盖非 ASCII/空格路径、既有全局配置、未知 capability 与 bridge 不可用。
+- **当前 OMP MVP smoke：** 只验证当前 MVP 实际支持的 OMP native/configuration/start observation 证据（包括真实 native OMP 启动、配置装配和 extension observation）；help、argv 或 fake/injected 测试不得替代任何被声明为真实门的证据。
+- **未来目标态 OMP smoke（Deferred）：** 在钉住 OMP/Bun artifact 上执行 `fresh → 取得 opaque locator → explicit resume`，并覆盖配置修订、Skills/MCP 启动装配、失败重试与导出等目标态能力；该链不属于当前 MVP acceptance pass denominator，只有新证据与负责人明确裁决后才重开。`validation-report-2026-08-27.md` 当前仍保留 locator 获取与 explicit resume 为 **Unknown / not run** 的事实，不得将其改写为当前版本 `Verified`。
 - **Claude Code adapter contract（Epic 4）：**fresh target 覆盖同一 Adapter contract 门（capabilityId/subject、required/optional、supported/degraded/unsupported/unknown、退出码与 receipt 解释）；already-running session target 专项覆盖 AD-20——验证 `apply` 在该 target 下必然解析为 `requires-restart`、`observationStage` 在重启前不越过 `planned`，且对同一 plan 无论 target 判断结果如何都不产生部分应用的 SQLite 事实；与 `.cap/` 现有 lock/render 产物的 parity 验证按"`.cap/` 退役顺序"第 2 步执行，覆盖 AD-21 物化后的真实交付内容，不止是 manifest 结构比对。
 - **Claude adapter 内容物化合同（AD-21，Story 4.5b）：**验证每个 `CapabilityReference` 的 `sourceRef` 解析结果只进入调用作用域内的 invocation 目录，从不写入 SQLite/投影/receipt；调用终态后物化产物被清理，不留存；`sourceRef` 不可解析时对应 capability 正确记为 `unsupported`/`degraded`，不产生占位内容或静默跳过。
 - **自我开发装配一致性（AD-22，**现行门**，实现见 `tools/assembly_intent/`，在本机与 CI（`.github/workflows/repository-checks.yml`）两处真实执行）：**该门机械校验「仓库规则强制加载的每个 Skill 都在本仓当前装配意图内」——解析不到即失败，不接受「加载可用的 X」措辞作为豁免。**它由推导驱动，不由声明驱动：**本仓不新增、也不存在装配声明文件；装配意图从两处已有且各因别的理由存在的权威推导——`entrypoints/agent-system.md` 里「加载可用的 `<名>` Skill」点名的每个 Skill（推出组 `plugins/<名>`），与 `_bmad/_config/skill-manifest.csv` 加 `manifest.yaml` 的 `installation.version` pin（推出组 `.agents`）。多一份清单就会与入口规则漂移，而漂移正是 `plugins/skill-imports.toml` 失效的死因；推导让「改规则」与「改意图」成为同一个动作，漂移在构造上不可能。推导出的组集合喂给**真实的 `configs supply` 子进程**解析（检查侧不重写 `<根>/<组>/skills/<skill>/` 这条目录约定，「组是什么」只有一个实现），再断言每个被点名／被清单声明的 Skill 确实出现在 `supply` 的真实产出里；`supply` 非零退出时透传其类型化原因，不伪装成「一致」。代价如实记：从散文里正则提取是脆的，缓解是一条反向断言——提取数为 0 时该门**必须**红，而不是静默报出「没发现不一致」。当前实测：推导出 3 个组、51 个 skill，退出 0。退役第 (2) 步的 parity 验证是一次性真实烟雾对照（经 `configs use` 启动的会话实际可用 Skill 集合 vs 原生发现集合），不是清单比对，也不是长期双运行。
-- **产品验收：**按 AD-17 执行 T-1/T-2/T-3（或记录理由的 T-4），每任务 1 个基线加 2 个稳定配置样本且至少 1 个不同 native Session；自动化不能替代真实任务观察。
+- **产品验收：**按 AD-17 执行 T-1/T-2/T-3（或记录理由的 T-4），每任务 1 个基线加 2 个稳定配置样本且至少 1 个不同 native Session；`fresh` 仅是样本来源，不表示 locator/resume 产品能力。达到样本门后才允许追加绑定稳定配置修订、可比样本组、证据、负责人裁决与理由的外部 append-only `ValidationDecision`；该记录不是 MVP 产品运行时能力。自动化不能替代真实任务观察。
 
 ## `.cap/` 退役顺序（Epic 4）
 
-`.cap/`（`manifest.toml`、`profiles/*.toml`、`runtime/claude.toml`、`skill-imports.toml`）是本轮问题的证据来源与迁移前身，不是需求或架构基线（AD-1）。
+`.cap/`（已退役的 `manifest.toml`、`profiles/*.toml`、`runtime/claude.toml`、`skill-imports.toml`）是本轮问题的历史证据来源与迁移前身，不是需求或架构基线（AD-1）。
 
 **2026-08-24 重写（见 `sprint-change-proposal-2026-08-24-cap-retirement-redesign.md`）：** 原四步顺序的第 3 步"本仓自身切换"已证明其对象不存在——本仓自己这个正在运行的交互式 Claude Code session，其 skills/CLAUDE.md 由 Claude Code 原生项目目录发现机制读取 git 跟踪文件，与 `.cap` 的渲染管线无关，不存在"从 `.cap` 切换过去"这个动作的对象（见 AD-20 的 2026-08-24 澄清）。退役顺序收窄为以下**三步**，且**严格按序**——不得先退役 `.cap/` 再设计替代：
 
-1. **落地新 adapter：** `adapters/clients/claude/` 实现 probe/plan/launch/interpret，产出的 `AssemblyManifest` 必须覆盖 `.cap/manifest.toml` + `profiles/*.toml` + `runtime/claude.toml` + `skill-imports.toml` 当前表达的全部装配意图（本仓现存的 `general`、`agent-assembler` 两个 profile 是最小覆盖集）；**并且**具备 AD-21 的内容物化能力（不只是硬控制 flag，真正把 Instructions/Skills/MCP 内容交付给新 spawn 的进程），**并且**在 `configs` CLI 有真实可调用入口（`domain/client.ts` 的 `resolveClientSupport('claude-code')` 基于真实探测而非硬编码 unsupported）。
-2. **一次性 parity 验证：** 新 adapter fresh 启动的真实产出——经 AD-21 物化后实际交付的 `--plugin-dir`/`--append-system-prompt`/`--mcp-config` 内容——与 `cap use <role> --cli claude` 的真实产出做真实烟雾对照，不是静态 manifest 结构比对；证明覆盖本仓现有场景后才能继续，这是一次性证据收集，不是长期双运行。
+1. **落地新 adapter：** `adapters/clients/claude/` 实现 probe/plan/launch/interpret，产出的 `AssemblyManifest` 必须覆盖退役前 `.cap/manifest.toml` + `profiles/*.toml` + `runtime/claude.toml` + `skill-imports.toml` 所表达的全部装配意图（本仓退役前的 `general`、`agent-assembler` 两个 profile 是最小覆盖集）；**并且**具备 AD-21 的内容物化能力（不只是硬控制 flag，真正把 Instructions/Skills/MCP 内容交付给新 spawn 的进程），**并且**在 `configs` CLI 有真实可调用入口（`domain/client.ts` 的 `resolveClientSupport('claude-code')` 基于真实探测而非硬编码 unsupported）。
+2. **一次性 parity 验证：** 新 adapter fresh 启动的真实产出——经 AD-21 物化后实际交付的 `--plugin-dir`/`--append-system-prompt`/`--mcp-config` 内容——与退役前 `cap use <role> --cli claude` 的真实产出做真实烟雾对照，不是静态 manifest 结构比对；证明覆盖本仓退役前场景后才能继续，这是一次性证据收集，不是长期双运行。
 3. **退役 `.cap/` 本体：** 仅在第 2 步验证稳定后，移除 `.cap/` 目录，并把 `openspec/specs/` 下与 `.cap/` 直接相关的现存 spec（`v3-assembly-executor` 已确认相关，其余条目由实现时逐一核实，注意这些是 `openspec/specs/` 下的 spec，不是 `openspec/changes/` 下待处理的 change）收敛为归档状态；`.cap/` 历史内容降级为证据参考，不再作为任何当前需求或架构的权威来源。
 
 ## Deferred
 
 - 稳定配置、证据与 Bad Case 的完整字段 schema：实现故事在不违反 AD-5、AD-6、AD-8、AD-11 下确定。
 - CLI 命令名、OMP bridge 工具名、TUI 文案与投影视图：UX/实现层决定，不得改变职责、状态所有权或一次确认上限。
-- Claude Code/Codex adapter 实现与产品承诺：MVP 不实现；只有产品合同明确激活第二客户端后，按 AD-19 增量资格，不追求配置或 Session 等价。**（2026-08-23 更新：Claude Code 已激活，见 AD-1、AD-19、AD-20 与结构种子、epics.md Epic 4；Codex 仍按本条原样 Deferred，等待独立的 Bad Case 证据与负责人裁决。）**
+- Claude Code adapter 已在 Epic 4 激活并完成其 Story 级落地；本 Deferred 项保留 **Codex CLI adapter 实现与产品承诺**，不因 Claude Code 激活而顺带开启。Codex 只有在独立 Bad Case 证据与负责人裁决后，才按 AD-19 增量资格重开，不追求与 OMP/Claude Code 的配置或 Session 等价。
 - OMP bridge 是否需要同步 tool interception、provider/context mutation 或原生 UI：只有具名用户结果和真实证据出现后扩展；默认只做 PRD 所需低频请求与 observation。
 - daemon、远程同步、团队共享状态、服务化、遥测：不在 MVP；只有多 writer/订阅/共享合同明确出现后重开。
 - 记录保留、压缩、备份与用户删除 UX：数据量、法规或恢复目标出现后决定；删除不得伪造替代链。
@@ -406,4 +409,4 @@ erDiagram
 - 候选、推荐与用户裁决（AD-16）：MVP 不实现，用户直接选择已存在配置；只有新证据与负责人明确裁决才重开（epics.md AR15）。
 - Explicit resume 启动参数、opaque native Session locator 持久化与 Session lease/fencing（AD-7、AD-13、AD-19 对应条款）：MVP 不实现，resume 完全由 OMP 原生界面负责；只有新证据与负责人明确裁决才重开（epics.md AR15）。
 - Codex CLI 侧的 `configs` 启动入口与 `.agents/skills/` 投影退役（AD-22 第 (3) 步的 Codex 半边）：Codex 本身仍 Deferred，无入口即无法做 parity 验证；只有 Codex 按 AD-1 被独立证据激活后重开。
-- 三层验证与首轮样本退出门作为产品运行时功能（AD-11、AD-17）：MVP 期间保留为外部开发验收门，不向终端用户暴露；只有新证据与负责人明确裁决才重开（epics.md AR15）。
+- 三层验证与首轮样本退出门作为 OMP 核心 MVP 的产品运行时功能（AD-11、AD-17）：当前保留为 OMP 侧外部开发验收门，不向终端用户暴露；Epic 4 的 adapter/parity gate 独立执行，不由本合同自动覆盖。只有新证据与负责人明确裁决才重开为产品运行时能力（epics.md AR15）。
