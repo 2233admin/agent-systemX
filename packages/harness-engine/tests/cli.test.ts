@@ -117,6 +117,49 @@ describe('harness CLI', () => {
     expect(result.stdout).not.toContain('Public plan title');
   });
 
+  test('rejects non-JSON paths without reading a sibling JSON artifact', async () => {
+    const directory = await fixtureDirectory();
+    const workflows = join(directory, 'workflows');
+    const path = join(workflows, 'workflow.json.backup');
+    const sibling = { ...validWorkflow, workflowId: 'workflow.json', revision: 22 };
+    await Bun.write(path, JSON.stringify(validWorkflow));
+    await Bun.write(join(workflows, 'workflow.json.json'), JSON.stringify(sibling));
+
+    const result = await runCli(['status', path]);
+
+    expect(result.exitCode).toBe(1);
+    expect(result.stdout).toContain('workflow.artifact.malformed');
+    expect(result.stdout).not.toContain('revision: 22');
+  });
+
+  test('renders each duplicate plan id from its own lease state', async () => {
+    const directory = await fixtureDirectory();
+    const leasedPlan = {
+      id: 'plan-1',
+      title: 'Private title',
+      status: 'InProgress',
+      metadata: {},
+      executionLease: {
+        kind: 'execution',
+        workflowId: 'workflow-1',
+        planId: 'plan-1',
+        holderId: 'worker',
+        worktreePath: '/tmp/worktree',
+        fencingToken: 1,
+        claimedAt: '2026-08-27T12:00:00.000Z',
+      },
+    };
+    const path = await writeWorkflow(directory, {
+      ...validWorkflow,
+      plans: [{ id: 'plan-1', title: 'Private title', status: 'Todo', metadata: {} }, leasedPlan],
+    });
+
+    const result = await runCli(['status', path]);
+
+    expect(result.exitCode).toBe(0);
+    expect(result.stdout).toMatch(/plan: plan-1\nstatus: Todo\nlease: none\nplan: plan-1\nstatus: InProgress\nlease: execution/);
+  });
+
   test('uses usage exit code for missing and unknown command arguments', async () => {
     await expect(runCli([])).resolves.toMatchObject({ exitCode: 2 });
     await expect(runCli(['validate'])).resolves.toMatchObject({ exitCode: 2 });

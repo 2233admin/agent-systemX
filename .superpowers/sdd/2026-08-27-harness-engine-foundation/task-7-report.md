@@ -9,7 +9,7 @@
 
 ## Tests run
 
-- `bun test packages/harness-engine/tests/cli.test.ts` — PASS, 7 tests and 26 assertions.
+- `bun test packages/harness-engine/tests/cli.test.ts` — PASS, 9 tests and 31 assertions (including exact-path and duplicate-plan lease regressions).
 - `bunx tsc --noEmit -p packages/harness-engine/tsconfig.json` — PASS.
 - `bun packages/harness-engine/src/cli/index.ts` — usage text emitted and process exit code 2 for missing arguments (expected usage behavior).
 

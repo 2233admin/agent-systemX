@@ -133,8 +133,12 @@ async function validateAssignment(filePath: string): Promise<CliResult> {
 
 async function readWorkflow(filePath: string): Promise<WorkflowSnapshot | null> {
   const absolute = isAbsolute(filePath) ? filePath : resolve(filePath);
-  const workflowId = basename(absolute, extname(absolute));
-  if (basename(dirname(absolute)) === 'workflows') {
+  const extension = extname(absolute);
+  if (extension.toLowerCase() !== '.json') {
+    throw new TypeError('Workflow artifact must be a JSON file');
+  }
+  const workflowId = basename(absolute, extension);
+  if (extension === '.json' && basename(dirname(absolute)).toLowerCase() === 'workflows') {
     return new JsonArtifactStore(dirname(dirname(absolute))).readWorkflow(workflowId);
   }
 
@@ -152,9 +156,8 @@ async function readWorkflow(filePath: string): Promise<WorkflowSnapshot | null> 
   }
 }
 
-function renderLease(snapshot: WorkflowSnapshot, planId: string): string {
-  const plan = snapshot.plans.find((candidate) => candidate.id === planId);
-  return plan?.executionLease === undefined ? 'none' : 'execution';
+function renderLease(plan: WorkflowSnapshot['plans'][number]): string {
+  return plan.executionLease === undefined ? 'none' : 'execution';
 }
 
 function renderStatus(snapshot: WorkflowSnapshot): CliResult {
@@ -163,7 +166,7 @@ function renderStatus(snapshot: WorkflowSnapshot): CliResult {
     `revision: ${snapshot.revision}`,
   ];
   for (const plan of snapshot.plans) {
-    lines.push(`plan: ${plan.id}`, `status: ${plan.status}`, `lease: ${renderLease(snapshot, plan.id)}`);
+    lines.push(`plan: ${plan.id}`, `status: ${plan.status}`, `lease: ${renderLease(plan)}`);
   }
   lines.push(`integration-merge-lease: ${snapshot.integrationMergeLease === undefined ? 'none' : 'integration-merge'}`);
   return { exitCode: 0, stdout: `${lines.join('\n')}\n`, stderr: '' };
