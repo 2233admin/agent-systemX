@@ -144,3 +144,5 @@ export {
   validateCapabilityResult,
   validateCapabilityStatus,
 } from './ports/host';
+export type { CliResult } from './cli/index';
+export { main as harnessMain, runCli } from './cli/index';
