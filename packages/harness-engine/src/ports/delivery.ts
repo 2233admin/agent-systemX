@@ -1,4 +1,6 @@
 import { isRfc3339Timestamp } from '../core/result.ts';
+import type { PortResult } from './coordination.ts';
+import { isConcreteRevision } from '../domain/review.ts';
 
 export interface DeliveryRef {
   readonly owner: string;
@@ -18,6 +20,7 @@ export interface DeliveryIssueDto extends DeliveryRef {
 
 export interface DeliveryPullRequestDto extends DeliveryRef {
   readonly state: string;
+  readonly baseSha: string;
   readonly headSha: string;
   readonly source: string;
   readonly version: string;
@@ -48,13 +51,22 @@ export interface DeliveryAfterMergeDto extends DeliveryRef {
   readonly observedAt: string;
 }
 
+export interface DeliveryMergeReadyDto extends DeliveryRef {
+  readonly expectedHead: string;
+  readonly mergeReady: boolean;
+  readonly source: string;
+  readonly version: string;
+  readonly observedAt: string;
+}
+
 /** 交付端口接收明确的仓库/编号和 HEAD，避免把动态后端载荷带入工作流。 */
 export interface DeliveryAdapter {
-  getIssue(ref: IssueRef): Promise<DeliveryIssueDto | null>;
-  getPullRequest(ref: PullRequestRef): Promise<DeliveryPullRequestDto | null>;
-  getChecks(ref: PullRequestRef, expectedHead: string): Promise<DeliveryChecksDto | null>;
-  getReviews(ref: PullRequestRef, expectedHead: string): Promise<DeliveryReviewsDto | null>;
-  readAfterMerge(ref: PullRequestRef, expectedHead: string): Promise<DeliveryAfterMergeDto | null>;
+  getIssue(ref: IssueRef): Promise<PortResult<DeliveryIssueDto>>;
+  getPullRequest(ref: PullRequestRef): Promise<PortResult<DeliveryPullRequestDto>>;
+  getChecks(ref: PullRequestRef, expectedHead: string): Promise<PortResult<DeliveryChecksDto>>;
+  getReviews(ref: PullRequestRef, expectedHead: string): Promise<PortResult<DeliveryReviewsDto>>;
+  prepareMergeReady(ref: PullRequestRef, expectedHead: string): Promise<PortResult<DeliveryMergeReadyDto>>;
+  readAfterMerge(ref: PullRequestRef, expectedHead: string): Promise<PortResult<DeliveryAfterMergeDto>>;
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -84,27 +96,36 @@ export function validateDeliveryIssue(value: unknown): value is DeliveryIssueDto
 }
 
 export function validateDeliveryPullRequest(value: unknown): value is DeliveryPullRequestDto {
-  return validateDto(value, ['state', 'headSha'], [
-    'owner', 'repository', 'number', 'state', 'headSha', 'source', 'version', 'observedAt',
-  ]);
+  if (!validateDto(value, ['state', 'baseSha', 'headSha'], [
+    'owner', 'repository', 'number', 'state', 'baseSha', 'headSha', 'source', 'version', 'observedAt',
+  ])) return false;
+  return isRecord(value) && isConcreteRevision(value.baseSha) && isConcreteRevision(value.headSha);
 }
 
 export function validateDeliveryChecks(value: unknown): value is DeliveryChecksDto {
-  return validateDto(value, ['expectedHead', 'conclusion'], [
+  if (!validateDto(value, ['expectedHead', 'conclusion'], [
     'owner', 'repository', 'number', 'expectedHead', 'conclusion', 'source', 'version', 'observedAt',
-  ]);
+  ])) return false;
+  return isRecord(value) && isConcreteRevision(value.expectedHead);
 }
 
 export function validateDeliveryReviews(value: unknown): value is DeliveryReviewsDto {
   if (!validateDto(value, ['expectedHead'], [
     'owner', 'repository', 'number', 'expectedHead', 'approved', 'source', 'version', 'observedAt',
   ])) return false;
-  return isRecord(value) && typeof value.approved === 'boolean';
+  return isRecord(value) && isConcreteRevision(value.expectedHead) && typeof value.approved === 'boolean';
+}
+
+export function validateDeliveryMergeReady(value: unknown): value is DeliveryMergeReadyDto {
+  if (!validateDto(value, ['expectedHead'], [
+    'owner', 'repository', 'number', 'expectedHead', 'mergeReady', 'source', 'version', 'observedAt',
+  ])) return false;
+  return isRecord(value) && isConcreteRevision(value.expectedHead) && typeof value.mergeReady === 'boolean';
 }
 
 export function validateDeliveryAfterMerge(value: unknown): value is DeliveryAfterMergeDto {
   if (!validateDto(value, ['expectedHead'], [
     'owner', 'repository', 'number', 'expectedHead', 'merged', 'source', 'version', 'observedAt',
   ])) return false;
-  return isRecord(value) && typeof value.merged === 'boolean';
+  return isRecord(value) && isConcreteRevision(value.expectedHead) && typeof value.merged === 'boolean';
 }

@@ -93,6 +93,7 @@ export type {
   CoordinationWorkerDto,
   DeliveryDto,
   DispatchDto,
+  PortResult,
   RunDto,
   TaskDto,
   WorkerDto,
@@ -103,12 +104,14 @@ export {
   validateCoordinationRun,
   validateCoordinationTask,
   validateCoordinationWorker,
+  validatePortResult,
 } from './ports/coordination';
 export type {
   DeliveryAdapter,
   DeliveryAfterMergeDto,
   DeliveryChecksDto,
   DeliveryIssueDto,
+  DeliveryMergeReadyDto,
   DeliveryPullRequestDto,
   DeliveryRef,
   IssueRef,
@@ -119,6 +122,7 @@ export {
   validateDeliveryAfterMerge,
   validateDeliveryChecks,
   validateDeliveryIssue,
+  validateDeliveryMergeReady,
   validateDeliveryPullRequest,
   validateDeliveryReviews,
 } from './ports/delivery';
@@ -126,7 +130,11 @@ export type {
   CapabilityResult,
   CapabilityStatus,
   HostAdapter,
-  HostRequest,
+  HostAssignment,
+  HostCapabilityEvidence,
+  HostContext,
+  HostObservation,
+  HostOperation,
   NonSupportedCapability,
   SupportedCapability,
 } from './ports/host';

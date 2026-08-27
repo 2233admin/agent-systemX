@@ -32,13 +32,28 @@
 
 ## Public API summary
 
-- `CoordinationAdapter` exposes `getRun`, `getTask`, `getDispatch`, `getWorker`, and `getDelivery` using explicit IDs and nullable readonly allowlist DTOs.
-- `DeliveryAdapter` exposes issue and pull-request reads plus HEAD-bound checks, reviews, and post-merge reads.
-- `HostAdapter` exposes `probe`, `prepare`, `observe`, and `interpret`, each returning a validated capability result without workflow ownership.
-- `validateCapabilityStatus`, `validateCapabilityResult`, and `isCapabilityResult` enforce the closed capability state model and evidence/reason requirements.
+- `CoordinationAdapter` exposes `getRun`, `getTask`, `getDispatch`, `getWorker`, and `getDelivery` using explicit IDs and `PortResult<T>` (known evidence or reasoned unknown) rather than nullable success.
+- `DeliveryAdapter` exposes issue and pull-request reads plus HEAD-bound checks, reviews, `prepareMergeReady`, and post-merge reads, all returning `PortResult<T>`.
+- `HostAdapter` exposes `probe(hostContext)`, `prepare(assignment)`, `observe(operation)`, and `interpret(observation)` with explicit input types and bound capability results.
+- `validateCapabilityStatus`, `validateCapabilityResult`, and `isCapabilityResult` enforce the closed capability state model, host identity/version binding, and evidence/reason requirements.
 
 ## Concerns
 
 - No concrete Orca, GitHub, OMP, Claude, Codex, or OpenCode backend is included; adapters remain future implementations of the ports.
 - Delivery DTOs intentionally expose only stable refs, state/conclusion/approval facts, HEAD binding, provenance metadata, and merge status. Rich backend payloads must remain outside these DTOs.
 - The focused contract test and package typecheck pass; the project-wide test suite was not run per the Task 6 focused validation requirement.
+
+## Review-fix pass
+
+- `DeliveryPullRequestDto` now requires concrete immutable `baseSha` and `headSha`; all HEAD-bound delivery DTOs use the existing `isConcreteRevision` contract.
+- `CoordinationDeliveryDto` now requires `dispatchId` for five-object correlation.
+- `PortResult<T>` reuses `Known<T>`/`Unknown`, rejects null/empty success, distinguishes `not-found` and `unavailable` reason codes, and rejects dynamic wrapper fields.
+- Host capability results now require `hostId`/`hostVersion`; supported evidence carries and matches both values. Host method inputs are split into `HostContext`, `HostAssignment`, `HostOperation`, and `HostObservation`.
+- Added `DeliveryAdapter.prepareMergeReady` and its DTO validator.
+
+## Latest verification
+
+- `bun test packages/harness-engine/tests/core/result.test.ts`
+  - Observed: **9 pass, 0 fail, 63 expect() calls**.
+- `bunx tsc --noEmit -p packages/harness-engine/tsconfig.json`
+  - Observed: **pass, no diagnostics**.
