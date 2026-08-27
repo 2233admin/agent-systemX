@@ -50,16 +50,17 @@ export function normalizeSearchText(value: string): string {
   return tokens.join(' ');
 }
 
-const PUBLIC_SCOPE_BOUNDARY_RE = /^(?:public(?:\s|:)|configs supply:\s+groups\b)/iu;
+const PUBLIC_SCOPE_BOUNDARY_LABELS = new Set(['public scope', 'public project scope']);
 
 function publicScopeBoundary(revision: StableConfigRevision): string {
-  if (!isKnown(revision.scopeBoundary) || !PUBLIC_SCOPE_BOUNDARY_RE.test(revision.scopeBoundary.value.trim())) {
+  if (!isKnown(revision.scopeBoundary)) {
     return '';
   }
-  return normalizeSearchText(revision.scopeBoundary.value);
+  const value = revision.scopeBoundary.value.trim().toLocaleLowerCase('und');
+  return PUBLIC_SCOPE_BOUNDARY_LABELS.has(value) ? normalizeSearchText(revision.scopeBoundary.value) : '';
 }
 
-function capabilityValues(revision: StableConfigRevision): { names: string; summaries: string } {
+function capabilityValues(revision: StableConfigRevision): { names: string } {
   const capabilities: readonly CapabilityReference[] = [
     ...revision.instructions,
     ...revision.skills,
@@ -69,10 +70,6 @@ function capabilityValues(revision: StableConfigRevision): { names: string; summ
   ];
   return {
     names: capabilities.map((capability) => normalizeSearchText(capability.name)).filter(Boolean).join(' '),
-    summaries: capabilities
-      .map((capability) => (isKnown(capability.summary) ? normalizeSearchText(capability.summary.value) : ''))
-      .filter(Boolean)
-      .join(' '),
   };
 }
 
@@ -90,7 +87,7 @@ function documentForRevision(revision: StableConfigRevision): {
     configName: normalizeSearchText(revision.configName),
     scopeBoundary: publicScopeBoundary(revision),
     capabilityNames: capabilities.names,
-    capabilitySummaries: capabilities.summaries,
+    capabilitySummaries: '',
     triggerCategory: revision.triggerCategory.normalize('NFKC').toLocaleLowerCase('und'),
   };
 

@@ -62,6 +62,24 @@ describe('FTS5 BM25 configuration search contract', () => {
       db.close();
     }
   });
+  test('indexes only exact public scope labels and never arbitrary capability summaries', () => {
+    seed([
+      revision({ configName: 'public', revisionId: 'rev-public', scopeBoundary: known('public project scope'), skills: [capability('public-skill', 'secret summary must not be indexed')] }),
+      revision({ configName: 'prefix-secret', revisionId: 'rev-prefix-secret', scopeBoundary: known('public: secret') }),
+      revision({ configName: 'supply-prefix-secret', revisionId: 'rev-supply-prefix-secret', scopeBoundary: known('configs supply: groups secret') }),
+    ]);
+    const db = database();
+    try {
+      expect(db.query<{ scope_boundary: string; capability_summaries: string }, [string]>('SELECT scope_boundary, capability_summaries FROM config_search_document WHERE revision_id = ?').get('rev-public')).toEqual({
+        scope_boundary: 'public project scope',
+        capability_summaries: '',
+      });
+      expect(db.query<{ scope_boundary: string }, [string]>('SELECT scope_boundary FROM config_search_document WHERE revision_id = ?').get('rev-prefix-secret')?.scope_boundary).toBe('');
+      expect(db.query<{ scope_boundary: string }, [string]>('SELECT scope_boundary FROM config_search_document WHERE revision_id = ?').get('rev-supply-prefix-secret')?.scope_boundary).toBe('');
+    } finally {
+      db.close();
+    }
+  });
   test('searches English names and capability summaries at revision level with numeric BM25 rank', async () => { seed([revision({ configName: 'general', revisionId: 'rev-general', skills: [capability('permission-control', 'Manage permission controls')] }), revision({ configName: 'reviewer', revisionId: 'rev-reviewer', skills: [capability('review-workflow', 'Review changes')] })]); const results = await search('permission'); expect(results[0]).toMatchObject({ revisionId: 'rev-general', configName: 'general', triggerCategory: 'new-scenario' }); expect(typeof (results[0] as { rank: unknown }).rank).toBe('number'); expect(results[0]).not.toHaveProperty('recommendation'); });
   test('matches Chinese overlapping bigrams without duplicate revision rows', async () => { seed([revision({ configName: '权限配置', revisionId: 'rev-zh', skills: [capability('权限控制', '权限控制与访问管理')] }), revision({ configName: 'other', revisionId: 'rev-other', skills: [capability('审查流程', '代码审查流程')] })]); const results = await search('权限控制'); expect(results.filter((row) => (row as { revisionId: string }).revisionId === 'rev-zh')).toHaveLength(1); });
   test('treats punctuation-only input safely and returns no results', async () => { seed([revision({ configName: 'general', revisionId: 'rev-general' })]); expect(await search('!!! ???')).toEqual([]); });
