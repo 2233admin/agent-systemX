@@ -1,5 +1,6 @@
 import { describe, expect, test } from 'bun:test';
 
+import { isConcreteRevision, validateReviewPackage } from '../../src/domain/review.ts';
 import { validateSddGate, type SddGateInput } from '../../src/gates/sdd.ts';
 
 const packageBase = {
@@ -61,6 +62,7 @@ describe('SDD/QC review gate', () => {
   });
 
   test('rejects stale head and missing review package', () => {
+
     const stale = validateSddGate({ ...baseInput, currentHeadSha: 'c'.repeat(40) });
     expect(stale.kind).toBe('blocked');
     expect(codes(stale)).toContain('sdd.head-sha.stale');
@@ -68,6 +70,12 @@ describe('SDD/QC review gate', () => {
     const missing = validateSddGate({ ...baseInput, reviewPackage: undefined });
     expect(missing.kind).toBe('fail');
     expect(codes(missing)).toContain('sdd.review-package.missing');
+  });
+  test('accepts only commit-like hexadecimal revisions', () => {
+    expect(isConcreteRevision(baseInput.baseSha)).toBe(true);
+    expect(isConcreteRevision('main')).toBe(false);
+    expect(isConcreteRevision('HEAD~1')).toBe(false);
+    expect(validateReviewPackage({ ...packageBase, baseSha: 'main' })).toBe(false);
   });
 
   test('rejects review package, plan, range, and QC identity mismatches', () => {

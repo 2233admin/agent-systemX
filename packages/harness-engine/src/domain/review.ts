@@ -16,7 +16,8 @@ function nonEmpty(value: unknown): value is string {
 
 /** 识别容易把相对引用误当作实现前 BASE 的猜测性范围。 */
 export function isConcreteRevision(value: unknown): value is string {
-  return nonEmpty(value) && !/[\s]/.test(value) && !/^HEAD(?:~|\^|$)/i.test(value);
+  return typeof value === 'string'
+    && /^[0-9a-f]{16,64}$/i.test(value.trim());
 }
 
 export function validateReviewPackage(value: unknown): value is ReviewPackage {

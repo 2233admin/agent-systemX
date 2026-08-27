@@ -1,4 +1,5 @@
-import type { GateResult, RecoveryAction, Violation } from '../core/result.ts';
+import type { EvidenceRef, GateResult, RecoveryAction, Violation } from '../core/result.ts';
+import { isRfc3339Timestamp } from '../core/result.ts';
 import type { ReviewPackage } from '../domain/review.ts';
 import { isConcreteRevision, validateReviewPackage } from '../domain/review.ts';
 
@@ -15,18 +16,31 @@ export interface PushCadenceInput {
   readonly ciRunningOnHead?: boolean;
   readonly aiReviewRunningOnHead?: boolean;
   readonly changesPending?: boolean;
+  readonly evidence?: readonly EvidenceRef[];
 }
 
 export interface RequiredCheck {
   readonly name: string;
   readonly status: string;
-  readonly headSha?: string;
+  readonly headSha: string;
 }
 
 export interface RequiredReview {
   readonly reviewerId: string;
   readonly status: string;
-  readonly headSha?: string;
+  readonly headSha: string;
+}
+
+export type ReviewVerdict = 'approve' | 'block';
+
+export interface ReviewTally {
+  readonly total: number;
+  readonly approved: number;
+  readonly changesRequested: number;
+  readonly pending: number;
+  readonly unresolved: number;
+  readonly score: number;
+  readonly verdict: ReviewVerdict;
 }
 
 export interface MergeReady {
@@ -35,6 +49,9 @@ export interface MergeReady {
   readonly baseSha: string;
   readonly headSha: string;
   readonly mergeReady: true;
+  readonly tally: ReviewTally;
+  readonly score: number;
+  readonly verdict: ReviewVerdict;
 }
 
 export interface PrReviewInput {
@@ -51,6 +68,7 @@ export interface PrReviewInput {
   readonly residualsClosed?: boolean;
   readonly mergeable?: boolean;
   readonly priorResult?: MergeReady;
+  readonly evidence?: readonly EvidenceRef[];
 }
 
 function violation(code: string, message: string): Violation {
@@ -72,18 +90,37 @@ function runningOnCurrentHead(input: PushCadenceInput): boolean {
     || input.aiReviewRunningOnHead === true;
 }
 
+function validEvidence(value: unknown): value is EvidenceRef {
+  if (typeof value !== 'object' || value === null || Array.isArray(value)) return false;
+  const candidate = value as Record<string, unknown>;
+  return typeof candidate.source === 'string'
+    && candidate.source.trim().length > 0
+    && typeof candidate.observedAt === 'string'
+    && isRfc3339Timestamp(candidate.observedAt);
+}
+
+function evidenceViolations(evidence: readonly EvidenceRef[] | undefined): Violation[] {
+  if (evidence === undefined || evidence.length === 0) {
+    return [violation('pr.evidence.missing', 'At least one evidence reference is required')];
+  }
+  return evidence.every(validEvidence)
+    ? []
+    : [violation('pr.evidence.invalid', 'Evidence references must contain source and RFC 3339 observedAt')];
+}
+
 export function evaluatePushCadence(input: PushCadenceInput): GateResult<PushDecision> {
-  const headSha = typeof (input.currentHeadSha ?? input.headSha) === 'string'
-    ? (input.currentHeadSha ?? input.headSha as string).trim()
-    : '';
-  const violations: Violation[] = [];
+  const revision = input.currentHeadSha ?? input.headSha;
+  const headSha = typeof revision === 'string' ? revision.trim() : '';
+  const violations: Violation[] = [...evidenceViolations(input.evidence)];
   if (!isConcreteRevision(headSha)) violations.push(violation('push.head-sha.missing', 'A concrete current HEAD SHA is required'));
   if (runningOnCurrentHead(input)) violations.push(violation('push.current-head.busy', 'CI or AI review is still running on the current HEAD'));
-  if (violations.length > 0) return failure('blocked', violations);
+  if (violations.length > 0) {
+    return failure(violations.some(({ code }) => code === 'push.current-head.busy') ? 'blocked' : 'unknown', violations);
+  }
   return {
     kind: 'pass',
     value: { headSha, push: input.changesPending !== false },
-    evidence: [],
+    evidence: input.evidence as readonly EvidenceRef[],
   };
 }
 
@@ -99,8 +136,30 @@ function reviewApproved(status: unknown): boolean {
   return normalized === 'approved' || normalized === 'approve';
 }
 
+export function calculateReviewTally(reviews: readonly RequiredReview[], unresolved: number): ReviewTally {
+  let approved = 0;
+  let changesRequested = 0;
+  let pending = 0;
+  for (const review of reviews) {
+    const status = typeof review.status === 'string' ? review.status.trim().toLowerCase() : '';
+    if (status === 'approved' || status === 'approve') approved += 1;
+    else if (status === 'changes_requested' || status === 'request_changes' || status === 'changes-requested') changesRequested += 1;
+    else pending += 1;
+  }
+  const total = reviews.length;
+  const score = total === 0 ? 0 : Math.round((approved / total) * 10000) / 100;
+  const verdict: ReviewVerdict = total > 0 && approved === total && unresolved === 0 ? 'approve' : 'block';
+  return { total, approved, changesRequested, pending, unresolved, score, verdict };
+}
+
+function prFailureKind(violations: readonly Violation[]): 'fail' | 'blocked' | 'unknown' {
+  if (violations.some(({ code }) => code === 'pr.head-sha.stale' || code === 'pr.prior-result.invalidated' || code === 'pr.review.unresolved')) return 'blocked';
+  if (violations.some(({ code }) => code.startsWith('pr.evidence.'))) return 'unknown';
+  return 'fail';
+}
+
 export function evaluatePrReview(input: PrReviewInput): GateResult<MergeReady> {
-  const violations: Violation[] = [];
+  const violations: Violation[] = [...evidenceViolations(input.evidence)];
   const planId = typeof input.planId === 'string' ? input.planId.trim() : '';
   const taskId = typeof input.taskId === 'string' ? input.taskId.trim() : '';
   const baseSha = typeof input.baseSha === 'string' ? input.baseSha.trim() : '';
@@ -133,8 +192,12 @@ export function evaluatePrReview(input: PrReviewInput): GateResult<MergeReady> {
     violations.push(violation('pr.checks.missing', 'Required check evidence is missing'));
   } else {
     for (const check of input.requiredChecks) {
-      if (!checkPassed(check.status)) violations.push(violation('pr.check.failed', `Required check ${check.name} has not passed`));
-      if (check.headSha !== undefined && check.headSha !== currentHeadSha) violations.push(violation('pr.check.stale', `Required check ${check.name} is not for the current HEAD`));
+      if (!checkPassed(check.status)) violations.push(violation('pr.check.failed', `Required check ${String(check.name)} has not passed`));
+      if (!isConcreteRevision(check.headSha)) {
+        violations.push(violation('pr.check.head-sha.missing', `Required check ${String(check.name)} is not bound to a concrete HEAD`));
+      } else if (check.headSha !== currentHeadSha) {
+        violations.push(violation('pr.check.stale', `Required check ${String(check.name)} is not for the current HEAD`));
+      }
     }
   }
   if (input.requiredReviews === undefined || input.requiredReviews.length === 0) {
@@ -144,10 +207,17 @@ export function evaluatePrReview(input: PrReviewInput): GateResult<MergeReady> {
       if (typeof review.reviewerId !== 'string' || review.reviewerId.trim().length === 0 || !reviewApproved(review.status)) {
         violations.push(violation('pr.review.unapproved', `Required review by ${String(review.reviewerId)} is not approved`));
       }
-      if (typeof review.headSha === 'string' && review.headSha !== currentHeadSha) {
+      if (!isConcreteRevision(review.headSha)) {
+        violations.push(violation('pr.review.head-sha.missing', `Review by ${String(review.reviewerId)} is not bound to a concrete HEAD`));
+      } else if (review.headSha !== currentHeadSha) {
         violations.push(violation('pr.review.stale', `Review by ${String(review.reviewerId)} is not for the current HEAD`));
       }
     }
+  }
+  if (input.unresolvedReviews !== undefined
+    && input.unresolvedReviewCount !== undefined
+    && input.unresolvedReviews !== input.unresolvedReviewCount) {
+    violations.push(violation('pr.review.unresolved.conflict', 'Unresolved review aliases disagree'));
   }
   const unresolved = input.unresolvedReviews ?? input.unresolvedReviewCount;
   if (unresolved === undefined) {
@@ -160,14 +230,12 @@ export function evaluatePrReview(input: PrReviewInput): GateResult<MergeReady> {
     violations.push(violation(input.mergeable === false ? 'pr.mergeable.false' : 'pr.mergeable.unknown', 'PR mergeability is not proven'));
   }
 
-  if (violations.length > 0) {
-    const stale = violations.some(({ code }) => code === 'pr.head-sha.stale' || code === 'pr.prior-result.invalidated');
-    const blocked = violations.some(({ code }) => code === 'pr.review.unresolved');
-    return failure(stale || blocked ? 'blocked' : 'fail', violations);
-  }
+  if (violations.length > 0) return failure(prFailureKind(violations), violations);
+  const reviews = input.requiredReviews as readonly RequiredReview[];
+  const tally = calculateReviewTally(reviews, unresolved as number);
   return {
     kind: 'pass',
-    value: { planId, taskId, baseSha, headSha, mergeReady: true },
-    evidence: [],
+    value: { planId, taskId, baseSha, headSha, mergeReady: true, tally, score: tally.score, verdict: tally.verdict },
+    evidence: input.evidence as readonly EvidenceRef[],
   };
 }
