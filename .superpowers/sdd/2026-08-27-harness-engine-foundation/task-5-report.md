@@ -36,7 +36,7 @@ All results use the existing Task 1 `GateResult`, `EvidenceRef`, `Violation`, `R
 - Initial red phase: `bun test packages/harness-engine/tests/gates/sdd.test.ts packages/harness-engine/tests/gates/iteration.test.ts packages/harness-engine/tests/gates/pr-review.test.ts`
   - FAIL as expected because the three gate modules were absent.
 - Remediation verification: `bun test packages/harness-engine/tests/gates/sdd.test.ts packages/harness-engine/tests/gates/iteration.test.ts packages/harness-engine/tests/gates/pr-review.test.ts`
-  - PASS: 23 tests, 0 failures, 59 assertions.
+  - PASS: 26 tests, 0 failures, 63 assertions.
 - `bunx tsc --noEmit -p packages/harness-engine/tsconfig.json`
   - PASS: no diagnostics.
 
@@ -45,3 +45,4 @@ All results use the existing Task 1 `GateResult`, `EvidenceRef`, `Violation`, `R
 - Gates intentionally return decisions only; they do not create or persist review artifacts and do not grant push/merge permissions.
 - Required check/review status vocabularies and all revision/evidence bindings fail closed. Adapters must supply trusted, current-head-bound facts.
 - The iteration DTO keeps `residualsClosed` as a compatibility input field, but it is deliberately insufficient for a close or delivery pass without structured residual closure evidence.
+- Iteration and PR gates reuse the shared `EvidenceRef` validator, including optional `locator` validation, and the shared structured residual closure validator.

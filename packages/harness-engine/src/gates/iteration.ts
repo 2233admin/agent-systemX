@@ -1,6 +1,9 @@
 import type { EvidenceRef, GateResult, RecoveryAction, Violation } from '../core/result.ts';
-import { isRfc3339Timestamp } from '../core/result.ts';
+import { validateEvidenceRef } from '../core/result.ts';
 import type { PlanStatus } from '../domain/workflow.ts';
+import type { ResidualClosure } from '../domain/review.ts';
+import { validateResidualClosure } from '../domain/review.ts';
+export type { ResidualClosure };
 
 export type IterationPhase = 'phase-2-execute' | 'phase-3-close' | 'phase-4-pr-delivery';
 
@@ -10,13 +13,6 @@ export interface PhaseTransition {
   readonly planId: string;
   readonly taskId: string;
   readonly nextStatus: PlanStatus;
-}
-
-export interface ResidualClosure {
-  readonly owner: string;
-  readonly decision: string;
-  readonly target: string;
-  readonly closureEvidence: EvidenceRef | readonly EvidenceRef[];
 }
 
 export interface IterationGateInput {
@@ -55,12 +51,12 @@ function missingBoolean(value: boolean | undefined): boolean {
 }
 
 function validEvidence(value: unknown): value is EvidenceRef {
-  if (typeof value !== 'object' || value === null || Array.isArray(value)) return false;
-  const candidate = value as Record<string, unknown>;
-  return typeof candidate.source === 'string'
-    && candidate.source.trim().length > 0
-    && typeof candidate.observedAt === 'string'
-    && isRfc3339Timestamp(candidate.observedAt);
+  try {
+    validateEvidenceRef(value as EvidenceRef);
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 function evidenceViolations(evidence: readonly EvidenceRef[] | undefined): Violation[] {
@@ -77,21 +73,9 @@ function residualClosureViolations(input: IterationGateInput): Violation[] {
   if (closure === undefined) {
     return [violation('iteration.residuals.evidence.missing', 'Structured residual closure evidence is required')];
   }
-  const violations: Violation[] = [];
-  if (typeof closure.owner !== 'string' || closure.owner.trim().length === 0) {
-    violations.push(violation('iteration.residuals.owner.missing', 'Residual closure owner is required'));
-  }
-  if (typeof closure.decision !== 'string' || closure.decision.trim().length === 0) {
-    violations.push(violation('iteration.residuals.decision.missing', 'Residual closure decision is required'));
-  }
-  if (typeof closure.target !== 'string' || closure.target.trim().length === 0) {
-    violations.push(violation('iteration.residuals.target.missing', 'Residual closure target is required'));
-  }
-  const evidence = Array.isArray(closure.closureEvidence) ? closure.closureEvidence : [closure.closureEvidence];
-  if (evidence.length === 0 || !evidence.every(validEvidence)) {
-    violations.push(violation('iteration.residuals.evidence.invalid', 'Residual closure evidence must contain source and RFC 3339 observedAt'));
-  }
-  return violations;
+  return validateResidualClosure(closure)
+    ? []
+    : [violation('iteration.residuals.invalid', 'Residual closure requires owner, decision, target, and closure evidence')];
 }
 
 function failureKind(violations: readonly Violation[]): 'blocked' | 'unknown' {
@@ -107,9 +91,7 @@ export function evaluateIterationGate(input: IterationGateInput): GateResult<Pha
   const phase = input.phase as IterationPhase;
   const planId = typeof input.planId === 'string' ? input.planId.trim() : '';
   const taskId = typeof input.taskId === 'string' ? input.taskId.trim() : '';
-  const violations: Violation[] = [
-    ...evidenceViolations(input.evidence),
-  ];
+  const violations: Violation[] = [...evidenceViolations(input.evidence)];
   if (planId.length === 0) violations.push(violation('iteration.plan-id.missing', 'planId is required'));
   if (taskId.length === 0) violations.push(violation('iteration.task-id.missing', 'taskId is required'));
 

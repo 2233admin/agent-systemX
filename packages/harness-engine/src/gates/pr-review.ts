@@ -1,7 +1,7 @@
 import type { EvidenceRef, GateResult, RecoveryAction, Violation } from '../core/result.ts';
-import { isRfc3339Timestamp } from '../core/result.ts';
-import type { ReviewPackage } from '../domain/review.ts';
-import { isConcreteRevision, validateReviewPackage } from '../domain/review.ts';
+import { validateEvidenceRef } from '../core/result.ts';
+import type { ReviewPackage, ResidualClosure } from '../domain/review.ts';
+import { isConcreteRevision, validateResidualClosure, validateReviewPackage } from '../domain/review.ts';
 
 export interface PushDecision {
   readonly headSha: string;
@@ -65,7 +65,10 @@ export interface PrReviewInput {
   readonly requiredReviews?: readonly RequiredReview[];
   readonly unresolvedReviews?: number;
   readonly unresolvedReviewCount?: number;
+  /** 保留字段仅用于兼容输入；结构化 residualClosure 才能通过。 */
   readonly residualsClosed?: boolean;
+  readonly residualClosure?: ResidualClosure;
+  readonly residuals?: ResidualClosure;
   readonly mergeable?: boolean;
   readonly priorResult?: MergeReady;
   readonly evidence?: readonly EvidenceRef[];
@@ -89,14 +92,13 @@ function runningOnCurrentHead(input: PushCadenceInput): boolean {
     || input.ciRunningOnHead === true
     || input.aiReviewRunningOnHead === true;
 }
-
 function validEvidence(value: unknown): value is EvidenceRef {
-  if (typeof value !== 'object' || value === null || Array.isArray(value)) return false;
-  const candidate = value as Record<string, unknown>;
-  return typeof candidate.source === 'string'
-    && candidate.source.trim().length > 0
-    && typeof candidate.observedAt === 'string'
-    && isRfc3339Timestamp(candidate.observedAt);
+  try {
+    validateEvidenceRef(value as EvidenceRef);
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 function evidenceViolations(evidence: readonly EvidenceRef[] | undefined): Violation[] {
@@ -154,7 +156,7 @@ export function calculateReviewTally(reviews: readonly RequiredReview[], unresol
 
 function prFailureKind(violations: readonly Violation[]): 'fail' | 'blocked' | 'unknown' {
   if (violations.some(({ code }) => code === 'pr.head-sha.stale' || code === 'pr.prior-result.invalidated' || code === 'pr.review.unresolved')) return 'blocked';
-  if (violations.some(({ code }) => code.startsWith('pr.evidence.'))) return 'unknown';
+  if (violations.some(({ code }) => code.startsWith('pr.evidence.') || code.startsWith('pr.residuals.evidence.'))) return 'unknown';
   return 'fail';
 }
 
@@ -225,7 +227,12 @@ export function evaluatePrReview(input: PrReviewInput): GateResult<MergeReady> {
   } else if (!Number.isSafeInteger(unresolved) || unresolved < 0 || unresolved > 0) {
     violations.push(violation('pr.review.unresolved', 'Unresolved review threads remain'));
   }
-  if (input.residualsClosed !== true) violations.push(violation('pr.residuals.incomplete', 'Residuals are not closed or explicitly accepted'));
+  const residualClosure = input.residualClosure ?? input.residuals;
+  if (residualClosure === undefined) {
+    violations.push(violation('pr.residuals.evidence.missing', 'Structured residual closure evidence is required'));
+  } else if (!validateResidualClosure(residualClosure)) {
+    violations.push(violation('pr.residuals.invalid', 'Residual closure requires owner, decision, target, and closure evidence'));
+  }
   if (input.mergeable !== true) {
     violations.push(violation(input.mergeable === false ? 'pr.mergeable.false' : 'pr.mergeable.unknown', 'PR mergeability is not proven'));
   }

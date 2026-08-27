@@ -38,6 +38,17 @@ describe('iteration gates', () => {
     expect(result.evidence).toEqual(evidence);
   });
 
+  test('rejects malformed optional evidence locators', () => {
+    const result = evaluateIterationGate({
+      phase: 'phase-2-execute',
+      planId: 'plan-1',
+      taskId: 'task-1',
+      workerDone: true,
+      evidence: [{ ...evidence[0], locator: 42 } as never],
+    });
+    expect(result.kind).toBe('unknown');
+  });
+
   test('does not infer Done from worker_done', () => {
     const result = evaluateIterationGate({
       phase: 'phase-2-execute',

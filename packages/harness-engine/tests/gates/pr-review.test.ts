@@ -12,6 +12,12 @@ import {
 const baseSha = 'a'.repeat(40);
 const headSha = 'b'.repeat(40);
 const evidence = [{ source: 'test.pr', observedAt: '2026-08-27T12:00:00.000Z' }] as const;
+const residualClosure = {
+  owner: 'owner-1',
+  decision: 'accepted',
+  target: 'v1.1',
+  closureEvidence: evidence,
+} as const;
 const packageBase = {
   planId: 'plan-1',
   taskId: 'task-1',
@@ -31,6 +37,7 @@ const review: PrReviewInput = {
   requiredReviews: [{ reviewerId: 'qc-1', status: 'approved', headSha }],
   unresolvedReviews: 0,
   residualsClosed: true,
+  residualClosure,
   mergeable: true,
   evidence,
 };
@@ -93,14 +100,25 @@ describe('PR review and push cadence gates', () => {
     const push = evaluatePushCadence({ ...cadence, evidence: undefined });
     expect(push.kind).toBe('unknown');
     const pr = evaluatePrReview({ ...review, evidence: undefined });
+
     expect(pr.kind).toBe('unknown');
+  });
+  test('rejects malformed optional evidence locators', () => {
+    const result = evaluatePushCadence({ ...cadence, evidence: [{ ...evidence[0], locator: 42 } as never] });
+    expect(result.kind).toBe('unknown');
   });
 
   test('blocks push while CI or AI review runs on current head', () => {
+
     const ci = evaluatePushCadence({ ...cadence, ciRunning: true });
     expect(ci.kind).toBe('blocked');
     const ai = evaluatePushCadence({ ...cadence, aiReviewRunning: true });
     expect(ai.kind).toBe('blocked');
+  });
+  test('boolean residual closure alone cannot establish merge readiness', () => {
+    const result = evaluatePrReview({ ...review, residualClosure: undefined, residualsClosed: true });
+    expect(result.kind).toBe('unknown');
+    if (result.kind === 'unknown') expect(result.violations.map(({ code }) => code)).toContain('pr.residuals.evidence.missing');
   });
 
   test('allows push when current head is idle', () => {

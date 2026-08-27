@@ -1,4 +1,5 @@
-import { isRfc3339Timestamp } from '../core/result.ts';
+import type { EvidenceRef } from '../core/result.ts';
+import { isRfc3339Timestamp, validateEvidenceRef } from '../core/result.ts';
 
 /** 绑定一次实现审查所使用的确定性 BASE..HEAD 范围。 */
 export interface ReviewPackage {
@@ -8,6 +9,29 @@ export interface ReviewPackage {
   readonly headSha: string;
   readonly path: string;
   readonly createdAt: string;
+}
+
+export interface ResidualClosure {
+  readonly owner: string;
+  readonly decision: string;
+  readonly target: string;
+  readonly closureEvidence: EvidenceRef | readonly EvidenceRef[];
+}
+
+export function validateResidualClosure(value: unknown): value is ResidualClosure {
+  if (typeof value !== 'object' || value === null || Array.isArray(value)) return false;
+  const candidate = value as Record<string, unknown>;
+  if (!nonEmpty(candidate.owner) || !nonEmpty(candidate.decision) || !nonEmpty(candidate.target)) return false;
+  const evidence = Array.isArray(candidate.closureEvidence)
+    ? candidate.closureEvidence
+    : [candidate.closureEvidence];
+  if (evidence.length === 0) return false;
+  try {
+    evidence.forEach((item) => validateEvidenceRef(item as EvidenceRef));
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 function nonEmpty(value: unknown): value is string {
