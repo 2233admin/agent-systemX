@@ -125,12 +125,15 @@ describe('dispatch gate', () => {
   });
 
   test.each([
-    ['undefined lease', undefined],
-    ['empty lease', {}],
-  ])('fails closed for %s', (_label, leaseState) => {
+    ['undefined lease', undefined, 'lease.missing'],
+    ['empty lease', {}, 'lease.missing'],
+    ['null lease', null as never, 'lease.invalid'],
+    ['array lease', [] as never, 'lease.invalid'],
+    ['primitive lease', 'held' as never, 'lease.invalid'],
+  ])('fails closed for %s', (_label, leaseState, expectedCode) => {
     const result = validateDispatch({ ...baseInput, leaseState });
     expect(result.kind).toBe('fail');
-    expect(violationCodes(result)).toContain('lease.missing');
+    expect(violationCodes(result)).toContain(expectedCode);
   });
 
   test('requires the held lease to align with plan, task, and worktree', () => {
@@ -153,10 +156,11 @@ describe('dispatch gate', () => {
     expect(violationCodes(result)).toContain('host.capability.unknown');
   });
 
-  test('requires caller-supplied observation time instead of fabricating evidence', () => {
+  test('allows pure dispatch without optional observation evidence', () => {
     const result = validateDispatch({ ...baseInput, observedAt: undefined });
-    expect(result.kind).toBe('fail');
-    expect(violationCodes(result)).toContain('evidence.observed-at.missing');
+    expect(result.kind).toBe('pass');
+    if (result.kind !== 'pass') return;
+    expect(result.evidence).toEqual([]);
   });
 
   test('requires exactly one branch form for writable work', () => {

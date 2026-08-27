@@ -43,7 +43,7 @@ export interface DispatchInput {
   readonly status?: PlanStatus | string;
   readonly branchProtection?: BranchProtection | boolean;
   readonly hostCapability?: HostCapability | string | undefined;
-  readonly leaseState?: DispatchLeaseState;
+  readonly leaseState?: unknown;
   readonly worktree?: string;
   readonly worktreePath?: string;
   readonly currentExecutor?: string;
@@ -97,6 +97,12 @@ function hasKnownHostCapability(capability: unknown): boolean {
   return hasValue || hasEvidence;
 }
 
+
+function isPlainLease(value: unknown): value is DispatchLeaseState {
+  if (typeof value !== 'object' || value === null || Array.isArray(value)) return false;
+  const prototype = Object.getPrototypeOf(value);
+  return prototype === Object.prototype || prototype === null;
+}
 function protectedBranches(protection: BranchProtection | boolean | undefined): readonly string[] {
   if (typeof protection === 'object' && protection !== null && protection.protectedBranches !== undefined) {
     return protection.protectedBranches;
@@ -166,7 +172,11 @@ export function validateDispatch(input: DispatchInput): GateResult<DispatchDecis
   if (worktree.length === 0) violations.push(violation('dispatch.worktree.missing', 'worktree is required'));
 
   const lease = input.leaseState;
-  if (lease === undefined || Object.keys(lease).length === 0) {
+  if (lease === undefined) {
+    violations.push(violation('lease.missing', 'A held execution lease is required'));
+  } else if (!isPlainLease(lease)) {
+    violations.push(violation('lease.invalid', 'Execution lease must be a plain object'));
+  } else if (Object.keys(lease).length === 0) {
     violations.push(violation('lease.missing', 'A held execution lease is required'));
   } else if (lease.held !== true && lease.active !== true) {
     violations.push(violation('lease.not-held', 'Execution lease must be explicitly held'));
@@ -177,9 +187,7 @@ export function validateDispatch(input: DispatchInput): GateResult<DispatchDecis
     }
   }
 
-  if (input.observedAt === undefined) {
-    violations.push(violation('evidence.observed-at.missing', 'Dispatch evidence requires caller-supplied observedAt'));
-  } else if (!isRfc3339Timestamp(input.observedAt)) {
+  if (input.observedAt !== undefined && !isRfc3339Timestamp(input.observedAt)) {
     violations.push(violation('evidence.observed-at.invalid', 'Dispatch evidence observedAt must be RFC 3339'));
   }
 
@@ -201,6 +209,8 @@ export function validateDispatch(input: DispatchInput): GateResult<DispatchDecis
       worktree,
       qcSeats: executionMode === 'sdd' ? 3 : 1,
     },
-    evidence: [{ source: 'harness-engine.dispatch', observedAt: input.observedAt as string }],
+    evidence: input.observedAt === undefined
+      ? []
+      : [{ source: 'harness-engine.dispatch', observedAt: input.observedAt }],
   };
 }

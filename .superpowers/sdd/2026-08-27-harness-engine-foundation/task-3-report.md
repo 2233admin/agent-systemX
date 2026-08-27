@@ -24,7 +24,7 @@
   - FAIL: both modules were absent, producing the expected missing-module errors.
 - Review-fix focused command:
   - `bun test packages/harness-engine/tests/domain/assignment.test.ts packages/harness-engine/tests/gates/dispatch.test.ts`
-  - PASS: 27 tests, 0 failures, 47 assertions.
+  - PASS: 30 tests, 0 failures, 53 assertions.
 - Review-fix typecheck:
   - `bunx tsc --noEmit -p packages/harness-engine/tsconfig.json`
   - PASS: no type errors.
@@ -43,4 +43,4 @@
 - Assignment parsing is fail-closed around an explicit `Assignment` heading and stops at numbered task headings and horizontal rules.
 - Writable dispatch is fail-closed on lease state: only an explicitly held/active lease aligned to plan, task, and worktree passes; lease transitions remain out of scope.
 - Host capability must be explicitly known (or a Known-style object with `kind` plus `value`/`evidence`); malformed and unknown shapes stay `unknown`.
-- Passing dispatch evidence uses the caller-supplied `observedAt`; no timestamp is fabricated, and the gate performs no host or Orca side effects.
+- Passing dispatch evidence is optional: when supplied, caller `observedAt` is RFC 3339 and is retained; when omitted, the pure gate returns an empty evidence list. No timestamp is fabricated, and the gate performs no host or Orca side effects.
