@@ -20,5 +20,24 @@ export type {
   PlanStatus,
   WorkflowSnapshot,
 } from './domain/workflow';
+export type {
+  AssignmentBranchForm,
+  AssignmentBranchFormKind,
+  AssignmentBranchForms,
+  AssignmentFields,
+} from './domain/assignment';
+export {
+  parseAssignmentBranchForms,
+  parseAssignmentExecutionMode,
+  parseAssignmentFields,
+} from './domain/assignment';
+export type {
+  BranchProtection,
+  DispatchDecision,
+  DispatchInput,
+  DispatchLeaseState,
+  HostCapability,
+} from './gates/dispatch';
+export { validateDispatch } from './gates/dispatch';
 export type { ArtifactStore } from './ports/artifacts';
 export { JsonArtifactStore } from './adapters/json/json-artifact-store';
