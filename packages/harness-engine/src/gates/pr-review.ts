@@ -181,13 +181,18 @@ export function validateMergeReady(value: unknown, currentHeadSha?: string): val
   const tally = candidate.tally as Record<string, unknown>;
   const tallyKeys = ['total', 'approved', 'changesRequested', 'pending', 'unresolved', 'score', 'verdict'];
   if (Object.keys(tally).length !== tallyKeys.length || Object.keys(tally).some((key) => !tallyKeys.includes(key))) return false;
-  if (tally.verdict !== 'approve' || tally.score !== candidate.score) return false;
+  if (tally.verdict !== 'approve') return false;
   if (!['total', 'approved', 'changesRequested', 'pending', 'unresolved'].every((key) => typeof tally[key] === 'number'
     && Number.isSafeInteger(tally[key]) && (tally[key] as number) >= 0)) return false;
-  return (tally.total as number) > 0
-    && tally.total === tally.approved
-    && tally.changesRequested === 0 && tally.pending === 0 && tally.unresolved === 0
-    && tally.total === (tally.approved as number);
+  const total = tally.total as number;
+  const approved = tally.approved as number;
+  const changesRequested = tally.changesRequested as number;
+  const pending = tally.pending as number;
+  const unresolved = tally.unresolved as number;
+  const expectedScore = total === 0 ? 0 : Math.round((approved / total) * 10000) / 100;
+  return total > 0 && approved + changesRequested + pending === total
+    && unresolved === 0 && approved === total
+    && expectedScore === candidate.score && tally.score === expectedScore;
 }
 function validRequiredCheck(value: unknown): value is RequiredCheck {
   if (typeof value !== 'object' || value === null || Array.isArray(value)) return false;

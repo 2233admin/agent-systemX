@@ -76,6 +76,7 @@ function nonEmpty(value: unknown): value is string {
 function validateCapabilityEvidence(value: unknown, hostId: string, hostVersion: string): boolean {
   if (!isRecord(value)
     || Object.keys(value).some((key) => !['source', 'observedAt', 'locator', 'hostId', 'hostVersion'].includes(key))
+    || !Object.hasOwn(value, 'hostId') || !Object.hasOwn(value, 'hostVersion')
     || value.hostId !== hostId || value.hostVersion !== hostVersion
     || !nonEmpty(value.hostId) || !nonEmpty(value.hostVersion)) return false;
   const { hostId: _hostId, hostVersion: _hostVersion, ...evidence } = value;
@@ -86,9 +87,8 @@ function validateCapabilityEvidence(value: unknown, hostId: string, hostVersion:
     return false;
   }
 }
-
 export function validateCapabilityResult(value: unknown): CapabilityResult {
-  if (!isRecord(value)) throw new TypeError('Capability result must be an object');
+  if (!isRecord(value) || !Object.hasOwn(value, 'status')) throw new TypeError('Capability result must be an object with own status');
   const status = validateCapabilityStatus(value.status);
   const allowed = status === 'supported'
     ? ['status', 'hostId', 'hostVersion', 'evidence']
@@ -96,18 +96,20 @@ export function validateCapabilityResult(value: unknown): CapabilityResult {
   if (Object.keys(value).some((key) => !allowed.includes(key))) {
     throw new TypeError('Capability result contains fields outside its status allowlist');
   }
-  if (!nonEmpty(value.hostId) || !nonEmpty(value.hostVersion)) {
-    throw new TypeError('Capability result requires hostId and hostVersion');
+  if (!Object.hasOwn(value, 'hostId') || !Object.hasOwn(value, 'hostVersion')
+    || !nonEmpty(value.hostId) || !nonEmpty(value.hostVersion)) {
+    throw new TypeError('Capability result requires own hostId and hostVersion');
   }
   if (status === 'supported') {
     if (!Object.hasOwn(value, 'evidence') || !validateCapabilityEvidence(value.evidence, value.hostId, value.hostVersion)) {
       throw new TypeError('A supported capability requires evidence bound to its host identity and version');
     }
   } else {
-    if (!nonEmpty(value.reasonCode)) {
+    if (!Object.hasOwn(value, 'reasonCode') || !nonEmpty(value.reasonCode)) {
       throw new TypeError(`${status} capability requires a non-empty reasonCode`);
     }
-    if (value.evidence !== undefined && !validateCapabilityEvidence(value.evidence, value.hostId, value.hostVersion)) {
+    if (Object.hasOwn(value, 'evidence') && value.evidence !== undefined
+      && !validateCapabilityEvidence(value.evidence, value.hostId, value.hostVersion)) {
       throw new TypeError('Capability evidence must be bound to its host identity and version');
     }
   }

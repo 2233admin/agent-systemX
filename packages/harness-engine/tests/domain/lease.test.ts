@@ -5,6 +5,7 @@ import {
   claimLease,
   releaseLease,
   validateLease,
+  validateStaleProof,
   type ExecutionLease,
   type IntegrationMergeLease,
 } from '../../src/domain/lease.ts';
@@ -151,5 +152,12 @@ describe('lease state transitions', () => {
       prompt: 'secret',
     } as never, 'worker-1', 1);
     expect(unknownField.kind).toBe('blocked');
+  });
+  test('rejects inherited mandatory lease and stale-proof fields', () => {
+    const leasePrototype = { workflowId: 'workflow-1', holderId: 'worker-1', fencingToken: 1, claimedAt: '2026-08-27T12:00:00.000Z', planId: 'plan-1', worktreePath: 'D:/worktrees/plan-1' };
+    const inheritedLease = Object.assign(Object.create(leasePrototype), { kind: 'execution' });
+    expect(validateLease(inheritedLease)).toBe(false);
+    const proofPrototype = { reason: 'stale', observedAt: '2026-08-27T12:00:00.000Z', evidence: { source: 'test', observedAt: '2026-08-27T12:00:00.000Z' } };
+    expect(validateStaleProof(Object.assign(Object.create(proofPrototype), {}))).toBe(false);
   });
 });

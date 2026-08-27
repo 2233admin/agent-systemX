@@ -34,3 +34,12 @@
 - 本次仍不引入真实 Orca/GitHub/host adapter；没有取得的真实后端证据继续由上层以 Unknown/not available 表示。
 - JSON store 仍只支持 schema version 1，未来 schema 继续拒绝而不隐式迁移。
 - 原有 worktree/control-plane/BMAD 未纳入本波次；工作区中它们的既有修改保持不动。
+
+## 最终复审追加修复
+
+- `src/index.ts` 恢复稳定 public exports：ArtifactRevision/StableIdentity、ArtifactStore、ResumedLease、parseAssignmentExecutionMode、PushCadenceInput/PushDecision 等；继续隐藏 JsonArtifactStore adapter implementation。
+- `src/gates/pr-review.ts` 的 `validateMergeReady` 现在重算并核对 tally arithmetic、approved/total、changes/pending/unresolved、score rounding 与 approve verdict，防止 score=0 或伪造 tally 进入 Done。
+- `src/adapters/json/json-artifact-store.ts` 先执行 NFKC、Unicode format/spacing normalization，再识别 task/prompt 正文别名；覆盖全角与不可见格式字符测试。
+- `src/domain/lease.ts` 与 `src/ports/host.ts` 对 mandatory fields 使用 `Object.hasOwn`，并拒绝继承属性伪造的 lease、StaleProof、CapabilityResult；新增继承属性负例。
+
+追加验证：`bun test packages/harness-engine/tests` 为 129 pass、0 fail、322 assertions；`bunx tsc --noEmit -p packages/harness-engine/tsconfig.json` 通过。

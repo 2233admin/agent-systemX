@@ -310,6 +310,12 @@ describe('adapter port contracts', () => {
       reasonCode: 'host.not-installed',
     });
   });
+  test('rejects inherited host capability fields', () => {
+    const prototype = { status: 'supported', hostId: 'host-1', hostVersion: '2026.08', evidence: hostEvidence };
+    const inherited = Object.assign(Object.create(prototype), {});
+    expect(() => validateCapabilityResult(inherited)).toThrow();
+  });
+
 
   // @ts-expect-error 动态任务正文不属于协调 DTO allowlist。
   const forbiddenPrompt: CoordinationTaskDto = { ...task, prompt: 'secret' };

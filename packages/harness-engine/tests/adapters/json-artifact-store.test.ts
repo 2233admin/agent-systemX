@@ -64,6 +64,18 @@ describe('JsonArtifactStore', () => {
       expect(raw).not.toContain(privateKey);
     }
   });
+  test('filters full-width and format-inserted dynamic privacy keys', async () => {
+    const { root, store } = await makeStore();
+    const base = snapshot();
+    const input: WorkflowSnapshot = {
+      ...base,
+      plans: [{ ...base.plans[0]!, metadata: { ...base.plans[0]!.metadata, 'ｔａｓｋ正文': 'full-width secret', 'task\u200b正文': 'format secret' } }],
+    };
+    await store.writeWorkflow(0, input);
+    const raw = await readFile(join(root, 'workflows', 'workflow-1.json'), 'utf8');
+    expect(raw).not.toContain('full-width secret');
+    expect(raw).not.toContain('format secret');
+  });
 
   test('rejects a revision mismatch without replacing the existing artifact', async () => {
     const { root, store } = await makeStore();

@@ -18,6 +18,8 @@ export {
   validateUnknown,
   validateViolation,
 } from './core/result';
+export type { ArtifactRevision, StableIdentity } from './core/ids';
+
 export {
   isPlanStatus,
   transitionPlanStatus,
@@ -38,6 +40,7 @@ export type {
   LeaseClaim,
   LeaseClaimResult,
   LeaseReleaseResult,
+  ResumedLease,
   LeaseState,
   ReleasedLease,
   StaleProof,
@@ -63,6 +66,7 @@ export type {
 } from './domain/assignment';
 export {
   parseAssignmentBranchForms,
+  parseAssignmentExecutionMode,
   parseAssignmentFields,
 } from './domain/assignment';
 export type {
@@ -81,12 +85,15 @@ export { evaluateIterationGate } from './gates/iteration';
 export type {
   MergeReady,
   PrReviewInput,
+  PushCadenceInput,
+  PushDecision,
   RequiredCheck,
   RequiredReview,
   ReviewTally,
   ReviewVerdict,
 } from './gates/pr-review';
 export { calculateReviewTally, evaluatePrReview, evaluatePushCadence, validateMergeReady } from './gates/pr-review';
+export type { ArtifactStore } from './ports/artifacts';
 export type {
   AdapterMetadata,
   CoordinationAdapter,

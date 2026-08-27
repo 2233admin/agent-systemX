@@ -34,12 +34,13 @@ function isRecord(value: unknown): value is JsonRecord {
 }
 
 function privateKey(value: string): boolean {
-  // 先检查原始 Unicode key，再做兼容性归一化，避免 task正文 等动态字段逃逸。
-  const raw = value.trim().toLowerCase();
-  if (raw.includes('task正文') || raw.includes('prompt正文') || raw.includes('task body') || raw.includes('prompt body')) {
+  // 先做 Unicode 兼容与格式归一化，再识别动态正文字段，避免全角或不可见字符逃逸。
+  const normalizedUnicode = value.normalize('NFKC').toLowerCase().replace(/[\p{Cf}\p{Z}\s]/gu, '');
+  if (normalizedUnicode.includes('task正文') || normalizedUnicode.includes('prompt正文')
+    || normalizedUnicode.includes('taskbody') || normalizedUnicode.includes('promptbody')) {
     return true;
   }
-  const normalized = raw.normalize('NFKC').replace(/[^a-zA-Z0-9]/g, '');
+  const normalized = normalizedUnicode.replace(/[^a-zA-Z0-9]/g, '');
   return PRIVATE_KEYS[normalized] === true
     || normalized.startsWith('dynamictask')
     || normalized.startsWith('toolpayload');

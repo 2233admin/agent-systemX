@@ -85,52 +85,49 @@ function hasOnlyKeys(candidate: Record<string, unknown>, allowed: readonly strin
 export function validateLease(value: unknown): value is Lease {
   if (typeof value !== 'object' || value === null || Array.isArray(value)) return false;
   const candidate = value as Record<string, unknown>;
-  if (!nonEmptyString(candidate.workflowId)
-    || !nonEmptyString(candidate.holderId)
-    || !validToken(candidate.fencingToken)
-    || !validClaimedAt(candidate.claimedAt)) {
-    return false;
-  }
+  if (!Object.hasOwn(candidate, 'kind') || !Object.hasOwn(candidate, 'workflowId')
+    || !Object.hasOwn(candidate, 'holderId') || !Object.hasOwn(candidate, 'fencingToken')
+    || !Object.hasOwn(candidate, 'claimedAt')
+    || !nonEmptyString(candidate.workflowId) || !nonEmptyString(candidate.holderId)
+    || !validToken(candidate.fencingToken) || !validClaimedAt(candidate.claimedAt)) return false;
   if (candidate.kind === 'execution') {
     return hasOnlyKeys(candidate, ['kind', 'workflowId', 'planId', 'holderId', 'worktreePath', 'fencingToken', 'claimedAt'])
-      && nonEmptyString(candidate.planId)
-      && nonEmptyString(candidate.worktreePath);
+      && Object.hasOwn(candidate, 'planId') && Object.hasOwn(candidate, 'worktreePath')
+      && nonEmptyString(candidate.planId) && nonEmptyString(candidate.worktreePath);
   }
   if (candidate.kind === 'integration-merge') {
     return hasOnlyKeys(candidate, ['kind', 'workflowId', 'integrationBranch', 'holderId', 'fencingToken', 'claimedAt'])
-      && nonEmptyString(candidate.integrationBranch);
+      && Object.hasOwn(candidate, 'integrationBranch') && nonEmptyString(candidate.integrationBranch);
   }
   return false;
 }
 function validClaim(value: unknown): value is LeaseClaim {
   if (typeof value !== 'object' || value === null || Array.isArray(value)) return false;
   const candidate = value as Record<string, unknown>;
-  if (!nonEmptyString(candidate.workflowId)
-    || !nonEmptyString(candidate.holderId)
-    || !validClaimedAt(candidate.claimedAt)) {
-    return false;
-  }
+  if (!Object.hasOwn(candidate, 'kind') || !Object.hasOwn(candidate, 'workflowId')
+    || !Object.hasOwn(candidate, 'holderId') || !Object.hasOwn(candidate, 'claimedAt')
+    || !nonEmptyString(candidate.workflowId) || !nonEmptyString(candidate.holderId)
+    || !validClaimedAt(candidate.claimedAt)) return false;
   const lastFencingToken = candidate.lastFencingToken;
   if (lastFencingToken !== undefined
-    && (typeof lastFencingToken !== 'number' || !Number.isSafeInteger(lastFencingToken) || lastFencingToken < 0)) {
-    return false;
-  }
+    && (typeof lastFencingToken !== 'number' || !Number.isSafeInteger(lastFencingToken) || lastFencingToken < 0)) return false;
   if (candidate.kind === 'execution') {
     return hasOnlyKeys(candidate, ['kind', 'workflowId', 'planId', 'holderId', 'worktreePath', 'claimedAt', 'lastFencingToken'])
-      && nonEmptyString(candidate.planId)
-      && nonEmptyString(candidate.worktreePath);
+      && Object.hasOwn(candidate, 'planId') && Object.hasOwn(candidate, 'worktreePath')
+      && nonEmptyString(candidate.planId) && nonEmptyString(candidate.worktreePath);
   }
   return candidate.kind === 'integration-merge'
     && hasOnlyKeys(candidate, ['kind', 'workflowId', 'integrationBranch', 'holderId', 'claimedAt', 'lastFencingToken'])
-    && nonEmptyString(candidate.integrationBranch);
+    && Object.hasOwn(candidate, 'integrationBranch') && nonEmptyString(candidate.integrationBranch);
 }
 
 export function validateStaleProof(value: unknown): value is StaleProof {
   if (typeof value !== 'object' || value === null || Array.isArray(value)) return false;
   const candidate = value as Record<string, unknown>;
-  if (Object.keys(candidate).some((key) => !['reason', 'observedAt', 'evidence'].includes(key))
-    || !nonEmptyString(candidate.reason)
-    || !validClaimedAt(candidate.observedAt)) return false;
+  if (Object.keys(candidate).length !== 3
+    || Object.keys(candidate).some((key) => !['reason', 'observedAt', 'evidence'].includes(key))
+    || !Object.hasOwn(candidate, 'reason') || !Object.hasOwn(candidate, 'observedAt') || !Object.hasOwn(candidate, 'evidence')
+    || !nonEmptyString(candidate.reason) || !validClaimedAt(candidate.observedAt)) return false;
   try {
     validateEvidenceRef(candidate.evidence);
     return true;
@@ -138,20 +135,24 @@ export function validateStaleProof(value: unknown): value is StaleProof {
     return false;
   }
 }
+
 function currentIsValid(value: Lease | LeaseState | LeaseReleaseResult | undefined | null): boolean {
   if (value === undefined || value === null || validateLease(value)) return true;
   if (typeof value !== 'object') return false;
-  if ('lease' in value) {
+  if (Object.hasOwn(value, 'lease')) {
     const state = value as LeaseState;
     const stateRecord = value as unknown as Record<string, unknown>;
     const stateToken = stateRecord.fencingToken;
     return hasOnlyKeys(stateRecord, ['lease', 'fencingToken'])
       && (state.lease === undefined || validateLease(state.lease))
       && (stateToken === undefined
-        || (typeof stateToken === 'number' && Number.isSafeInteger(stateToken) && stateToken >= 0));
+        ? !Object.hasOwn(stateRecord, 'fencingToken')
+        : Object.hasOwn(stateRecord, 'fencingToken')
+          && typeof stateToken === 'number' && Number.isSafeInteger(stateToken) && stateToken >= 0);
   }
-  if ('kind' in value && value.kind === 'released') {
-    return validToken(value.fencingToken);
+  const record = value as unknown as Record<string, unknown>;
+  if (Object.hasOwn(record, 'kind') && record.kind === 'released') {
+    return Object.hasOwn(record, 'fencingToken') && validToken(record.fencingToken);
   }
   return false;
 }
