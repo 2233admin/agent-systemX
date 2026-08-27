@@ -51,3 +51,10 @@
 - On `EEXIST`, recovery reads and validates the payload, proves the owner PID is no longer running, atomically claims the lock by same-directory rename, verifies the owner token, and retries lock creation once. Active, malformed, permission-denied, or otherwise unverifiable locks remain blocked.
 - Added tests for recovery of an exited owner and blocking active/unverifiable locks.
 - Final observed verification: `bun test packages/harness-engine/tests/domain/workflow.test.ts packages/harness-engine/tests/adapters/json-artifact-store.test.ts && bunx tsc --noEmit -p packages/harness-engine/tsconfig.json` — 15 pass, 0 fail, 83 assertions; typecheck passed.
+
+## Scoped re-review fix
+
+- Failed recovery verification now restores the claimed lock with `writeFile(..., { flag: 'wx' })`; if another writer has created a new lock, restoration does not replace it and the recovery file is retained.
+- Lock recovery now requires a non-empty owner token and a valid RFC 3339 creation timestamp; malformed payloads stay blocked even when their PID is no longer running.
+- The exited-owner test now launches the child through `process.execPath`, keeping the test independent of a Windows-specific shell.
+- Final observed verification: `bun test packages/harness-engine/tests/domain/workflow.test.ts packages/harness-engine/tests/adapters/json-artifact-store.test.ts && bunx tsc --noEmit -p packages/harness-engine/tsconfig.json` — 15 pass, 0 fail, 85 assertions; typecheck passed.

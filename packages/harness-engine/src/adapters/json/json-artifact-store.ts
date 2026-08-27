@@ -1,6 +1,7 @@
 import { mkdir, readFile, rename, rm, writeFile } from 'node:fs/promises';
 import { randomUUID } from 'node:crypto';
 import { join } from 'node:path';
+import { isRfc3339Timestamp } from '../../core/result';
 import { validateArtifactRevision } from '../../core/ids';
 import { isPlanStatus, type ExecutionLease, type IntegrationMergeLease, type PlanRow, type WorkflowSnapshot } from '../../domain/workflow';
 import type { ArtifactStore } from '../../ports/artifacts';
@@ -118,7 +119,9 @@ async function recoverStaleLock(lockPath: string): Promise<boolean> {
     || !Number.isSafeInteger(payload.ownerPid)
     || payload.ownerPid <= 0
     || typeof payload.ownerToken !== 'string'
+    || payload.ownerToken.trim().length === 0
     || typeof payload.createdAt !== 'string'
+    || !isRfc3339Timestamp(payload.createdAt)
     || ownerIsRunning(payload.ownerPid)) {
     return false;
   }
@@ -144,8 +147,13 @@ async function recoverStaleLock(lockPath: string): Promise<boolean> {
     if (removeRecovery) {
       await rm(recoveryPath, { force: true });
     } else {
-      // 无法再次证明令牌与已退出 owner 一致时，保留原锁，不强抢写入权。
-      await rename(recoveryPath, lockPath).catch(() => undefined);
+      // 失败时仅用 wx 恢复，若新锁已出现则保留双方文件，绝不覆盖新 owner。
+      try {
+        await writeFile(lockPath, raw, { encoding: 'utf8', flag: 'wx' });
+        await rm(recoveryPath, { force: true });
+      } catch {
+        // 恢复失败时保留 recovery 文件，避免丢失未知 owner 的锁。
+      }
     }
   }
 }

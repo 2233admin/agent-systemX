@@ -90,7 +90,7 @@ describe('JsonArtifactStore', () => {
   test('recovers a lock only after proving its owner exited', async () => {
     const { root, store } = await makeStore();
     const lockPath = join(root, 'workflows', 'workflow-1.json.lock');
-    const child = Bun.spawn(['cmd.exe', '/d', '/c', 'exit', '0']);
+    const child = Bun.spawn([process.execPath, '-e', 'process.exit(0)']);
     await child.exited;
     await Bun.write(lockPath, JSON.stringify({
       ownerPid: child.pid,
@@ -114,6 +114,22 @@ describe('JsonArtifactStore', () => {
     await expect(store.writeWorkflow(0, snapshot(1))).rejects.toThrow('lock');
 
     await Bun.write(lockPath, JSON.stringify({ ownerPid: 'unknown' }));
+    await expect(store.writeWorkflow(0, snapshot(1))).rejects.toThrow('lock');
+
+    const child = Bun.spawn([process.execPath, '-e', 'process.exit(0)']);
+    await child.exited;
+    await Bun.write(lockPath, JSON.stringify({
+      ownerPid: child.pid,
+      ownerToken: '',
+      createdAt: new Date().toISOString(),
+    }));
+    await expect(store.writeWorkflow(0, snapshot(1))).rejects.toThrow('lock');
+
+    await Bun.write(lockPath, JSON.stringify({
+      ownerPid: child.pid,
+      ownerToken: 'malformed-time',
+      createdAt: 'not-a-timestamp',
+    }));
     await expect(store.writeWorkflow(0, snapshot(1))).rejects.toThrow('lock');
   });
   test('rejects malformed execution and integration merge leases', async () => {
