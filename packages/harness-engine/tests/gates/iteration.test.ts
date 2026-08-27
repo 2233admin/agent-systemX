@@ -49,6 +49,17 @@ describe('iteration gates', () => {
     expect(result.kind).toBe('unknown');
   });
 
+  test('rejects blank evidence sources', () => {
+    const result = evaluateIterationGate({
+      phase: 'phase-2-execute',
+      planId: 'plan-1',
+      taskId: 'task-1',
+      workerDone: true,
+      evidence: [{ ...evidence[0], source: '   ' }],
+    });
+    expect(result.kind).toBe('unknown');
+  });
+
   test('does not infer Done from worker_done', () => {
     const result = evaluateIterationGate({
       phase: 'phase-2-execute',
@@ -73,6 +84,16 @@ describe('iteration gates', () => {
     expect(result.kind).toBe('unknown');
     if (result.kind !== 'unknown') return;
     expect(result.violations.map(({ code }) => code)).toContain('iteration.residuals.evidence.missing');
+  });
+
+  test('rejects sparse residual closure evidence', () => {
+    const sparse = new Array(1) as never;
+    const result = evaluateIterationGate({
+      ...complete,
+      residualClosure: { ...residualClosure, closureEvidence: sparse },
+    });
+    expect(result.kind).toBe('blocked');
+    if (result.kind === 'blocked') expect(result.violations.map(({ code }) => code)).toContain('iteration.residuals.invalid');
   });
 
   test('complete phase 3 close advances only to phase 4 review delivery', () => {

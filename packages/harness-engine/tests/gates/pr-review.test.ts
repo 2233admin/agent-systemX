@@ -108,6 +108,11 @@ describe('PR review and push cadence gates', () => {
     expect(result.kind).toBe('unknown');
   });
 
+  test('rejects blank evidence sources', () => {
+    const result = evaluatePushCadence({ ...cadence, evidence: [{ ...evidence[0], source: '   ' }] });
+    expect(result.kind).toBe('unknown');
+  });
+
   test('blocks push while CI or AI review runs on current head', () => {
 
     const ci = evaluatePushCadence({ ...cadence, ciRunning: true });

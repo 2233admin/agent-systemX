@@ -26,12 +26,15 @@ export function validateResidualClosure(value: unknown): value is ResidualClosur
     ? candidate.closureEvidence
     : [candidate.closureEvidence];
   if (evidence.length === 0) return false;
-  try {
-    evidence.forEach((item) => validateEvidenceRef(item as EvidenceRef));
-    return true;
-  } catch {
-    return false;
+  for (let index = 0; index < evidence.length; index += 1) {
+    if (!(index in evidence)) return false;
+    try {
+      validateEvidenceRef(evidence[index] as EvidenceRef);
+    } catch {
+      return false;
+    }
   }
+  return true;
 }
 
 function nonEmpty(value: unknown): value is string {

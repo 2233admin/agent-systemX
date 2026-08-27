@@ -51,6 +51,9 @@ function missingBoolean(value: boolean | undefined): boolean {
 }
 
 function validEvidence(value: unknown): value is EvidenceRef {
+  if (typeof value !== 'object' || value === null || Array.isArray(value)) return false;
+  const candidate = value as Record<string, unknown>;
+  if (typeof candidate.source !== 'string' || candidate.source.trim().length === 0) return false;
   try {
     validateEvidenceRef(value as EvidenceRef);
     return true;
