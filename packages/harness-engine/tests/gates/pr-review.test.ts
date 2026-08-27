@@ -126,6 +126,15 @@ describe('PR review and push cadence gates', () => {
     if (result.kind === 'unknown') expect(result.violations.map(({ code }) => code)).toContain('pr.residuals.evidence.missing');
   });
 
+  test('rejects blank residual closure evidence sources', () => {
+    const result = evaluatePrReview({
+      ...review,
+      residualClosure: { ...residualClosure, closureEvidence: [{ ...evidence[0], source: '   ' }] },
+    });
+    expect(result.kind).toBe('fail');
+    if (result.kind === 'fail') expect(result.violations.map(({ code }) => code)).toContain('pr.residuals.invalid');
+  });
+
   test('allows push when current head is idle', () => {
     const result = evaluatePushCadence(cadence);
     expect(result.kind).toBe('pass');

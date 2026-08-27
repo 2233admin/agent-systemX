@@ -96,6 +96,15 @@ describe('iteration gates', () => {
     if (result.kind === 'blocked') expect(result.violations.map(({ code }) => code)).toContain('iteration.residuals.invalid');
   });
 
+  test('rejects blank residual closure evidence sources', () => {
+    const result = evaluateIterationGate({
+      ...complete,
+      residualClosure: { ...residualClosure, closureEvidence: [{ ...evidence[0], source: '   ' }] },
+    });
+    expect(result.kind).toBe('blocked');
+    if (result.kind === 'blocked') expect(result.violations.map(({ code }) => code)).toContain('iteration.residuals.invalid');
+  });
+
   test('complete phase 3 close advances only to phase 4 review delivery', () => {
     const result = evaluateIterationGate(complete);
     expect(result.kind).toBe('pass');

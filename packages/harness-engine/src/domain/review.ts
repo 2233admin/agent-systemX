@@ -28,8 +28,12 @@ export function validateResidualClosure(value: unknown): value is ResidualClosur
   if (evidence.length === 0) return false;
   for (let index = 0; index < evidence.length; index += 1) {
     if (!(index in evidence)) return false;
+    const item = evidence[index];
+    if (typeof item !== 'object' || item === null || Array.isArray(item)) return false;
+    const source = (item as Record<string, unknown>).source;
+    if (typeof source !== 'string' || source.trim().length === 0) return false;
     try {
-      validateEvidenceRef(evidence[index] as EvidenceRef);
+      validateEvidenceRef(item as EvidenceRef);
     } catch {
       return false;
     }
