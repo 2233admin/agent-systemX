@@ -83,3 +83,56 @@ export type {
 export { calculateReviewTally, evaluatePrReview, evaluatePushCadence } from './gates/pr-review';
 export type { ArtifactStore } from './ports/artifacts';
 export { JsonArtifactStore } from './adapters/json/json-artifact-store';
+export type {
+  AdapterMetadata,
+  CoordinationAdapter,
+  CoordinationDeliveryDto,
+  CoordinationDispatchDto,
+  CoordinationRunDto,
+  CoordinationTaskDto,
+  CoordinationWorkerDto,
+  DeliveryDto,
+  DispatchDto,
+  RunDto,
+  TaskDto,
+  WorkerDto,
+} from './ports/coordination';
+export {
+  validateCoordinationDelivery,
+  validateCoordinationDispatch,
+  validateCoordinationRun,
+  validateCoordinationTask,
+  validateCoordinationWorker,
+} from './ports/coordination';
+export type {
+  DeliveryAdapter,
+  DeliveryAfterMergeDto,
+  DeliveryChecksDto,
+  DeliveryIssueDto,
+  DeliveryPullRequestDto,
+  DeliveryRef,
+  IssueRef,
+  PullRequestRef,
+  DeliveryReviewsDto,
+} from './ports/delivery';
+export {
+  validateDeliveryAfterMerge,
+  validateDeliveryChecks,
+  validateDeliveryIssue,
+  validateDeliveryPullRequest,
+  validateDeliveryReviews,
+} from './ports/delivery';
+export type {
+  CapabilityResult,
+  CapabilityStatus,
+  HostAdapter,
+  HostRequest,
+  NonSupportedCapability,
+  SupportedCapability,
+} from './ports/host';
+export {
+  isCapabilityResult,
+  isCapabilityStatus,
+  validateCapabilityResult,
+  validateCapabilityStatus,
+} from './ports/host';
