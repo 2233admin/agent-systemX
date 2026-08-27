@@ -4,6 +4,7 @@ import { join } from 'node:path';
 import { isRfc3339Timestamp } from '../../core/result';
 import { validateArtifactRevision } from '../../core/ids';
 import { isPlanStatus, type ExecutionLease, type IntegrationMergeLease, type PlanRow, type WorkflowSnapshot } from '../../domain/workflow';
+import { validateLease as isCanonicalLease } from '../../domain/lease';
 import type { ArtifactStore } from '../../ports/artifacts';
 
 const CURRENT_SCHEMA_VERSION = 1;
@@ -70,19 +71,15 @@ function validateRevision(value: unknown): asserts value is number {
   }
 }
 
-function validateLease(
+function assertLease(
   value: unknown,
   label: string,
+  expectedKind: 'execution' | 'integration-merge',
 ): ExecutionLease | IntegrationMergeLease {
-  if (!isRecord(value)) {
-    throw new TypeError(`${label} must be a JSON object`);
+  if (!isCanonicalLease(value) || value.kind !== expectedKind) {
+    throw new TypeError(`${label} must be a canonical ${expectedKind} lease`);
   }
-  for (const field of ['leaseId', 'holder', 'acquiredAt', 'expiresAt'] as const) {
-    if (value[field] !== undefined && typeof value[field] !== 'string') {
-      throw new TypeError(`${label}.${field} must be a string`);
-    }
-  }
-  return sanitizeJson(value) as ExecutionLease | IntegrationMergeLease;
+  return value;
 }
 
 type LockPayload = {
@@ -197,17 +194,15 @@ function validatePlan(value: unknown): PlanRow {
     || !isRecord(value.metadata)) {
     throw new TypeError('Workflow plan row is malformed');
   }
-  if (value.executionLease !== undefined) {
-    validateLease(value.executionLease, 'Workflow execution lease');
-  }
+  const executionLease = value.executionLease === undefined
+    ? undefined
+    : assertLease(value.executionLease, 'Workflow execution lease', 'execution') as ExecutionLease;
   return {
     id: value.id,
     title: value.title,
     status: value.status,
     metadata: sanitizeJson(value.metadata) as Readonly<Record<string, unknown>>,
-    ...(value.executionLease === undefined
-      ? {}
-      : { executionLease: sanitizeJson(value.executionLease) as ExecutionLease }),
+    ...(executionLease === undefined ? {} : { executionLease }),
   };
 }
 
@@ -242,7 +237,7 @@ function validateWorkflowDto(value: unknown): WorkflowDto {
 function toSnapshot(dto: WorkflowDto): WorkflowSnapshot {
   const integrationMergeLease = dto.integrationMergeLease === undefined
     ? undefined
-    : validateLease(dto.integrationMergeLease, 'Workflow integration merge lease') as IntegrationMergeLease;
+    : assertLease(dto.integrationMergeLease, 'Workflow integration merge lease', 'integration-merge') as IntegrationMergeLease;
   return {
     schemaVersion: 1,
     revision: dto.revision,
@@ -266,7 +261,7 @@ function toDto(snapshot: WorkflowSnapshot): WorkflowDto {
   }
   const integrationMergeLease = snapshot.integrationMergeLease === undefined
     ? undefined
-    : validateLease(snapshot.integrationMergeLease, 'Workflow integration merge lease') as IntegrationMergeLease;
+    : assertLease(snapshot.integrationMergeLease, 'Workflow integration merge lease', 'integration-merge') as IntegrationMergeLease;
   const updatedAt = new Date().toISOString();
   return {
     schemaVersion: CURRENT_SCHEMA_VERSION,

@@ -1,6 +1,7 @@
 import type { GateResult, RecoveryAction, Violation } from '../core/result.ts';
 import { isRfc3339Timestamp } from '../core/result.ts';
 import { isPlanStatus, type PlanStatus } from '../domain/workflow.ts';
+import { validateLease, type ExecutionLease } from '../domain/lease.ts';
 import {
   parseAssignmentBranchForms,
   parseAssignmentExecutionMode,
@@ -23,16 +24,7 @@ export interface HostCapability {
   readonly [key: string]: unknown;
 }
 
-export interface DispatchLeaseState {
-  readonly held?: boolean;
-  readonly active?: boolean;
-  readonly holder?: string;
-  readonly planId?: string;
-  readonly taskId?: string;
-  readonly worktreePath?: string;
-  readonly worktree?: string;
-  readonly [key: string]: unknown;
-}
+export type DispatchLeaseState = ExecutionLease;
 
 export interface DispatchInput {
   readonly assignment?: string;
@@ -98,11 +90,6 @@ function hasKnownHostCapability(capability: unknown): boolean {
 }
 
 
-function isPlainLease(value: unknown): value is DispatchLeaseState {
-  if (typeof value !== 'object' || value === null || Array.isArray(value)) return false;
-  const prototype = Object.getPrototypeOf(value);
-  return prototype === Object.prototype || prototype === null;
-}
 function protectedBranches(protection: BranchProtection | boolean | undefined): readonly string[] {
   if (typeof protection === 'object' && protection !== null && protection.protectedBranches !== undefined) {
     return protection.protectedBranches;
@@ -173,18 +160,11 @@ export function validateDispatch(input: DispatchInput): GateResult<DispatchDecis
 
   const lease = input.leaseState;
   if (lease === undefined) {
-    violations.push(violation('lease.missing', 'A held execution lease is required'));
-  } else if (!isPlainLease(lease)) {
-    violations.push(violation('lease.invalid', 'Execution lease must be a plain object'));
-  } else if (Object.keys(lease).length === 0) {
-    violations.push(violation('lease.missing', 'A held execution lease is required'));
-  } else if (lease.held !== true && lease.active !== true) {
-    violations.push(violation('lease.not-held', 'Execution lease must be explicitly held'));
-  } else {
-    const leaseWorktree = lease.worktreePath ?? lease.worktree;
-    if (lease.planId !== planId || lease.taskId !== taskId || leaseWorktree !== worktree) {
-      violations.push(violation('lease.misaligned', 'Execution lease must align with plan, task, and worktree'));
-    }
+    violations.push(violation('lease.missing', 'A canonical execution lease is required'));
+  } else if (!validateLease(lease) || lease.kind !== 'execution') {
+    violations.push(violation('lease.invalid', 'Execution lease must use the canonical lease shape'));
+  } else if (lease.planId !== planId || lease.worktreePath !== worktree) {
+    violations.push(violation('lease.misaligned', 'Execution lease must align with plan and worktree'));
   }
 
   if (input.observedAt !== undefined && !isRfc3339Timestamp(input.observedAt)) {

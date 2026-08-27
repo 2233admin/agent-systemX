@@ -115,4 +115,21 @@ describe('lease state transitions', () => {
     );
     expect(result.kind).toBe('blocked');
   });
+  test('rejects an invalid optional fencing counter in a lease wrapper', () => {
+    const first = claimLease(undefined, executionClaim);
+    if (first.kind !== 'claimed') throw new Error('initial claim failed');
+
+    const result = claimLease({
+      lease: first.lease,
+      fencingToken: 'invalid',
+    } as never, executionClaim);
+    expect(result.kind).toBe('blocked');
+  });
+
+  test('rejects sensitive or unknown lease fields and does not spread them', () => {
+    const contaminated = { ...executionClaim, fencingToken: 1, prompt: 'secret' };
+    expect(validateLease(contaminated)).toBe(false);
+    const result = claimLease(undefined, contaminated as never);
+    expect(result.kind).toBe('blocked');
+  });
 });

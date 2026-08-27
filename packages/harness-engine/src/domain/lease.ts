@@ -78,6 +78,10 @@ function validClaimedAt(value: unknown): value is string {
   return nonEmptyString(value) && isRfc3339Timestamp(value);
 }
 
+function hasOnlyKeys(candidate: Record<string, unknown>, allowed: readonly string[]): boolean {
+  return Object.keys(candidate).every((key) => allowed.includes(key));
+}
+
 export function validateLease(value: unknown): value is Lease {
   if (typeof value !== 'object' || value === null || Array.isArray(value)) return false;
   const candidate = value as Record<string, unknown>;
@@ -88,14 +92,16 @@ export function validateLease(value: unknown): value is Lease {
     return false;
   }
   if (candidate.kind === 'execution') {
-    return nonEmptyString(candidate.planId) && nonEmptyString(candidate.worktreePath);
+    return hasOnlyKeys(candidate, ['kind', 'workflowId', 'planId', 'holderId', 'worktreePath', 'fencingToken', 'claimedAt'])
+      && nonEmptyString(candidate.planId)
+      && nonEmptyString(candidate.worktreePath);
   }
   if (candidate.kind === 'integration-merge') {
-    return nonEmptyString(candidate.integrationBranch);
+    return hasOnlyKeys(candidate, ['kind', 'workflowId', 'integrationBranch', 'holderId', 'fencingToken', 'claimedAt'])
+      && nonEmptyString(candidate.integrationBranch);
   }
   return false;
 }
-
 function validClaim(value: unknown): value is LeaseClaim {
   if (typeof value !== 'object' || value === null || Array.isArray(value)) return false;
   const candidate = value as Record<string, unknown>;
@@ -110,9 +116,13 @@ function validClaim(value: unknown): value is LeaseClaim {
     return false;
   }
   if (candidate.kind === 'execution') {
-    return nonEmptyString(candidate.planId) && nonEmptyString(candidate.worktreePath);
+    return hasOnlyKeys(candidate, ['kind', 'workflowId', 'planId', 'holderId', 'worktreePath', 'claimedAt', 'lastFencingToken'])
+      && nonEmptyString(candidate.planId)
+      && nonEmptyString(candidate.worktreePath);
   }
-  return candidate.kind === 'integration-merge' && nonEmptyString(candidate.integrationBranch);
+  return candidate.kind === 'integration-merge'
+    && hasOnlyKeys(candidate, ['kind', 'workflowId', 'integrationBranch', 'holderId', 'claimedAt', 'lastFencingToken'])
+    && nonEmptyString(candidate.integrationBranch);
 }
 
 function isStaleProof(value: unknown): value is StaleProof | true {
@@ -125,7 +135,12 @@ function currentIsValid(value: Lease | LeaseState | LeaseReleaseResult | undefin
   if (typeof value !== 'object') return false;
   if ('lease' in value) {
     const state = value as LeaseState;
-    return state.lease === undefined || validateLease(state.lease);
+    const stateRecord = value as unknown as Record<string, unknown>;
+    const stateToken = stateRecord.fencingToken;
+    return hasOnlyKeys(stateRecord, ['lease', 'fencingToken'])
+      && (state.lease === undefined || validateLease(state.lease))
+      && (stateToken === undefined
+        || (typeof stateToken === 'number' && Number.isSafeInteger(stateToken) && stateToken >= 0));
   }
   if ('kind' in value && value.kind === 'released') {
     return validToken(value.fencingToken);
@@ -198,8 +213,31 @@ export function claimLease(
 
   const fencingToken = priorToken(current, claim) + 1;
   if (!Number.isSafeInteger(fencingToken)) return { kind: 'blocked', reason: 'Fencing token exhausted' };
-  const { lastFencingToken: _lastFencingToken, ...leaseFields } = claim;
-  return { kind: 'claimed', lease: { ...leaseFields, fencingToken } as Lease };
+  if (claim.kind === 'execution') {
+    return {
+      kind: 'claimed',
+      lease: {
+        kind: 'execution',
+        workflowId: claim.workflowId,
+        planId: claim.planId,
+        holderId: claim.holderId,
+        worktreePath: claim.worktreePath,
+        fencingToken,
+        claimedAt: claim.claimedAt,
+      },
+    };
+  }
+  return {
+    kind: 'claimed',
+    lease: {
+      kind: 'integration-merge',
+      workflowId: claim.workflowId,
+      integrationBranch: claim.integrationBranch,
+      holderId: claim.holderId,
+      fencingToken,
+      claimedAt: claim.claimedAt,
+    },
+  };
 }
 
 export function releaseLease(

@@ -19,10 +19,13 @@ const baseInput = {
   branchProtection: { defaultBranch: 'main', protectedBranches: ['main', 'master'] },
   hostCapability: { kind: 'known' as const, value: 'bun' },
   leaseState: {
-    held: true,
+    kind: 'execution' as const,
+    workflowId: 'workflow-1',
     planId: 'plan-1',
-    taskId: 'task-1',
+    holderId: 'worker-1',
     worktreePath: 'D:/worktrees/dispatch',
+    fencingToken: 1,
+    claimedAt: '2026-08-27T12:00:00.000Z',
   },
   worktree: 'D:/worktrees/dispatch',
   currentExecutor: 'coordinator',
@@ -126,7 +129,7 @@ describe('dispatch gate', () => {
 
   test.each([
     ['undefined lease', undefined, 'lease.missing'],
-    ['empty lease', {}, 'lease.missing'],
+    ['empty lease', {}, 'lease.invalid'],
     ['null lease', null as never, 'lease.invalid'],
     ['array lease', [] as never, 'lease.invalid'],
     ['primitive lease', 'held' as never, 'lease.invalid'],
@@ -136,13 +139,12 @@ describe('dispatch gate', () => {
     expect(violationCodes(result)).toContain(expectedCode);
   });
 
-  test('requires the held lease to align with plan, task, and worktree', () => {
+  test('requires the canonical execution lease to align with plan and worktree', () => {
     const result = validateDispatch({
       ...baseInput,
       leaseState: {
-        held: true,
+        ...baseInput.leaseState,
         planId: 'other-plan',
-        taskId: 'other-task',
         worktreePath: 'D:/other-worktree',
       },
     });

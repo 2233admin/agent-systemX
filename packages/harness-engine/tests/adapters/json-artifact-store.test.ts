@@ -149,6 +149,29 @@ describe('JsonArtifactStore', () => {
       updatedAt: new Date().toISOString(),
     }));
     await expect(store.readWorkflow('workflow-1')).rejects.toThrow('lease');
+    await Bun.write(join(directory, 'workflow-1.json'), JSON.stringify({
+      schemaVersion: 1,
+      revision: 1,
+      workflowId: 'workflow-1',
+      plans: [{
+        id: 'plan-1',
+        title: 'Build the thing',
+        status: 'Todo',
+        metadata: {},
+        executionLease: {
+          kind: 'execution',
+          workflowId: 'workflow-1',
+          planId: 'plan-1',
+          holderId: 'worker-1',
+          worktreePath: 'D:/worktrees/plan-1',
+          fencingToken: 'invalid',
+          claimedAt: '2026-08-27T12:00:00.000Z',
+        },
+      }],
+      updatedAt: new Date().toISOString(),
+    }));
+    await expect(store.readWorkflow('workflow-1')).rejects.toThrow('lease');
+
 
     await Bun.write(join(directory, 'workflow-1.json'), JSON.stringify({
       schemaVersion: 1,
