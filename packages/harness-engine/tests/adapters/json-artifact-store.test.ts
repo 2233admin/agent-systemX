@@ -74,6 +74,48 @@ describe('JsonArtifactStore', () => {
     expect(await readFile(join(root, 'workflows', 'workflow-1.json'), 'utf8')).toBe(before);
   });
 
+  test('allows only one concurrent writer for the same expected revision', async () => {
+    const { store } = await makeStore();
+    const results = await Promise.allSettled([
+      store.writeWorkflow(0, snapshot(1)),
+      store.writeWorkflow(0, { ...snapshot(1), plans: [] }),
+    ]);
+
+    expect(results.filter((result) => result.status === 'fulfilled')).toHaveLength(1);
+    expect(results.filter((result) => result.status === 'rejected')).toHaveLength(1);
+    expect(await store.readWorkflow('workflow-1')).toMatchObject({ revision: 1 });
+  });
+
+  test('rejects malformed execution and integration merge leases', async () => {
+    const { root, store } = await makeStore();
+    const directory = join(root, 'workflows');
+    await Bun.write(join(directory, 'workflow-1.json'), JSON.stringify({
+      schemaVersion: 1,
+      revision: 1,
+      workflowId: 'workflow-1',
+      plans: [{
+        id: 'plan-1',
+        title: 'Build the thing',
+        status: 'Todo',
+        metadata: {},
+        executionLease: { holder: 42 },
+      }],
+      updatedAt: new Date().toISOString(),
+    }));
+    await expect(store.readWorkflow('workflow-1')).rejects.toThrow('lease');
+
+    await Bun.write(join(directory, 'workflow-1.json'), JSON.stringify({
+      schemaVersion: 1,
+      revision: 1,
+      workflowId: 'workflow-1',
+      plans: [],
+      integrationMergeLease: { expiresAt: [] },
+      updatedAt: new Date().toISOString(),
+    }));
+    await expect(store.readWorkflow('workflow-1')).rejects.toThrow('lease');
+  });
+
+
   test('rejects future schema versions instead of migrating them', async () => {
     const { root, store } = await makeStore();
     const directory = join(root, 'workflows');

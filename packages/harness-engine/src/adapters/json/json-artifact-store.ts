@@ -69,6 +69,34 @@ function validateRevision(value: unknown): asserts value is number {
   }
 }
 
+function validateLease(
+  value: unknown,
+  label: string,
+): ExecutionLease | IntegrationMergeLease {
+  if (!isRecord(value)) {
+    throw new TypeError(`${label} must be a JSON object`);
+  }
+  for (const field of ['leaseId', 'holder', 'acquiredAt', 'expiresAt'] as const) {
+    if (value[field] !== undefined && typeof value[field] !== 'string') {
+      throw new TypeError(`${label}.${field} must be a string`);
+    }
+  }
+  return sanitizeJson(value) as ExecutionLease | IntegrationMergeLease;
+}
+
+async function acquireWriteLock(lockPath: string): Promise<void> {
+  try {
+    // 独占创建保证同一目录内同一时刻只有一个写入者通过检查。
+    await writeFile(lockPath, `${new Date().toISOString()}\n`, { encoding: 'utf8', flag: 'wx' });
+  } catch (error) {
+    if (isNodeError(error) && error.code === 'EEXIST') {
+      throw new Error('Workflow write lock conflict');
+    }
+    throw error;
+  }
+}
+
+
 function validatePlan(value: unknown): PlanRow {
   if (!isRecord(value)
     || typeof value.id !== 'string'
@@ -77,8 +105,8 @@ function validatePlan(value: unknown): PlanRow {
     || !isRecord(value.metadata)) {
     throw new TypeError('Workflow plan row is malformed');
   }
-  if (value.executionLease !== undefined && !isRecord(value.executionLease)) {
-    throw new TypeError('Workflow execution lease is malformed');
+  if (value.executionLease !== undefined) {
+    validateLease(value.executionLease, 'Workflow execution lease');
   }
   return {
     id: value.id,
@@ -120,14 +148,15 @@ function validateWorkflowDto(value: unknown): WorkflowDto {
 }
 
 function toSnapshot(dto: WorkflowDto): WorkflowSnapshot {
+  const integrationMergeLease = dto.integrationMergeLease === undefined
+    ? undefined
+    : validateLease(dto.integrationMergeLease, 'Workflow integration merge lease') as IntegrationMergeLease;
   return {
     schemaVersion: 1,
     revision: dto.revision,
     workflowId: dto.workflowId,
     plans: dto.plans.map((plan) => validatePlan(plan)),
-    ...(dto.integrationMergeLease === undefined
-      ? {}
-      : { integrationMergeLease: sanitizeJson(dto.integrationMergeLease) as IntegrationMergeLease }),
+    ...(integrationMergeLease === undefined ? {} : { integrationMergeLease }),
     updatedAt: dto.updatedAt,
   };
 }
@@ -143,6 +172,9 @@ function toDto(snapshot: WorkflowSnapshot): WorkflowDto {
   if (!Array.isArray(snapshot.plans)) {
     throw new TypeError('Workflow snapshot plans must be an array');
   }
+  const integrationMergeLease = snapshot.integrationMergeLease === undefined
+    ? undefined
+    : validateLease(snapshot.integrationMergeLease, 'Workflow integration merge lease') as IntegrationMergeLease;
   const updatedAt = new Date().toISOString();
   return {
     schemaVersion: CURRENT_SCHEMA_VERSION,
@@ -160,9 +192,7 @@ function toDto(snapshot: WorkflowSnapshot): WorkflowDto {
           : { executionLease: sanitizeJson(validatedPlan.executionLease) }),
       };
     }),
-    ...(snapshot.integrationMergeLease === undefined
-      ? {}
-      : { integrationMergeLease: sanitizeJson(snapshot.integrationMergeLease) }),
+    ...(integrationMergeLease === undefined ? {} : { integrationMergeLease }),
     updatedAt,
   };
 }
@@ -193,20 +223,27 @@ export class JsonArtifactStore implements ArtifactStore {
     const destination = workflowPath(this.rootDirectory, next.workflowId);
     const directory = join(this.rootDirectory, 'workflows');
     await mkdir(directory, { recursive: true });
+    const lockPath = `${destination}.lock`;
+    await acquireWriteLock(lockPath);
 
-    const current = await this.readWorkflow(next.workflowId);
-    const currentRevision = current?.revision ?? 0;
-    if (currentRevision !== expectedRevision) {
-      throw new Error(`Workflow revision conflict: expected ${expectedRevision}, found ${currentRevision}`);
-    }
-
-    const dto = toDto(next);
-    const temporary = join(directory, `.${next.workflowId}.${randomUUID()}.tmp`);
     try {
-      await writeFile(temporary, `${JSON.stringify(dto, null, 2)}\n`, 'utf8');
-      await rename(temporary, destination);
+      const current = await this.readWorkflow(next.workflowId);
+      const currentRevision = current?.revision ?? 0;
+      if (currentRevision !== expectedRevision) {
+        throw new Error(`Workflow revision conflict: expected ${expectedRevision}, found ${currentRevision}`);
+      }
+
+      const dto = toDto(next);
+      const temporary = join(directory, `.${next.workflowId}.${randomUUID()}.tmp`);
+      try {
+        await writeFile(temporary, `${JSON.stringify(dto, null, 2)}\n`, 'utf8');
+        await rename(temporary, destination);
+      } finally {
+        await rm(temporary, { force: true });
+      }
     } finally {
-      await rm(temporary, { force: true });
+      // 只在持有者退出写入流程后清理锁；不自动删除未知遗留锁，避免破坏活跃写入。
+      await rm(lockPath, { force: true });
     }
   }
 }
