@@ -192,6 +192,8 @@ describe('adapter port contracts', () => {
     };
     expect(validatePortResult(notFound)).toEqual(notFound);
     expect(validatePortResult(unavailable)).toEqual(unavailable);
+    expect(() => validatePortResult({ kind: 'known', value: null, evidence })).toThrow();
+    expect(() => validatePortResult({ kind: 'known', value: undefined, evidence })).toThrow();
     expect(() => validatePortResult(null)).toThrow();
     expect(() => validatePortResult({ kind: 'unknown', reasonCode: 'unavailable', observedAt, prompt: 'secret' })).toThrow();
   });
@@ -285,6 +287,10 @@ describe('adapter port contracts', () => {
       hostVersion: '2026.08',
       evidence: hostEvidence,
     };
+    expect(() => validateCapabilityResult({
+      ...supported,
+      reasonCode: 'should-not-be-accepted',
+    })).toThrow();
     expect(validateCapabilityResult(supported)).toEqual(supported);
     expect(() => validateCapabilityResult({ ...supported, evidence: undefined })).toThrow();
     expect(() => validateCapabilityResult({ ...supported, evidence: { source: 'host', observedAt } })).toThrow();

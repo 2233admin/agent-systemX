@@ -107,8 +107,9 @@ export function validatePortResult<T>(value: unknown): PortResult<T> {
   if (!isRecord(value)) throw new TypeError('PortResult must be an object');
   if (value.kind === 'known') {
     if (Object.keys(value).some((key) => !['kind', 'value', 'evidence'].includes(key))
-      || !Object.hasOwn(value, 'value') || !Object.hasOwn(value, 'evidence')) {
-      throw new TypeError('A known PortResult requires value, evidence, and no dynamic fields');
+      || !Object.hasOwn(value, 'value') || value.value === null || value.value === undefined
+      || !Object.hasOwn(value, 'evidence')) {
+      throw new TypeError('A known PortResult requires non-null value, evidence, and no dynamic fields');
     }
     try {
       validateEvidenceRef(value.evidence as unknown as EvidenceRef);

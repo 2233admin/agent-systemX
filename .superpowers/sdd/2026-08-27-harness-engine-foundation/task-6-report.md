@@ -47,13 +47,13 @@
 
 - `DeliveryPullRequestDto` now requires concrete immutable `baseSha` and `headSha`; all HEAD-bound delivery DTOs use the existing `isConcreteRevision` contract.
 - `CoordinationDeliveryDto` now requires `dispatchId` for five-object correlation.
-- `PortResult<T>` reuses `Known<T>`/`Unknown`, rejects null/empty success, distinguishes `not-found` and `unavailable` reason codes, and rejects dynamic wrapper fields.
+- `PortResult<T>` reuses `Known<T>`/`Unknown`, rejects null/undefined/empty success, distinguishes `not-found` and `unavailable` reason codes, and rejects dynamic wrapper fields.
 - Host capability results now require `hostId`/`hostVersion`; supported evidence carries and matches both values. Host method inputs are split into `HostContext`, `HostAssignment`, `HostOperation`, and `HostObservation`.
 - Added `DeliveryAdapter.prepareMergeReady` and its DTO validator.
 
 ## Latest verification
 
 - `bun test packages/harness-engine/tests/core/result.test.ts`
-  - Observed: **9 pass, 0 fail, 63 expect() calls**.
+  - Observed: **9 pass, 0 fail, 66 expect() calls**.
 - `bunx tsc --noEmit -p packages/harness-engine/tsconfig.json`
   - Observed: **pass, no diagnostics**.

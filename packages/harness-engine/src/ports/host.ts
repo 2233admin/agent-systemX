@@ -90,8 +90,11 @@ function validateCapabilityEvidence(value: unknown, hostId: string, hostVersion:
 export function validateCapabilityResult(value: unknown): CapabilityResult {
   if (!isRecord(value)) throw new TypeError('Capability result must be an object');
   const status = validateCapabilityStatus(value.status);
-  if (Object.keys(value).some((key) => !['status', 'hostId', 'hostVersion', 'reasonCode', 'evidence'].includes(key))) {
-    throw new TypeError('Capability result contains fields outside its allowlist');
+  const allowed = status === 'supported'
+    ? ['status', 'hostId', 'hostVersion', 'evidence']
+    : ['status', 'hostId', 'hostVersion', 'reasonCode', 'evidence'];
+  if (Object.keys(value).some((key) => !allowed.includes(key))) {
+    throw new TypeError('Capability result contains fields outside its status allowlist');
   }
   if (!nonEmpty(value.hostId) || !nonEmpty(value.hostVersion)) {
     throw new TypeError('Capability result requires hostId and hostVersion');
