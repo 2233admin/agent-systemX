@@ -245,6 +245,7 @@ export function releaseLease(
   holderId: string,
   fencingToken: number,
 ): LeaseReleaseResult {
+  if (!currentIsValid(current)) return { kind: 'blocked', reason: 'Current lease state is malformed' };
   const active = asLease(current);
   if (active === undefined) return { kind: 'blocked', reason: 'No active lease to release' };
   if (!nonEmptyString(holderId) || active.holderId !== holderId || active.fencingToken !== fencingToken) {

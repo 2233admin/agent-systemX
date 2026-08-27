@@ -132,4 +132,21 @@ describe('lease state transitions', () => {
     const result = claimLease(undefined, contaminated as never);
     expect(result.kind).toBe('blocked');
   });
+  test('fails closed when releasing through a malformed lease wrapper', () => {
+    const first = claimLease(undefined, executionClaim);
+    if (first.kind !== 'claimed') throw new Error('initial claim failed');
+
+    const invalidCounter = releaseLease({
+      lease: first.lease,
+      fencingToken: 'invalid',
+    } as never, 'worker-1', 1);
+    expect(invalidCounter.kind).toBe('blocked');
+
+    const unknownField = releaseLease({
+      lease: first.lease,
+      fencingToken: 1,
+      prompt: 'secret',
+    } as never, 'worker-1', 1);
+    expect(unknownField.kind).toBe('blocked');
+  });
 });

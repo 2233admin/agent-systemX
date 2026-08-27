@@ -20,7 +20,7 @@
 - `packages/harness-engine/src/index.ts`
   - 导出 lease transition 合同、纯函数及 worktree alignment 合同/gate。
 - `packages/harness-engine/tests/domain/lease.test.ts`
-  - 覆盖首 claim、同 holder resume、第二 holder 拒绝、stale proof 接管、fencing token 递增、release token 校验、integration lease 独占、malformed wrapper 与隐私字段 fail-closed。
+  - 覆盖首 claim、同 holder resume、第二 holder 拒绝、stale proof 接管、fencing token 递增、release token 校验、integration lease 独占、claim/release malformed wrapper 与隐私字段 fail-closed。
 - `packages/harness-engine/tests/gates/worktree.test.ts`
   - 覆盖对齐成功、缺 worktree、branch mismatch、owned-path overlap、holder/integration mismatch、plan mismatch 与 Done 携带 execution lease。
 - `packages/harness-engine/tests/gates/dispatch.test.ts`
@@ -30,12 +30,12 @@
 
 ## 测试与验证
 
-- `bun test packages/harness-engine/tests/domain/lease.test.ts packages/harness-engine/tests/gates/worktree.test.ts packages/harness-engine/tests/gates/dispatch.test.ts packages/harness-engine/tests/adapters/json-artifact-store.test.ts`
-  - 通过：46 tests，0 fail，108 assertions。
+- `bun test packages/harness-engine/tests/domain/lease.test.ts packages/harness-engine/tests/gates/worktree.test.ts packages/harness-engine/tests/gates/dispatch.test.ts packages/harness-engine/tests/adapters/json/json-artifact-store.test.ts`
+  - 通过：47 tests，0 fail，110 assertions。
 - `bunx tsc --noEmit -p packages/harness-engine/tsconfig.json`
   - 通过：无诊断输出。
 - `bun test packages/harness-engine/tests`
-  - 通过：81 tests，0 fail，168 assertions。
+  - 通过：82 tests，0 fail，170 assertions。
 - 按 TDD 要求，先运行 focused tests，确认新增 review-fix 负例失败，再实现 canonical lease reader、allowlist 与 persistence validator。
 
 ## Public API 摘要
