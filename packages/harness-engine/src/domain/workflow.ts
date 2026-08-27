@@ -35,6 +35,14 @@ export interface CompletionEvidence {
 }
 
 const PLAN_STATUSES: readonly PlanStatus[] = ['Todo', 'InProgress', 'InReview', 'Blocked', 'Done'];
+const ALLOWED_PLAN_TRANSITIONS: Readonly<Record<PlanStatus, readonly PlanStatus[]>> = {
+  Todo: ['InProgress'],
+  InProgress: ['InReview', 'Blocked'],
+  Blocked: ['InReview'],
+  InReview: ['Done'],
+  Done: [],
+};
+
 
 export function isPlanStatus(value: unknown): value is PlanStatus {
   return typeof value === 'string' && PLAN_STATUSES.includes(value as PlanStatus);
@@ -78,6 +86,9 @@ export function transitionPlanStatus(
 ): PlanRow {
   if (!isPlanStatus(nextStatus)) {
     throw new TypeError(`Unknown plan status: ${String(nextStatus)}`);
+  }
+  if (!isPlanStatus(plan.status) || !ALLOWED_PLAN_TRANSITIONS[plan.status].includes(nextStatus)) {
+    throw new Error(`Invalid plan status transition: ${String(plan.status)} -> ${nextStatus}`);
   }
   if (nextStatus === 'Done') {
     assertCompletionEvidence(plan, evidence);
