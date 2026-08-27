@@ -84,15 +84,99 @@ function validateLease(
   return sanitizeJson(value) as ExecutionLease | IntegrationMergeLease;
 }
 
+type LockPayload = {
+  ownerPid: number;
+  ownerToken: string;
+  createdAt: string;
+};
+
+function ownerIsRunning(ownerPid: number): boolean {
+  try {
+    process.kill(ownerPid, 0);
+    return true;
+  } catch (error) {
+    // 权限错误或未知错误不能证明进程已退出，因此保守地视为仍存活。
+    return !(isNodeError(error) && error.code === 'ESRCH');
+  }
+}
+
+async function recoverStaleLock(lockPath: string): Promise<boolean> {
+  let raw: string;
+  try {
+    raw = await readFile(lockPath, 'utf8');
+  } catch (error) {
+    return isNodeError(error) && error.code === 'ENOENT';
+  }
+  let payload: unknown;
+  try {
+    payload = JSON.parse(raw) as unknown;
+  } catch {
+    return false;
+  }
+  if (!isRecord(payload)
+    || typeof payload.ownerPid !== 'number'
+    || !Number.isSafeInteger(payload.ownerPid)
+    || payload.ownerPid <= 0
+    || typeof payload.ownerToken !== 'string'
+    || typeof payload.createdAt !== 'string'
+    || ownerIsRunning(payload.ownerPid)) {
+    return false;
+  }
+  const recoveryPath = `${lockPath}.recovery-${randomUUID()}`;
+  try {
+    await rename(lockPath, recoveryPath);
+  } catch (error) {
+    return isNodeError(error) && error.code === 'ENOENT';
+  }
+
+  let removeRecovery = false;
+  try {
+    const claimed = JSON.parse(await readFile(recoveryPath, 'utf8')) as unknown;
+    if (!isRecord(claimed)
+      || claimed.ownerToken !== payload.ownerToken
+      || typeof claimed.ownerPid !== 'number'
+      || ownerIsRunning(claimed.ownerPid)) {
+      return false;
+    }
+    removeRecovery = true;
+    return true;
+  } finally {
+    if (removeRecovery) {
+      await rm(recoveryPath, { force: true });
+    } else {
+      // 无法再次证明令牌与已退出 owner 一致时，保留原锁，不强抢写入权。
+      await rename(recoveryPath, lockPath).catch(() => undefined);
+    }
+  }
+}
+
+async function createWriteLock(lockPath: string): Promise<void> {
+  const payload: LockPayload = {
+    ownerPid: process.pid,
+    ownerToken: randomUUID(),
+    createdAt: new Date().toISOString(),
+  };
+  await writeFile(lockPath, `${JSON.stringify(payload)}\n`, { encoding: 'utf8', flag: 'wx' });
+}
+
 async function acquireWriteLock(lockPath: string): Promise<void> {
   try {
-    // 独占创建保证同一目录内同一时刻只有一个写入者通过检查。
-    await writeFile(lockPath, `${new Date().toISOString()}\n`, { encoding: 'utf8', flag: 'wx' });
+    await createWriteLock(lockPath);
   } catch (error) {
-    if (isNodeError(error) && error.code === 'EEXIST') {
+    if (!isNodeError(error) || error.code !== 'EEXIST') {
+      throw error;
+    }
+    if (!await recoverStaleLock(lockPath)) {
       throw new Error('Workflow write lock conflict');
     }
-    throw error;
+    try {
+      await createWriteLock(lockPath);
+    } catch (retryError) {
+      if (isNodeError(retryError) && retryError.code === 'EEXIST') {
+        throw new Error('Workflow write lock conflict');
+      }
+      throw retryError;
+    }
   }
 }
 

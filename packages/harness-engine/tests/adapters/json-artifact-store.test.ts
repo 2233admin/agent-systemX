@@ -86,6 +86,36 @@ describe('JsonArtifactStore', () => {
     expect(await store.readWorkflow('workflow-1')).toMatchObject({ revision: 1 });
   });
 
+
+  test('recovers a lock only after proving its owner exited', async () => {
+    const { root, store } = await makeStore();
+    const lockPath = join(root, 'workflows', 'workflow-1.json.lock');
+    const child = Bun.spawn(['cmd.exe', '/d', '/c', 'exit', '0']);
+    await child.exited;
+    await Bun.write(lockPath, JSON.stringify({
+      ownerPid: child.pid,
+      ownerToken: 'exited-owner',
+      createdAt: new Date().toISOString(),
+    }));
+
+    await store.writeWorkflow(0, snapshot(1));
+    expect(await store.readWorkflow('workflow-1')).toMatchObject({ revision: 1 });
+    expect(await readdir(join(root, 'workflows'))).toEqual(['workflow-1.json']);
+  });
+
+  test('keeps active or unverifiable locks blocked', async () => {
+    const { root, store } = await makeStore();
+    const lockPath = join(root, 'workflows', 'workflow-1.json.lock');
+    await Bun.write(lockPath, JSON.stringify({
+      ownerPid: process.pid,
+      ownerToken: 'active-owner',
+      createdAt: new Date().toISOString(),
+    }));
+    await expect(store.writeWorkflow(0, snapshot(1))).rejects.toThrow('lock');
+
+    await Bun.write(lockPath, JSON.stringify({ ownerPid: 'unknown' }));
+    await expect(store.writeWorkflow(0, snapshot(1))).rejects.toThrow('lock');
+  });
   test('rejects malformed execution and integration merge leases', async () => {
     const { root, store } = await makeStore();
     const directory = join(root, 'workflows');
