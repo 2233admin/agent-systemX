@@ -42,7 +42,7 @@ export type GateResult<T> =
     };
 
 const RFC_3339_TIMESTAMP =
-  /^(\d{4})-(\d{2})-(\d{2})T(?:[01]\d|2[0-3]):[0-5]\d:[0-5]\d(?:\.\d+)?(?:Z|[+-](?:[01]\d|2[0-3]):[0-5]\d)$/;
+  /^(\d{4})-(\d{2})-(\d{2})T(?:[01]\d|2[0-3]):[0-5]\d:[0-5]\d(?:\.\d+)?(?:Z|[+-](?:[01]\d|2[0-3]):[0-5]\d)$/i;
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null;
@@ -127,13 +127,13 @@ export function validateViolation(value: Violation): Violation {
   return value;
 }
 
-export function validateGateResult<T>(value: GateResult<T>): GateResult<T> {
+export function validateGateResult<T>(value: unknown): GateResult<T> {
   if (!isRecord(value)) {
     throw new TypeError('GateResult must be an object');
   }
   if (value.kind === 'pass') {
-    if (!Array.isArray(value.evidence)) {
-      throw new TypeError('A passing GateResult requires an evidence array');
+    if (!Object.hasOwn(value, 'value') || !Array.isArray(value.evidence)) {
+      throw new TypeError('A passing GateResult requires value and evidence fields');
     }
     for (const item of value.evidence) {
       validateEvidenceRef(item);

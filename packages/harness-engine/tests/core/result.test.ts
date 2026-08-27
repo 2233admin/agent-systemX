@@ -48,10 +48,16 @@ describe('core result contracts', () => {
     expect(isGateResult({ kind: 'blocked', violations: [], recovery: [] })).toBe(true);
     expect(isGateResult({ kind: 'unknown', violations: [], recovery: [] })).toBe(true);
     expect(isGateResult({ kind: 'success' })).toBe(false);
+    expect(isGateResult({ kind: 'pass', evidence: [] })).toBe(false);
+    expect(() => validateGateResult({ kind: 'pass', evidence: [] })).toThrow();
     expect(() => validateGateResult({ kind: 'fail', violations: [{ code: '   ' }], recovery: [] })).toThrow();
   });
 
   test('evidence contains source and an RFC 3339 observedAt timestamp', () => {
+    expect(validateEvidenceRef({ source: 'unit-test', observedAt: '2026-08-27t12:00:00z' })).toEqual({
+      source: 'unit-test',
+      observedAt: '2026-08-27t12:00:00z',
+    });
     expect(validateEvidenceRef(evidence)).toEqual(evidence);
     expect(() => validateEvidenceRef({ source: 'unit-test', observedAt: 'not-a-timestamp' })).toThrow();
     expect(() => validateEvidenceRef({ source: 'unit-test', observedAt: '2026-02-30T12:00:00Z' })).toThrow();

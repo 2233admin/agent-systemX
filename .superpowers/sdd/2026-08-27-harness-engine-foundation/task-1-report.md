@@ -45,3 +45,9 @@
 
 - 本切片只实现规格明确要求的结构约束：非空稳定 ID、非空 violation code 和 RFC 3339 时间戳；没有引入通用 schema 框架，也没有对 revision 数值施加规格之外的正数策略。
 - `Violation` 和 `RecoveryAction` 的可选文案字段保持轻量，后续 gate 切片可在不暴露 adapter 实现的前提下使用稳定 code 扩展行为。
+
+## Review follow-up
+
+- `validateGateResult` 现在要求 `pass` 结果拥有 own `value` 字段，避免不完整对象被 `isGateResult` 错误窄化。
+- RFC 3339 时间戳字面量按 ABNF 大小写不敏感处理，新增并验证小写 `t`/`z` 形式；未额外扩展 leap-second 语义。
+- 修复后验证：`bun test packages/harness-engine/tests/core/result.test.ts` 为 5 pass、21 assertions；`bunx tsc --noEmit -p packages/harness-engine/tsconfig.json` 通过。
