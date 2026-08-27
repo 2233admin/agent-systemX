@@ -364,5 +364,5 @@ describe('FTS5 BM25 configuration search contract', () => {
     seed([revision({ configName: 'compatibility', revisionId: 'rev-compatibility', skills: [capability('Ｐｅｒｍｉｓｓｉｏｎ', 'full-width permission')] })]);
     expect(await search('permission')).toEqual([expect.objectContaining({ revisionId: 'rev-compatibility' })]);
   });
-  test('application search results expose only revision-level public fields', async () => { seed([revision({ configName: 'general', revisionId: 'rev-general', skills: [capability('permission', 'permission management')] })]); const result = (await search('permission'))[0] as Record<string, unknown>; expect(Object.keys(result).sort()).toEqual(['configName', 'rank', 'revisionId', 'triggerCategory']); });
+  test('application search results expose only revision-level public fields', async () => { seed([revision({ configName: 'general', revisionId: 'rev-general', skills: [capability('permission', 'permission management')] })]); const result = (await search('permission'))[0]; expect(result).toBeDefined(); expect(Object.keys(result!).sort()).toEqual(['configName', 'rank', 'revisionId', 'triggerCategory']); });
 });
