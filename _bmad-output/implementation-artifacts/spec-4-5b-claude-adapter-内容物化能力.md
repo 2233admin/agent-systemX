@@ -42,13 +42,17 @@ deferred:
     location: 'packages/control-plane/src/application/claude-launch.ts'
     severity: low
   - summary: >-
-      `_bmad-output/implementation-artifacts/sprint-status.yaml` 中
-      `4-5b-claude-adapter-内容物化能力` 条目仍为 `backlog`——本 Story 的 Tasks & Acceptance 未列出更新
-      该文件为交付项，故未修改；负责人/后续 Story 需要另行把它标记为 `done` 才能解除 Story 4.6/4.7 的
-      顺序依赖。
-    evidence: '_bmad-output/implementation-artifacts/sprint-status.yaml:60'
+      历史发现（首次 review，2026-08-24）：`sprint-status.yaml` 中
+      `4-5b-claude-adapter-内容物化能力` 条目当时仍为 `backlog`，本 Story 的 Tasks & Acceptance
+      未列出更新该文件为交付项。当前 `sprint-status.yaml` 已将本 Story 标记为 `done`，该历史
+      状态差异已收口，不再构成 Story 4.6/4.7 的顺序依赖。
+    evidence: >-
+      首次 review 时核对 `sprint-status.yaml:60` 得到 `backlog`；后续状态同步已将该条目更新为
+      `done`，与 Epic 4 当前状态及本 Story 的已完成实现一致。
     location: '_bmad-output/implementation-artifacts/sprint-status.yaml'
     severity: low
+    status: resolved
+    resolved_ref: '_bmad-output/implementation-artifacts/epic-4-context.md'
   - summary: >-
       sanitizePathSegment 对两个不同 Skill 名字清洗成同一路径片段的情况没有碰撞检测，会静默用
       fs.cp 覆盖已存在目标目录。

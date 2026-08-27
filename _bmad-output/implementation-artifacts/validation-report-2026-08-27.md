@@ -9,7 +9,7 @@
 - 本机可执行 OMP 与 Claude Code 的版本/help 探针均通过。
 - `fresh → opaque locator → explicit resume` 未执行，结果记为 **Unknown / not run**。原因同时包括合同范围限制，以及真实 fresh 启动所需的凭据和交互副作用条件不具备。没有把 help 探针或纯单元测试当作该 smoke 的替代证据。
 
-本报告只记录命令和观察结果，不修改产品代码、不提交变更。
+本次验证运行未修改产品代码；本报告仅记录命令和观察结果。
 
 ## 合同裁决 / 当前版本判定
 

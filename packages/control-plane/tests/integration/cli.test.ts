@@ -438,6 +438,20 @@ describe('configs search', () => {
     expect(await main(['search', 'permission', 'extra'])).toBe(2);
     expect(errors.join('\n')).toMatch(/limit|requires a query|one query/i);
   });
+  test('accepts hyphen queries while still rejecting unknown options, with bilingual parser errors', async () => {
+    seed([sampleRevision({ configName: 'general', revisionId: 'rev-general', skills: [ref('skill', 'permission-control')] })]);
+
+    expect(await main(['search', '-'])).toBe(0);
+    expect(await main(['search', '--', '--foo'])).toBe(0);
+    expect(await main(['search', '--unknown'])).toBe(2);
+    expect(errors.join('\n')).toContain('unknown flag');
+
+    logs = [];
+    errors = [];
+    process.env.CONFIGS_LANG = 'zh';
+    expect(await main(['search', '--rebuild', '--rebuild'])).toBe(2);
+    expect(errors.join('\n')).toContain('只能传一次');
+  });
 
   test('text and JSON rendering omit recommendation and private fields', async () => {
     seed([sampleRevision({ configName: 'general', revisionId: 'rev-general', skills: [ref('skill', 'permission-control')] })]);

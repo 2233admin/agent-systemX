@@ -18,10 +18,10 @@ export function normalizeSearchText(value: string): string {
   let nonHanRun = '';
 
   const flushHan = (): void => {
-    if (hanRun.length === 1) {
-      tokens.push(hanRun);
-    } else if (hanRun.length > 1) {
-      const chars = [...hanRun];
+    const chars = [...hanRun];
+    if (chars.length === 1) {
+      tokens.push(chars[0]!);
+    } else if (chars.length > 1) {
       for (let index = 0; index < chars.length - 1; index += 1) {
         tokens.push(chars[index]! + chars[index + 1]!);
       }
@@ -50,8 +50,13 @@ export function normalizeSearchText(value: string): string {
   return tokens.join(' ');
 }
 
+const PUBLIC_SCOPE_BOUNDARY_RE = /^(?:public(?:\s|:)|configs supply:\s+groups\b)/iu;
+
 function publicScopeBoundary(revision: StableConfigRevision): string {
-  return isKnown(revision.scopeBoundary) ? normalizeSearchText(revision.scopeBoundary.value) : '';
+  if (!isKnown(revision.scopeBoundary) || !PUBLIC_SCOPE_BOUNDARY_RE.test(revision.scopeBoundary.value.trim())) {
+    return '';
+  }
+  return normalizeSearchText(revision.scopeBoundary.value);
 }
 
 function capabilityValues(revision: StableConfigRevision): { names: string; summaries: string } {

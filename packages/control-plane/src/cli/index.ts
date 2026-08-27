@@ -551,52 +551,60 @@ function parseSearch(rest: readonly string[]): ParsedCommand {
 
   for (let index = 0; index < rest.length; index += 1) {
     const token = rest[index]!;
+    if (token === '--') {
+      const terminatedQuery = rest[++index];
+      if (terminatedQuery === undefined || query !== null || index !== rest.length - 1) {
+        return { kind: 'usage-error', message: `${t('parseError.searchOneQuery')}\n${usageLine()}` };
+      }
+      query = terminatedQuery;
+      continue;
+    }
     if (token === '--rebuild') {
       if (rebuild) {
-        return { kind: 'usage-error', message: `duplicate --rebuild\n${usageLine()}` };
+        return { kind: 'usage-error', message: `${t('parseError.searchDuplicateRebuild')}\n${usageLine()}` };
       }
       rebuild = true;
       continue;
     }
     if (token === '--json') {
       if (json) {
-        return { kind: 'usage-error', message: `duplicate --json\n${usageLine()}` };
+        return { kind: 'usage-error', message: `${t('parseError.searchDuplicateJson')}\n${usageLine()}` };
       }
       json = true;
       continue;
     }
     if (token === '--limit' || token.startsWith('--limit=')) {
       if (explicitLimit) {
-        return { kind: 'usage-error', message: `duplicate --limit\n${usageLine()}` };
+        return { kind: 'usage-error', message: `${t('parseError.searchDuplicateLimit')}\n${usageLine()}` };
       }
       explicitLimit = true;
       const raw = token === '--limit' ? rest[++index] : token.slice('--limit='.length);
       if (raw === undefined || !/^[0-9]+$/.test(raw)) {
-        return { kind: 'usage-error', message: `invalid --limit: ${raw ?? ''}\n${usageLine()}` };
+        return { kind: 'usage-error', message: `${t('parseError.searchInvalidLimit', { value: raw ?? '' })}\n${usageLine()}` };
       }
       limit = Number(raw);
       if (!Number.isSafeInteger(limit) || limit < 1 || limit > 50) {
-        return { kind: 'usage-error', message: `invalid --limit: ${raw}\n${usageLine()}` };
+        return { kind: 'usage-error', message: `${t('parseError.searchInvalidLimit', { value: raw })}\n${usageLine()}` };
       }
       continue;
     }
-    if (token.startsWith('-')) {
+    if (token.startsWith('-') && token !== '-') {
       return { kind: 'usage-error', message: `${t('parseError.unknownFlag', { flag: token })}\n${usageLine()}` };
     }
     if (query !== null) {
-      return { kind: 'usage-error', message: `search accepts one query\n${usageLine()}` };
+      return { kind: 'usage-error', message: `${t('parseError.searchOneQuery')}\n${usageLine()}` };
     }
     query = token;
   }
 
   if (rebuild) {
     if (query !== null || json || explicitLimit) {
-      return { kind: 'usage-error', message: `search --rebuild accepts no query or options\n${usageLine()}` };
+      return { kind: 'usage-error', message: `${t('parseError.searchRebuildOptions')}\n${usageLine()}` };
     }
     return { kind: 'search', query: null, limit, json: false, rebuild: true };
   }
   if (query === null || query.trim().length === 0) {
-    return { kind: 'usage-error', message: `search requires a query\n${usageLine()}` };
+    return { kind: 'usage-error', message: `${t('parseError.searchRequiresQuery')}\n${usageLine()}` };
   }
   return { kind: 'search', query, limit, json, rebuild: false };
 }

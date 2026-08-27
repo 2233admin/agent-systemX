@@ -46,7 +46,22 @@ describe('FTS5 BM25 configuration search contract', () => {
   test('keeps consecutive Latin and numeric characters in complete tokens', () => {
     expect(normalizeSearchText('Permission-Control v2')).toBe('permission control v2');
   });
+  test('keeps a supplementary-plane Han singleton as a searchable token', () => {
+    const supplementaryHan = String.fromCodePoint(0x20000);
+    expect(normalizeSearchText(supplementaryHan)).toBe(supplementaryHan);
+  });
   test('creates a strict public projection and external-content FTS table', () => { seed([revision({ configName: 'general', revisionId: 'rev-general' })]); const db = database(); try { const tables = db.query<{ name: string }, []>("SELECT name FROM sqlite_master WHERE type = 'table' AND name IN ('config_search_document', 'config_revision_fts') ORDER BY name").all(); expect(tables.map((row) => row.name)).toEqual(['config_revision_fts', 'config_search_document']); expect(db.query<{ name: string }, []>('PRAGMA table_info(config_search_document)').all().map((row) => row.name)).toEqual(['revision_id', 'config_name', 'scope_boundary', 'capability_names', 'capability_summaries', 'trigger_category']); const sql = db.query<{ sql: string | null }, []>("SELECT sql FROM sqlite_master WHERE name = 'config_revision_fts'").get()?.sql ?? ''; expect(sql).toContain("content='config_search_document'"); expect(sql).toContain("tokenize='unicode61'"); } finally { db.close(); } });
+  test('does not copy an untrusted private scope boundary into search projection or FTS', () => {
+    seed([revision({ configName: 'general', revisionId: 'rev-private-scope', scopeBoundary: known('private secret token / transcript') })]);
+    const db = database();
+    try {
+      const rowid = db.query<{ rowid: number }, [string]>('SELECT rowid FROM config_search_document WHERE revision_id = ?').get('rev-private-scope')?.rowid;
+      expect(db.query<{ scope_boundary: string }, [number]>('SELECT scope_boundary FROM config_search_document WHERE rowid = ?').get(rowid!)?.scope_boundary).toBe('');
+      expect(db.query<{ scope_boundary: string }, [number]>('SELECT scope_boundary FROM config_revision_fts WHERE rowid = ?').get(rowid!)?.scope_boundary).toBe('');
+    } finally {
+      db.close();
+    }
+  });
   test('searches English names and capability summaries at revision level with numeric BM25 rank', async () => { seed([revision({ configName: 'general', revisionId: 'rev-general', skills: [capability('permission-control', 'Manage permission controls')] }), revision({ configName: 'reviewer', revisionId: 'rev-reviewer', skills: [capability('review-workflow', 'Review changes')] })]); const results = await search('permission'); expect(results[0]).toMatchObject({ revisionId: 'rev-general', configName: 'general', triggerCategory: 'new-scenario' }); expect(typeof (results[0] as { rank: unknown }).rank).toBe('number'); expect(results[0]).not.toHaveProperty('recommendation'); });
   test('matches Chinese overlapping bigrams without duplicate revision rows', async () => { seed([revision({ configName: '权限配置', revisionId: 'rev-zh', skills: [capability('权限控制', '权限控制与访问管理')] }), revision({ configName: 'other', revisionId: 'rev-other', skills: [capability('审查流程', '代码审查流程')] })]); const results = await search('权限控制'); expect(results.filter((row) => (row as { revisionId: string }).revisionId === 'rev-zh')).toHaveLength(1); });
   test('treats punctuation-only input safely and returns no results', async () => { seed([revision({ configName: 'general', revisionId: 'rev-general' })]); expect(await search('!!! ???')).toEqual([]); });
