@@ -1,20 +1,8 @@
+import type { ExecutionLease, IntegrationMergeLease } from './lease.ts';
+
+export type { ExecutionLease, IntegrationMergeLease } from './lease.ts';
+
 export type PlanStatus = 'Todo' | 'InProgress' | 'InReview' | 'Blocked' | 'Done';
-
-/** 执行租约只描述协调所需的稳定字段；运行时任务数据不得进入快照。 */
-export interface ExecutionLease {
-  readonly holder?: string;
-  readonly acquiredAt?: string;
-  readonly expiresAt?: string;
-  readonly [key: string]: unknown;
-}
-
-/** 合并租约只描述协调所需的稳定字段；运行时任务数据不得进入快照。 */
-export interface IntegrationMergeLease {
-  readonly holder?: string;
-  readonly acquiredAt?: string;
-  readonly expiresAt?: string;
-  readonly [key: string]: unknown;
-}
 
 export interface PlanRow {
   readonly id: string;

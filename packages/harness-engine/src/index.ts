@@ -21,6 +21,31 @@ export type {
   WorkflowSnapshot,
 } from './domain/workflow';
 export type {
+  ClaimedLease,
+  ExecutionLeaseClaim,
+  IntegrationMergeLeaseClaim,
+  Lease,
+  LeaseClaim,
+  LeaseClaimResult,
+  LeaseReleaseResult,
+  LeaseState,
+  ReleasedLease,
+  ResumedLease,
+  StaleProof,
+} from './domain/lease';
+export {
+  canStealLease,
+  claimLease,
+  releaseLease,
+  validateLease,
+} from './domain/lease';
+export type {
+  WorktreeAlignment,
+  WorktreeAlignmentInput,
+  WorktreeIdentity,
+} from './gates/worktree';
+export { validateWorktreeAlignment } from './gates/worktree';
+export type {
   AssignmentBranchForm,
   AssignmentBranchFormKind,
   AssignmentBranchForms,
