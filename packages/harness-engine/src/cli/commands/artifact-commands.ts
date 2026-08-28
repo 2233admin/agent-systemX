@@ -39,17 +39,26 @@ export async function runArtifactCommand(args: readonly string[]): Promise<Artif
       const value = await doctor(command.root, command.workflowId);
       return { command: 'doctor', result: value.result, value, violations: [] };
     }
-    if (command.command !== 'migrate') return invalid(command.command, 'artifact.command.invalid');
-    const source = JSON.parse(await readFile(command.source, 'utf8')) as unknown;
+    const migration = command as Extract<ArtifactCommand, { readonly command: 'migrate' }>;
+    const source = JSON.parse(await readFile(migration.source, 'utf8')) as unknown;
     const migrated = migrateArtifact(source);
     const targetPath = `${resolveHarnessPath(command.root, command.workflowId).root}/migrations/${command.workflowId}.v2.json`;
+    const targetDigest = canonicalHashFor(migrated.value);
+    try {
+      const existing = JSON.parse(await readFile(targetPath, 'utf8')) as unknown;
+      if (canonicalHashFor(existing) !== targetDigest) return { command: 'migrate', result: 'unknown', violations: [{ code: 'artifact.migrate.conflict' }] };
+      return { command: 'migrate', result: 'pass', value: { ...migrated, migrated: false, targetDigest }, violations: [] };
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error;
+    }
     await mkdir(dirname(targetPath), { recursive: true });
-    try { await writeFile(targetPath, `${JSON.stringify(migrated.value, null, 2)}\n`, { encoding: 'utf8', flag: 'wx' }); }
-    catch (error) { if ((error as NodeJS.ErrnoException).code !== 'EEXIST') throw error; }
-    return { command: 'migrate', result: 'pass', value: { ...migrated, targetDigest: canonicalHashFor(migrated.value) }, violations: [] };
+    await writeFile(targetPath, `${JSON.stringify(migrated.value, null, 2)}\n`, { encoding: 'utf8', flag: 'wx' });
+    return { command: 'migrate', result: 'pass', value: { ...migrated, targetDigest }, violations: [] };
   } catch (error) {
-    const invalidInput = error instanceof TypeError;
-    return { command: command.command, result: invalidInput ? 'invalid' : 'unknown', violations: [{ code: `artifact.${command.command}.${invalidInput ? 'invalid' : 'unknown'}` }] };
+    const message = error instanceof Error ? error.message : '';
+    if (message === 'project revision conflict') return { command: command.command, result: 'unknown', violations: [{ code: 'artifact.project-register.conflict' }] };
+    if (message === 'project registration requires expected revision 0') return invalid(command.command, 'artifact.project-register.revision.invalid');
+    return { command: command.command, result: error instanceof TypeError ? 'invalid' : 'unknown', violations: [{ code: `artifact.${command.command}.${error instanceof TypeError ? 'invalid' : 'unknown'}` }] };
   }
 }
 

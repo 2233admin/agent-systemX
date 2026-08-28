@@ -36,6 +36,14 @@ describe('Stage 6A artifacts', () => {
     expect(second.targetDigest).toBe(first.targetDigest);
   });
 
+  test('rejects tampered v2 content and recomputes stable source/target digests', () => {
+    const migrated = migrateArtifact(validEnvelope);
+    expect(migrated.sourceDigest).toBe(canonicalHashFor(validEnvelope));
+    expect(migrated.targetDigest).toBe(canonicalHashFor(migrated.value));
+    expect(() => migrateArtifact({ ...migrated.value, value: { plans: [{ id: 'tampered' }] } })).toThrow('hash');
+    expect(migrateArtifact(migrated.value).targetDigest).toBe(migrated.targetDigest);
+  });
+
   test('rejects future schema and tampered hash', () => {
     expect(() => inspectArtifactSchema({ ...validEnvelope, schemaVersion: 99 })).toThrow('future');
     expect(() => inspectArtifactSchema({ ...validEnvelope, canonicalHash: '0'.repeat(64) })).toThrow('hash');

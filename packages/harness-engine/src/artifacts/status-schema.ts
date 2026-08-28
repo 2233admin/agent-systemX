@@ -1,4 +1,5 @@
 import { validateCanonicalArtifact } from './canonical.ts';
+import { validateArtifactV2 } from './migration.ts';
 
 export interface ArtifactSchemaStatus {
   readonly schemaVersion: number;
@@ -15,9 +16,8 @@ export function inspectArtifactSchema(value: unknown): ArtifactSchemaStatus {
     return { schemaVersion: 1, revision: envelope.revision, compatible: true, migrationRequired: true };
   }
   if (candidate.schemaVersion === 2) {
-    if (typeof candidate.revision !== 'number' || !Number.isSafeInteger(candidate.revision) || candidate.revision < 0) throw new TypeError('artifact revision is invalid');
-    if (typeof candidate.canonicalHash !== 'string' || !/^[a-f0-9]{64}$/i.test(candidate.canonicalHash)) throw new TypeError('artifact canonical hash is invalid');
-    return { schemaVersion: 2, revision: candidate.revision, compatible: true, migrationRequired: false };
+    const envelope = validateArtifactV2(value);
+    return { schemaVersion: 2, revision: envelope.revision, compatible: true, migrationRequired: false };
   }
   if (typeof candidate.schemaVersion === 'number' && candidate.schemaVersion > 2) throw new Error(`Unsupported future artifact schema version: ${candidate.schemaVersion}`);
   throw new Error(`Unsupported artifact schema version: ${String(candidate.schemaVersion)}`);

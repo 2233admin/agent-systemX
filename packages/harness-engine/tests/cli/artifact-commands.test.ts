@@ -1,7 +1,8 @@
 import { afterEach, describe, expect, test } from 'bun:test';
-import { mkdtemp, rm } from 'node:fs/promises';
+import { mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
+import { canonicalHashFor } from '../../src/artifacts/canonical.ts';
 import { runCli } from '../../src/cli/index.ts';
 
 const roots: string[] = [];
@@ -35,5 +36,21 @@ describe('artifact CLI commands', () => {
     expect(escaped.stdout).toContain('artifact.path.invalid');
     const malformed = await runCli(['artifact', 'status', '--root', root, '--json']);
     expect(malformed.exitCode).toBe(2);
+  });
+
+  test('replays identical migration and blocks a different source target', async () => {
+    const root = await mkdtemp(join(tmpdir(), 'harness-artifact-cli-'));
+    const source = join(root, 'source.json');
+    roots.push(root);
+    const base = { schemaVersion: 1 as const, artifactKind: 'workflow' as const, workflowId: 'workflow-1', revision: 1, value: { plans: [] }, observedAt: '2026-08-28T00:00:00.000Z' };
+    await writeFile(source, JSON.stringify({ ...base, canonicalHash: canonicalHashFor(base) }));
+    const args = ['artifact', 'migrate', '--root', root, '--workflow-id', 'workflow-1', '--source', source, '--json'];
+    expect((await runCli(args)).exitCode).toBe(0);
+    expect((await runCli(args)).stdout).toContain('\"migrated\":false');
+    const changed = { ...base, value: { plans: [{ id: 'different' }] } };
+    await writeFile(source, JSON.stringify({ ...changed, canonicalHash: canonicalHashFor(changed) }));
+    const conflict = await runCli(args);
+    expect(conflict.exitCode).toBe(0);
+    expect(conflict.stdout).toContain('artifact.migrate.conflict');
   });
 });
