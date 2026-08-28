@@ -101,10 +101,27 @@ function residualValid(value: unknown): value is ResidualClosure {
     && evidenceList(item.closureEvidence);
 }
 
+function qcShape(value: unknown): value is QcEvidence {
+  if (typeof value !== 'object' || value === null || Array.isArray(value)) return false;
+  const qc = value as Record<string, unknown>;
+  return typeof qc.planId === 'string'
+    && typeof qc.taskId === 'string'
+    && typeof qc.reviewerId === 'string'
+    && typeof qc.reviewRange === 'string'
+    && typeof qc.baseSha === 'string'
+    && typeof qc.headSha === 'string'
+    && (qc.executionMode === 'sdd' || qc.executionMode === 'inline')
+    && Number.isSafeInteger(qc.seats)
+    && Array.isArray(qc.reviewerIds)
+    && qc.reviewerIds.every((id) => typeof id === 'string')
+    && qc.passed === true
+    && evidenceList(qc.evidence);
+}
+
 function qcValid(input: PlanCompletionInput, violations: Violation[]): boolean {
   const qc = input.qc;
-  if (!qc || qc.planId !== input.planId || qc.taskId.length === 0 || qc.baseSha !== input.baseSha || qc.headSha !== input.headSha
-    || qc.reviewRange !== `${input.baseSha}..${input.headSha}` || qc.passed !== true || !evidenceList(qc.evidence)) {
+  if (!qcShape(qc) || qc.planId !== input.planId || qc.taskId.trim().length === 0 || qc.baseSha !== input.baseSha || qc.headSha !== input.headSha
+    || qc.reviewRange !== `${input.baseSha}..${input.headSha}` || !evidenceList(qc.evidence)) {
     violations.push(violation('completion.qc.mismatch', 'QC evidence must pass and match plan, task, and BASE..HEAD'));
     return false;
   }

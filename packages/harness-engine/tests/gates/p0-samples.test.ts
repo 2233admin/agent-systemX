@@ -99,6 +99,12 @@ describe('Stage 2 PlanCompletion gate', () => {
     expect(result.kind).toBe('fail');
     if (result.kind === 'fail') expect(result.violations.map((item) => item.code)).toContain('completion.review-package.invalid');
   });
+
+  test('returns a gate result for malformed QC evidence instead of throwing', () => {
+    const result = validatePlanCompletion({ ...validCompletion, qc: {} });
+    expect(result.kind).toBe('fail');
+    if (result.kind === 'fail') expect(result.violations.map((item) => item.code)).toContain('completion.qc.mismatch');
+  });
 });
 
 describe('Stage 2 ownership inventory gate', () => {

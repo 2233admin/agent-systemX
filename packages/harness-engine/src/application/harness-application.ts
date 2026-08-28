@@ -162,9 +162,11 @@ export class WorkflowFacade {
     return applied('status', input.operationId, snapshot, snapshot.revision);
   }
   public async completePlan(input: CompletePlanCommand): Promise<WorkflowSnapshotResult> {
-    const gate = validatePlanCompletion(input.completion);
-    if (gate.kind !== 'pass') {
-      return failed('completePlan', input.operationId, input.expectedRevision, gate.kind === 'fail' ? 'rejected' : gate.kind, gate.violations, gate.recovery);
+    const identityViolations: Violation[] = [];
+    if (input.completion.workflowId !== input.workflowId) identityViolations.push({ code: 'completion.workflow-id.mismatch' });
+    if (input.planId === undefined || input.completion.planId !== input.planId) identityViolations.push({ code: 'completion.plan-id.mismatch' });
+    if (identityViolations.length > 0) {
+      return failed('completePlan', input.operationId, input.expectedRevision, 'rejected', identityViolations, [{ code: 'completion.identity-reread' }]);
     }
     const current = await this.store.readWorkflow(input.workflowId);
     if (current === null) return failed('completePlan', input.operationId, input.expectedRevision, 'blocked', [{ code: 'workflow.missing' }], [{ code: 'workflow.create' }]);

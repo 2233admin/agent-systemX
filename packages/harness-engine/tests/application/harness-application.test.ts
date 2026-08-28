@@ -150,5 +150,21 @@ describe('WorkflowFacade', () => {
     });
     expect(result.kind).toBe('blocked');
     expect(result.violations.map((item) => item.code)).toContain('completion.plan-revision.stale');
+
+    const mismatch = await createWorkflowFacade(store).completePlan({
+      ...envelope,
+      workflowId: 'workflow-other',
+      planId: 'plan-other',
+      expectedRevision: 2,
+      operationId: 'op-identity-mismatch',
+      idempotencyKey: 'key-identity-mismatch',
+      inputDigest: 'digest-identity-mismatch',
+      completion: { ...completion, planRevision: 2 },
+    });
+    expect(mismatch.kind).toBe('rejected');
+    expect(mismatch.violations.map((item) => item.code)).toEqual(expect.arrayContaining([
+      'completion.workflow-id.mismatch',
+      'completion.plan-id.mismatch',
+    ]));
   });
 });
