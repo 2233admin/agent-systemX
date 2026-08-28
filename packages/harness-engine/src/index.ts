@@ -155,5 +155,22 @@ export {
   validateCapabilityResult,
   validateCapabilityStatus,
 } from './ports/host';
+export type {
+  CommandEvidence,
+  CommandsEvidence,
+  FailureLedger,
+  FailureLedgerRow,
+  OwnershipRecord,
+  RerunResult,
+} from './validation/failure-ledger';
+export {
+  isCommandsEvidence,
+  isFailureLedger,
+  isOwnershipRecord,
+  validateCommandEvidence,
+  validateCommandsEvidence,
+  validateFailureLedger,
+  validateOwnershipRecord,
+} from './validation/failure-ledger';
 export type { CliResult } from './cli/index';
 export { main as harnessMain, runCli } from './cli/index';

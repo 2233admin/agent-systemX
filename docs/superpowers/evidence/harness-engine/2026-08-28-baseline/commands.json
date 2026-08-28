@@ -1,0 +1,21 @@
+{
+  "currentHead": "4be39b97c35d4306e773fdc59482db6ebf09cf24",
+  "branch": "2233admin/the-request-appears-to",
+  "worktree": "D:\\projects\\agent-systemX\\.orca\\worktrees\\hammerhead",
+  "commands": [
+    {
+      "name": "harness-typecheck",
+      "command": "bunx tsc --noEmit -p packages/harness-engine/tsconfig.json",
+      "exitCode": 0,
+      "output": "",
+      "observedAt": "2026-08-28T04:02:48Z"
+    },
+    {
+      "name": "harness-stage0-focused",
+      "command": "bun test packages/harness-engine/tests/validation/failure-ledger.test.ts packages/harness-engine/tests/cli.test.ts packages/harness-engine/tests/adapters/json-artifact-store.test.ts",
+      "exitCode": 0,
+      "output": "bun test v1.3.14 (0d9b296a)\n\n 32 pass\n 0 fail\n 81 expect() calls\nRan 32 tests across 3 files. [201.00ms]",
+      "observedAt": "2026-08-28T04:02:48Z"
+    }
+  ]
+}

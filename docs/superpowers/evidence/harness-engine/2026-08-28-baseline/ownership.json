@@ -1,0 +1,55 @@
+{
+  "currentHead": "4be39b97c35d4306e773fdc59482db6ebf09cf24",
+  "branch": "2233admin/the-request-appears-to",
+  "worktree": "D:\\projects\\agent-systemX\\.orca\\worktrees\\hammerhead",
+  "ownedPaths": [
+    "packages/harness-engine/src/index.ts",
+    "packages/harness-engine/src/validation/failure-ledger.ts",
+    "packages/harness-engine/tests/fixtures/validation.ts",
+    "packages/harness-engine/tests/validation/failure-ledger.test.ts",
+    "docs/superpowers/evidence/harness-engine/2026-08-28-baseline/failure-ledger.json",
+    "docs/superpowers/evidence/harness-engine/2026-08-28-baseline/ownership.json",
+    "docs/superpowers/evidence/harness-engine/2026-08-28-baseline/commands.json"
+  ],
+  "attributedDirtyPaths": [
+    "packages/harness-engine/src/index.ts"
+  ],
+  "untrackedPaths": [
+    ".omp/skills/chat-drawing/SKILL.md",
+    "_bmad-output/planning-artifacts/architecture/architecture-harness-engine/ARCHITECTURE-SPINE.md",
+    "_bmad-output/specs/spec-harness-engine/SPEC.md",
+    "_bmad-output/specs/spec-harness-engine/mstar-adoption-map.md",
+    "_bmad-output/specs/spec-harness-engine/validation-contract.md",
+    "diagrams/agent-system-current-architecture.excalidraw",
+    "diagrams/agent-system-current-architecture.mmd",
+    "diagrams/agent-system-current-architecture.png",
+    "diagrams/agent-system-current-architecture.svg",
+    "diagrams/agent-systemx-graphic-artist-preview.png",
+    "diagrams/agent-systemx-omp-glyph-arts-glyph.txt",
+    "diagrams/agent-systemx-omp-glyph-arts-preview.png",
+    "diagrams/agent-systemx-omp-glyph-arts.html",
+    "diagrams/agent-systemx-omp-glyph-arts.svg",
+    "diagrams/agent-systemx-omp-glyph-arts.txt",
+    "docs/superpowers/evidence/2026-08-27-harness-engine-independent-review.md",
+    "docs/superpowers/evidence/2026-08-27-harness-engine-ownership.md",
+    "docs/superpowers/plans/2026-08-27-harness-engine-acceptance-closure.md",
+    "docs/superpowers/plans/2026-08-27-harness-engine-foundation.md",
+    "packages/harness-engine/src/validation/failure-ledger.ts",
+    "packages/harness-engine/tests/fixtures/validation.ts",
+    "packages/harness-engine/tests/validation/failure-ledger.test.ts"
+  ],
+  "conflictingPaths": [
+    "_bmad-output/implementation-artifacts/sprint-status.yaml",
+    "_bmad-output/planning-artifacts/epics.md",
+    "docs/superpowers/evidence/2026-08-27-harness-engine-failure-ledger.md",
+    "docs/superpowers/evidence/2026-08-27-harness-engine-independent-review.md",
+    "docs/superpowers/evidence/2026-08-27-harness-engine-ownership.md",
+    "packages/harness-engine/src/domain/lease.ts",
+    "packages/harness-engine/src/gates/worktree.ts",
+    "packages/harness-engine/src/domain/review.ts",
+    "packages/harness-engine/src/gates/sdd.ts",
+    "docs/superpowers/plans/2026-08-28-harness-engine-full-internalization.md"
+  ],
+  "implementer": "current principal-directed execution / mstar-harness capability equivalent migration Stage 0",
+  "observedAt": "2026-08-28T04:01:36Z"
+}
