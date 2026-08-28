@@ -169,6 +169,10 @@ export function validateFailureLedger(value: unknown): FailureLedger {
     if (value.failures.length !== 0) {
       throw new TypeError('zero-failures ledger must have no failures');
     }
+    const fullSuite = commandsEvidence.commands.find((command) => command.name === 'harness-full-suite');
+    if (fullSuite === undefined || fullSuite.exitCode !== 0) {
+      throw new TypeError('zero-failures ledger requires a passing harness-full-suite command');
+    }
     return value as FailureLedger;
   }
   if (value.failures.length === 0) {
@@ -235,6 +239,9 @@ export function isOwnershipRecord(value: unknown): value is OwnershipRecord {
 
 const SENSITIVE_OUTPUT_PATTERN =
   /\b(?:prompt|transcript|credential|password|secret|token|stderr)\b|tool[\s_-]*payload/i;
+const SENSITIVE_COMMAND_PATTERN =
+  /\b(?:prompt|transcript|credential|password|secret|token|stderr)\b|tool[\s_-]*payload|(?:https?|ssh|git):\/\/[^\s/]+@/i;
+const SAFE_COMMAND_PATTERN = /^(?:bun(?:x)?|cmd\.exe|powershell(?:\.exe)?)(?:\s|$)/i;
 const SAFE_OUTPUT_PATTERNS = [
   /^bun test v\d+\.\d+\.\d+(?:\s+\([0-9a-f]+\))?$/i,
   /^\s*\d+\s+(?:pass|fail|skip)$/,
@@ -254,6 +261,15 @@ function validateCommandOutput(value: string): void {
   }
 }
 
+function validateCommand(value: string): void {
+  const command = value.trim();
+  if (SENSITIVE_COMMAND_PATTERN.test(command)) {
+    throw new TypeError('CommandEvidence command contains prohibited sensitive content');
+  }
+  if (!SAFE_COMMAND_PATTERN.test(command)) {
+    throw new TypeError('CommandEvidence command must use the safe executable allowlist');
+  }
+}
 export function validateCommandEvidence(value: unknown): CommandEvidence {
   const keys = ['name', 'command', 'exitCode', 'output', 'observedAt'] as const;
   if (!isRecord(value)
@@ -267,6 +283,7 @@ export function validateCommandEvidence(value: unknown): CommandEvidence {
   validateExitCode(value.exitCode, 'CommandEvidence exitCode');
   validateObservedAt(value.observedAt, 'CommandEvidence observedAt');
   validateCommandOutput(value.output);
+  validateCommand(value.command);
   return value as unknown as CommandEvidence;
 }
 

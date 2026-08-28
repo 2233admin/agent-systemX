@@ -12,6 +12,7 @@ import {
   currentFailureWithClosure,
   currentFailureWithRerun,
   validCommandsEvidence,
+  typecheckOnlyCommandsEvidence,
   validOwnershipRecord,
   zeroFailureLedger,
 } from '../fixtures/validation.ts';
@@ -41,6 +42,13 @@ describe('failure ledger validation', () => {
     const ledger = { ...zeroFailureLedger, currentHead: 'different-head' };
     expect(() => validateFailureLedger(ledger)).toThrow(
       'FailureLedger currentHead must match commandsEvidence currentHead',
+    );
+  });
+
+  test('rejects zero-failures evidence without the full-suite command', () => {
+    const ledger = { ...zeroFailureLedger, commandsEvidence: typecheckOnlyCommandsEvidence };
+    expect(() => validateFailureLedger(ledger)).toThrow(
+      'zero-failures ledger requires a passing harness-full-suite command',
     );
   });
 
@@ -143,6 +151,41 @@ describe('ownership and command evidence validation', () => {
   test('accepts command evidence with an empty output', () => {
     expect(validateCommandsEvidence(validCommandsEvidence)).toEqual(validCommandsEvidence);
     expect(isCommandsEvidence(validCommandsEvidence)).toBe(true);
+  });
+
+  test('accepts the Windows cmd.exe, bun, and bunx command forms', () => {
+    const commands = {
+      ...validCommandsEvidence,
+      commands: [
+        { ...validCommandsEvidence.commands[0], name: 'cmd', command: 'cmd.exe /d /c "bun test"' },
+        { ...validCommandsEvidence.commands[0], name: 'bun', command: 'bun test packages/harness-engine/tests' },
+        { ...validCommandsEvidence.commands[0], name: 'bunx', command: 'bunx tsc --noEmit -p packages/harness-engine/tsconfig.json' },
+      ] as const,
+    };
+    expect(validateCommandsEvidence(commands)).toEqual(commands);
+  });
+
+  test('rejects sensitive or non-allowlisted command strings', () => {
+    for (const command of [
+      'bun test --token=secret',
+      'bun test --password=secret',
+      'bun test --credential=secret',
+      'bun test --secret=secret',
+      'bun test prompt transcript tool payload stderr',
+      'bun test https://user:password@example.com',
+    ]) {
+      const evidence = {
+        ...validCommandsEvidence,
+        commands: [{ ...validCommandsEvidence.commands[0], command }],
+      };
+      expect(() => validateCommandsEvidence(evidence)).toThrow(
+        'CommandEvidence command contains prohibited sensitive content',
+      );
+    }
+    expect(() => validateCommandsEvidence({
+      ...validCommandsEvidence,
+      commands: [{ ...validCommandsEvidence.commands[0], command: 'bash -c "bun test"' }],
+    })).toThrow('CommandEvidence command must use the safe executable allowlist');
   });
 
   test('accepts allowlisted summaries and explicit redaction', () => {

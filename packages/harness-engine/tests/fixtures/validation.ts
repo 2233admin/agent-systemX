@@ -41,13 +41,22 @@ export const zeroFailureLedger: FailureLedger = {
     currentHead: '4be39b97c35d4306e773fdc59482db6ebf09cf24',
     branch: '2233admin/the-request-appears-to',
     worktree: 'D:\\projects\\agent-systemX\\.orca\\worktrees\\hammerhead',
-    commands: [{
-      name: 'harness-typecheck',
-      command: 'bunx tsc --noEmit -p packages/harness-engine/tsconfig.json',
-      exitCode: 0,
-      output: '',
-      observedAt: '2026-08-28T00:00:00.000Z',
-    }],
+    commands: [
+      {
+        name: 'harness-full-suite',
+        command: 'cmd.exe /v:on /d /c "bun test packages/harness-engine/tests"',
+        exitCode: 0,
+        output: 'bun test v1.3.14 (0d9b296a)\n\n 149 pass\n 0 fail\n 351 expect() calls\nRan 149 tests across 12 files. [242.00ms]\nexitCode=0 ',
+        observedAt: '2026-08-28T00:00:00.000Z',
+      },
+      {
+        name: 'harness-typecheck',
+        command: 'bunx tsc --noEmit -p packages/harness-engine/tsconfig.json',
+        exitCode: 0,
+        output: '',
+        observedAt: '2026-08-28T00:00:00.000Z',
+      },
+    ],
   },
 };
 
@@ -75,5 +84,10 @@ export const validCommandsEvidence: CommandsEvidence = {
   currentHead: validOwnershipRecord.currentHead,
   branch: validOwnershipRecord.branch,
   worktree: validOwnershipRecord.worktree,
+  commands: [validCommand],
+};
+
+export const typecheckOnlyCommandsEvidence: CommandsEvidence = {
+  ...validCommandsEvidence,
   commands: [validCommand],
 };
