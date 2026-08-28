@@ -3,13 +3,14 @@ import type { EvidenceRef } from '../../src/core/result.ts';
 import {
   type HardGateRecord,
   type ValidationDecision,
+  hashEvidenceManifest,
+  normalizeEvidenceManifest,
   validateHardGateBundle,
   validateValidationDecision,
 } from '../../src/validation/hard-gates.ts';
 
 const head = 'a'.repeat(40);
 const sourceHash = 'b'.repeat(64);
-const manifestHash = 'c'.repeat(64);
 const observedAt = '2026-08-28T12:00:00.000Z';
 
 function evidence(source: string, locator?: string): EvidenceRef {
@@ -50,12 +51,13 @@ function validGates(): readonly HardGateRecord[] {
 }
 
 function decision(overrides: Partial<ValidationDecision> = {}): ValidationDecision {
+  const gates = (overrides.gates ?? validGates()) as unknown as ValidationDecision['gates'];
   return {
     currentHead: head,
     sourceHash,
     state: 'Verified',
-    gates: validGates() as unknown as ValidationDecision['gates'],
-    evidenceManifestHash: manifestHash,
+    gates,
+    evidenceManifestHash: hashEvidenceManifest(gates),
     observedAt,
     ...overrides,
   };
@@ -66,6 +68,33 @@ describe('Stage 7 hard gate bundle', () => {
     const gates = validateHardGateBundle(validGates());
     expect(gates).toHaveLength(6);
     expect(validateValidationDecision(decision()).state).toBe('Verified');
+  });
+
+  test('normalizes every gate fact before hashing the evidence manifest', () => {
+    const gates = validGates();
+    const manifest = normalizeEvidenceManifest(gates);
+    expect(manifest.map((item) => item.gateId)).toEqual([
+      'code-tests',
+      'failure-ledger',
+      'ownership',
+      'independent-review',
+      'controlled-integration',
+      'real-smoke',
+    ]);
+    expect(manifest[0]).toMatchObject({
+      gateId: 'code-tests',
+      state: 'pass',
+      currentHead: head,
+      sourceHash,
+      evidenceRefs: gates[0]?.evidenceRefs,
+      failureRefs: [],
+      owner: 'stage7-reviewer',
+      observedAt,
+    });
+    const changed = gates.map((item) => item.gateId === 'ownership'
+      ? { ...item, owner: 'another-reviewer' }
+      : item);
+    expect(hashEvidenceManifest(changed)).not.toBe(hashEvidenceManifest(gates));
   });
 
   test('rejects a bundle with a missing hard gate', () => {
@@ -124,6 +153,7 @@ describe('Stage 7 hard gate bundle', () => {
 
   test('rejects a ValidationDecision with stale head or incorrect manifest hash', () => {
     expect(() => validateValidationDecision(decision({ currentHead: 'd'.repeat(40) }))).toThrow('currentHead');
+    expect(() => validateValidationDecision(decision({ evidenceManifestHash: 'd'.repeat(64) }))).toThrow('evidenceManifestHash');
     expect(() => validateValidationDecision(decision({ evidenceManifestHash: 'not-a-hash' }))).toThrow('evidenceManifestHash');
   });
 

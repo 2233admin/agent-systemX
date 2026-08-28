@@ -1,5 +1,6 @@
 import type { EvidenceRef, RecoveryAction } from '../core/result.ts';
 import { isRfc3339Timestamp, validateEvidenceRef, validateRecoveryAction } from '../core/result.ts';
+import { canonicalHashFor } from '../artifacts/canonical.ts';
 
 export type HardGateId =
   | 'code-tests'
@@ -114,6 +115,8 @@ function validateEvidenceRefs(value: unknown, field: string): readonly EvidenceR
   return value.map((item, index) => validateEvidence(item, `${field}[${index}]`));
 }
 
+// 真实 smoke 分母保留合同要求的三类自然对象：Orca、GitHub 和已声明宿主。
+// fixture、fake、帮助输出与 not-available 只能作为非通过证据，不能计入分母。
 function validSmokeKind(value: EvidenceRef): 'orca' | 'github' | 'host' | undefined {
   const source = value.source.toLowerCase();
   if (source === 'real-smoke.orca') return 'orca';
@@ -196,6 +199,44 @@ export function validateHardGateBundle(input: unknown): readonly HardGateRecord[
   return records;
 }
 
+export interface EvidenceManifestEntry {
+  readonly gateId: HardGateId;
+  readonly state: HardGateState;
+  readonly currentHead: string;
+  readonly sourceHash: string;
+  readonly evidenceRefs: readonly EvidenceRef[];
+  readonly failureRefs: readonly EvidenceRef[];
+  readonly owner: string;
+  readonly observedAt: string;
+  readonly recoveryAction?: RecoveryAction;
+}
+
+export type EvidenceManifest = readonly EvidenceManifestEntry[];
+
+export function normalizeEvidenceManifest(input: readonly HardGateRecord[]): EvidenceManifest {
+  const gates = validateHardGateBundle(input);
+  return GATE_IDS.map((gateId) => {
+    const gate = gates.find((item) => item.gateId === gateId);
+    if (gate === undefined) throw new TypeError(`HardGate bundle missing ${gateId}`);
+    return {
+      gateId: gate.gateId,
+      state: gate.state,
+      currentHead: gate.currentHead,
+      sourceHash: gate.sourceHash,
+      evidenceRefs: gate.evidenceRefs,
+      failureRefs: gate.failureRefs,
+      owner: gate.owner,
+      observedAt: gate.observedAt,
+      ...(gate.recoveryAction === undefined ? {} : { recoveryAction: gate.recoveryAction }),
+    };
+  });
+}
+
+export function hashEvidenceManifest(input: readonly HardGateRecord[]): string {
+  return canonicalHashFor(normalizeEvidenceManifest(input));
+}
+
+
 function computedState(gates: readonly HardGateRecord[]): ValidationState {
   if (gates.every((gate) => gate.state === 'pass')) {
     const smoke = gates.find((gate) => gate.gateId === 'real-smoke');
@@ -219,6 +260,9 @@ export function validateValidationDecision(input: unknown): ValidationDecision {
   const gates = validateHardGateBundle(input.gates);
   if (gates[0]?.currentHead !== input.currentHead) throw new TypeError('ValidationDecision currentHead does not match gates');
   if (gates[0]?.sourceHash !== input.sourceHash) throw new TypeError('ValidationDecision sourceHash does not match gates');
+  if (hashEvidenceManifest(gates) !== input.evidenceManifestHash) {
+    throw new TypeError('ValidationDecision evidenceManifestHash does not match gates');
+  }
   const expected = computedState(gates);
   if (input.state !== expected) throw new TypeError(`ValidationDecision state must be ${expected}`);
   return {
