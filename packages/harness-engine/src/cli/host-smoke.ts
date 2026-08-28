@@ -1,3 +1,4 @@
+import { createProductionHarnessControlPlaneFacade } from '@agent-system/control-plane/application/public-entry';
 import type { CapabilityResult } from '../ports/host.ts';
 import type { ControlPlaneFacade } from '../application/control-plane-port.ts';
 import { ClaudeHostAdapter } from '../adapters/hosts/claude/claude-host-adapter.ts';
@@ -36,6 +37,8 @@ if (import.meta.main) {
   } else if (revisionId === undefined || revisionId.trim().length === 0) {
     process.stdout.write(JSON.stringify({ host, result: 'not-available', reasonCode: 'HARNESS_HOST_REVISION_ID.missing', scope: 'read-only' }) + '\n');
   } else {
-    process.stdout.write(JSON.stringify({ host, revisionId, result: 'not-available', reasonCode: 'real-host-facade.requires-injected-composition-root', scope: 'read-only' }) + '\n');
+    const facade = await createProductionHarnessControlPlaneFacade();
+    const result = await runHostSmoke(facade, { host, revisionId, hostVersion: process.env.HARNESS_HOST_VERSION });
+    process.stdout.write(`${JSON.stringify(result)}\n`);
   }
 }

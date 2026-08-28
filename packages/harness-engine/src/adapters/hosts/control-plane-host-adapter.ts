@@ -9,8 +9,27 @@ function isUnknown(value: unknown): value is ControlPlaneUnknown {
   return typeof value === 'object' && value !== null && (value as Record<string, unknown>).kind === 'unknown';
 }
 
+function factsConsistent(capability: ClientCapability, revision: ConfigRevisionRef, manifest: AssemblyManifestRef, launch: LaunchPlanRef): boolean {
+  const facts = [capability, revision, manifest, launch];
+  return facts.every((fact) => fact.source === capability.source
+    && fact.sourceVersion === capability.sourceVersion
+    && fact.observedAt === capability.observedAt)
+    && revision.revisionId === manifest.revisionId
+    && manifest.revisionId === launch.revisionId;
+}
+
 function supported(host: HostContext, capability: ClientCapability, revision: ConfigRevisionRef, manifest: AssemblyManifestRef, launch: LaunchPlanRef): CapabilityResult {
-  if (capability.status !== 'supported' || capability.clientVersion !== host.hostVersion
+  if (capability.status === 'unsupported') {
+    return { status: 'unsupported', hostId: host.hostId, hostVersion: host.hostVersion, reasonCode: capability.reasonCode ?? 'control-plane.capability.unsupported' };
+  }
+  if (capability.status === 'unknown') {
+    return { status: 'unknown', hostId: host.hostId, hostVersion: host.hostVersion, reasonCode: capability.reasonCode ?? 'control-plane.capability.unknown' };
+  }
+  if (capability.status === 'degraded') {
+    return { status: 'degraded', hostId: host.hostId, hostVersion: host.hostVersion, reasonCode: capability.reasonCode ?? 'control-plane.capability.degraded' };
+  }
+  if (capability.clientVersion !== host.hostVersion
+    || !factsConsistent(capability, revision, manifest, launch)
     || revision.clientId !== host.hostId || manifest.clientId !== host.hostId || launch.clientId !== host.hostId
     || revision.revisionId !== manifest.revisionId || launch.revisionId !== revision.revisionId) {
     return { status: 'degraded', hostId: host.hostId, hostVersion: host.hostVersion, reasonCode: 'control-plane.capability.version-or-identity-mismatch' };

@@ -9,5 +9,8 @@
   "scripts": {
     "test": "bun test tests",
     "typecheck": "tsc --noEmit -p tsconfig.json"
+  },
+  "dependencies": {
+    "@agent-system/control-plane": "workspace:*"
   }
 }

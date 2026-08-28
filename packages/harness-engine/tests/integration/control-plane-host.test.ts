@@ -7,10 +7,10 @@ const now = '2026-08-28T00:00:00.000Z';
 
 function facade(overrides: Partial<ControlPlaneFacade> = {}): ControlPlaneFacade {
   return {
-    readConfigRevision: async () => ({ revisionId: 'rev-1', schemaVersion: 1, clientId: 'omp', observedAt: now }),
-    readAssemblyManifest: async () => ({ revisionId: 'rev-1', clientId: 'omp', manifestDigest: 'manifest', itemCount: 1, observedAt: now }),
-    probeClient: async () => ({ clientId: 'omp', clientVersion: '1.0', status: 'supported', observedAt: now }),
-    prepareLaunch: async () => ({ revisionId: 'rev-1', clientId: 'omp', planDigest: 'plan', launchBoundary: 'invocation-scoped', observedAt: now }),
+    readConfigRevision: async () => ({ revisionId: 'rev-1', schemaVersion: 1, clientId: 'omp', source: 'fixture', sourceVersion: '1', observedAt: now }),
+    readAssemblyManifest: async () => ({ revisionId: 'rev-1', clientId: 'omp', manifestDigest: 'manifest', itemCount: 1, source: 'fixture', sourceVersion: '1', observedAt: now }),
+    probeClient: async () => ({ clientId: 'omp', clientVersion: '1.0', status: 'supported', source: 'fixture', sourceVersion: '1', observedAt: now }),
+    prepareLaunch: async () => ({ revisionId: 'rev-1', clientId: 'omp', planDigest: 'plan', launchBoundary: 'invocation-scoped', source: 'fixture', sourceVersion: '1', observedAt: now }),
     ...overrides,
   };
 }
@@ -19,7 +19,7 @@ describe('OMP and Claude control-plane host adapters', () => {
   test('requires all public facade facts before reporting supported', async () => {
     const adapter = new OmpHostAdapter(facade(), 'rev-1');
     await expect(adapter.probe({ hostId: 'omp', hostVersion: '1.0' })).resolves.toMatchObject({ status: 'supported' });
-    const claude = new ClaudeHostAdapter(facade({ probeClient: async () => ({ clientId: 'claude', clientVersion: '2.0', status: 'supported', observedAt: now }), readConfigRevision: async () => ({ revisionId: 'rev-1', schemaVersion: 1, clientId: 'claude', observedAt: now }), readAssemblyManifest: async () => ({ revisionId: 'rev-1', clientId: 'claude', manifestDigest: 'manifest', itemCount: 1, observedAt: now }), prepareLaunch: async () => ({ revisionId: 'rev-1', clientId: 'claude', planDigest: 'plan', launchBoundary: 'invocation-scoped', observedAt: now }) }), 'rev-1');
+    const claude = new ClaudeHostAdapter(facade({ probeClient: async () => ({ clientId: 'claude', clientVersion: '2.0', status: 'supported', source: 'fixture', sourceVersion: '1', observedAt: now }), readConfigRevision: async () => ({ revisionId: 'rev-1', schemaVersion: 1, clientId: 'claude', source: 'fixture', sourceVersion: '1', observedAt: now }), readAssemblyManifest: async () => ({ revisionId: 'rev-1', clientId: 'claude', manifestDigest: 'manifest', itemCount: 1, source: 'fixture', sourceVersion: '1', observedAt: now }), prepareLaunch: async () => ({ revisionId: 'rev-1', clientId: 'claude', planDigest: 'plan', launchBoundary: 'invocation-scoped', source: 'fixture', sourceVersion: '1', observedAt: now }) }), 'rev-1');
     await expect(claude.probe({ hostId: 'claude', hostVersion: '2.0' })).resolves.toMatchObject({ status: 'supported' });
   });
 
@@ -27,6 +27,15 @@ describe('OMP and Claude control-plane host adapters', () => {
     const unknown = { kind: 'unknown' as const, reasonCode: 'source.unavailable', observedAt: now, recovery: 'retry probe' };
     await expect(new OmpHostAdapter(facade({ probeClient: async () => unknown }), 'rev-1').probe({ hostId: 'omp', hostVersion: '1.0' })).resolves.toMatchObject({ status: 'unknown', reasonCode: 'source.unavailable' });
     await expect(new OmpHostAdapter(facade(), 'rev-1').probe({ hostId: 'omp', hostVersion: '2.0' })).resolves.toMatchObject({ status: 'degraded', reasonCode: 'control-plane.capability.version-or-identity-mismatch' });
+  });
+
+  test('preserves known unsupported capability without promoting it', async () => {
+    const unsupported = { clientId: 'omp' as const, clientVersion: '1.0', status: 'unsupported' as const, source: 'fixture', sourceVersion: '1', reasonCode: 'native-interface-missing', observedAt: now };
+    await expect(new OmpHostAdapter(facade({ probeClient: async () => unsupported }), 'rev-1').probe({ hostId: 'omp', hostVersion: '1.0' })).resolves.toMatchObject({ status: 'unsupported', reasonCode: 'native-interface-missing' });
+  });
+
+  test('rejects mixed source, version, or observation timestamps as degraded', async () => {
+    await expect(new OmpHostAdapter(facade({ readAssemblyManifest: async () => ({ revisionId: 'rev-1', clientId: 'omp', manifestDigest: 'manifest', itemCount: 1, source: 'other-source', sourceVersion: '1', observedAt: now }) }), 'rev-1').probe({ hostId: 'omp', hostVersion: '1.0' })).resolves.toMatchObject({ status: 'degraded' });
   });
 
   test('does not activate Codex or OpenCode through the OMP adapter', async () => {

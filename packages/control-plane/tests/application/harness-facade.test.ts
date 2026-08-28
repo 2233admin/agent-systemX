@@ -6,10 +6,10 @@ const now = '2026-08-28T00:00:00.000Z';
 
 function ports(overrides: Partial<ExistingPublicApplicationPorts> = {}): ExistingPublicApplicationPorts {
   return {
-    readRevision: async () => ({ revisionId: 'rev-1', schemaVersion: 1, clientId: 'omp', observedAt: now }),
-    readManifest: async () => ({ revisionId: 'rev-1', clientId: 'omp', manifestDigest: 'digest', itemCount: 1, observedAt: now }),
-    probe: async () => ({ clientId: 'omp', clientVersion: '1.0', status: 'supported', observedAt: now }),
-    planLaunch: async () => ({ revisionId: 'rev-1', clientId: 'omp', planDigest: 'plan', launchBoundary: 'invocation-scoped', observedAt: now }),
+    readRevision: async () => ({ revisionId: 'rev-1', schemaVersion: 1, clientId: 'omp', source: 'fixture', sourceVersion: '1', observedAt: now }),
+    readManifest: async () => ({ revisionId: 'rev-1', clientId: 'omp', manifestDigest: 'digest', itemCount: 1, source: 'fixture', sourceVersion: '1', observedAt: now }),
+    probe: async () => ({ clientId: 'omp', clientVersion: '1.0', status: 'supported', source: 'fixture', sourceVersion: '1', observedAt: now }),
+    planLaunch: async () => ({ revisionId: 'rev-1', clientId: 'omp', planDigest: 'plan', launchBoundary: 'invocation-scoped', source: 'fixture', sourceVersion: '1', observedAt: now }),
     ...overrides,
   };
 }

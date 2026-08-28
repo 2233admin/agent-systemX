@@ -638,6 +638,8 @@ export interface HarnessConfigRevisionRef {
   readonly revisionId: string;
   readonly schemaVersion: number;
   readonly clientId: 'omp' | 'claude';
+  readonly source: string;
+  readonly sourceVersion: string;
   readonly observedAt: string;
 }
 
@@ -646,6 +648,8 @@ export interface HarnessAssemblyManifestRef {
   readonly clientId: 'omp' | 'claude';
   readonly manifestDigest: string;
   readonly itemCount: number;
+  readonly source: string;
+  readonly sourceVersion: string;
   readonly observedAt: string;
 }
 
@@ -653,6 +657,8 @@ export interface HarnessClientCapability {
   readonly clientId: 'omp' | 'claude' | 'codex' | 'opencode';
   readonly clientVersion: string;
   readonly status: 'supported' | 'degraded' | 'unsupported' | 'unknown';
+  readonly source: string;
+  readonly sourceVersion: string;
   readonly reasonCode?: string;
   readonly observedAt: string;
 }
@@ -662,6 +668,8 @@ export interface HarnessLaunchPlanRef {
   readonly clientId: 'omp' | 'claude';
   readonly planDigest: string;
   readonly launchBoundary: 'invocation-scoped';
+  readonly source: string;
+  readonly sourceVersion: string;
   readonly observedAt: string;
 }
 
