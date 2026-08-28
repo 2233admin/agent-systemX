@@ -36,6 +36,19 @@ export const currentFailureWithClosure: FailureLedgerRow = {
 export const zeroFailureLedger: FailureLedger = {
   status: 'zero-failures',
   failures: [],
+  currentHead: '4be39b97c35d4306e773fdc59482db6ebf09cf24',
+  commandsEvidence: {
+    currentHead: '4be39b97c35d4306e773fdc59482db6ebf09cf24',
+    branch: '2233admin/the-request-appears-to',
+    worktree: 'D:\\projects\\agent-systemX\\.orca\\worktrees\\hammerhead',
+    commands: [{
+      name: 'harness-typecheck',
+      command: 'bunx tsc --noEmit -p packages/harness-engine/tsconfig.json',
+      exitCode: 0,
+      output: '',
+      observedAt: '2026-08-28T00:00:00.000Z',
+    }],
+  },
 };
 
 export const validOwnershipRecord: OwnershipRecord = {

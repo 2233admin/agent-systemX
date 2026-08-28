@@ -20,8 +20,18 @@ export interface FailureLedgerRow {
 }
 
 export type FailureLedger =
-  | { readonly status: 'zero-failures'; readonly failures: readonly [] }
-  | { readonly status: 'current-failures'; readonly failures: readonly [FailureLedgerRow, ...FailureLedgerRow[]] };
+  | {
+      readonly status: 'zero-failures';
+      readonly failures: readonly [];
+      readonly currentHead: string;
+      readonly commandsEvidence: CommandsEvidence;
+    }
+  | {
+      readonly status: 'current-failures';
+      readonly failures: readonly [FailureLedgerRow, ...FailureLedgerRow[]];
+      readonly currentHead: string;
+      readonly commandsEvidence: CommandsEvidence;
+    };
 
 export interface OwnershipRecord {
   readonly currentHead: string;
@@ -142,13 +152,18 @@ function validateFailureLedgerRow(value: unknown): FailureLedgerRow {
 }
 
 export function validateFailureLedger(value: unknown): FailureLedger {
+  const keys = ['status', 'failures', 'currentHead', 'commandsEvidence'] as const;
   if (!isRecord(value)
-    || !hasOnlyKeys(value, ['status', 'failures'])
-    || !hasOwn(value, 'status')
-    || !hasOwn(value, 'failures')
+    || !hasOnlyKeys(value, keys)
+    || keys.some((key) => !hasOwn(value, key))
     || (value.status !== 'zero-failures' && value.status !== 'current-failures')
+    || !nonEmptyString(value.currentHead)
     || !isDenseArray(value.failures)) {
-    throw new TypeError('FailureLedger requires status and a dense failures array');
+    throw new TypeError('FailureLedger requires status, currentHead, commandsEvidence, and a dense failures array');
+  }
+  const commandsEvidence = validateCommandsEvidence(value.commandsEvidence);
+  if (commandsEvidence.currentHead !== value.currentHead) {
+    throw new TypeError('FailureLedger currentHead must match commandsEvidence currentHead');
   }
   if (value.status === 'zero-failures') {
     if (value.failures.length !== 0) {
@@ -191,10 +206,20 @@ export function validateOwnershipRecord(value: unknown): OwnershipRecord {
     || !nonEmptyString(value.implementer)) {
     throw new TypeError('OwnershipRecord requires identity, path, implementer, and observedAt fields');
   }
-  validateStringArray(value.ownedPaths, 'OwnershipRecord ownedPaths');
-  validateStringArray(value.attributedDirtyPaths, 'OwnershipRecord attributedDirtyPaths');
-  validateStringArray(value.untrackedPaths, 'OwnershipRecord untrackedPaths');
-  validateStringArray(value.conflictingPaths, 'OwnershipRecord conflictingPaths');
+  const ownedPaths = validateStringArray(value.ownedPaths, 'OwnershipRecord ownedPaths');
+  const attributedDirtyPaths = validateStringArray(value.attributedDirtyPaths, 'OwnershipRecord attributedDirtyPaths');
+  const untrackedPaths = validateStringArray(value.untrackedPaths, 'OwnershipRecord untrackedPaths');
+  const conflictingPaths = validateStringArray(value.conflictingPaths, 'OwnershipRecord conflictingPaths');
+  const owned = new Set(ownedPaths);
+  for (const [field, paths] of [
+    ['attributedDirtyPaths', attributedDirtyPaths],
+    ['untrackedPaths', untrackedPaths],
+    ['conflictingPaths', conflictingPaths],
+  ] as const) {
+    if (paths.some((path) => owned.has(path))) {
+      throw new TypeError(`OwnershipRecord ownedPaths must not overlap ${field}`);
+    }
+  }
   validateObservedAt(value.observedAt, 'OwnershipRecord observedAt');
   return value as unknown as OwnershipRecord;
 }
@@ -205,6 +230,27 @@ export function isOwnershipRecord(value: unknown): value is OwnershipRecord {
     return true;
   } catch {
     return false;
+  }
+}
+
+const SENSITIVE_OUTPUT_PATTERN =
+  /\b(?:prompt|transcript|credential|password|secret|token|stderr)\b|tool[\s_-]*payload/i;
+const SAFE_OUTPUT_PATTERNS = [
+  /^bun test v\d+\.\d+\.\d+(?:\s+\([0-9a-f]+\))?$/i,
+  /^\s*\d+\s+(?:pass|fail|skip)$/,
+  /^\s*\d+\s+expect\(\)\s+calls$/,
+  /^Ran \d+ tests? across \d+ files?\. \[\d+(?:\.\d+)?ms\]$/,
+  /^exitCode=-?\d+\s*$/,
+  /^\[redacted\](?:\s.*)?$/i,
+] as const;
+
+function validateCommandOutput(value: string): void {
+  if (SENSITIVE_OUTPUT_PATTERN.test(value)) {
+    throw new TypeError('CommandEvidence output contains prohibited sensitive content');
+  }
+  for (const line of value.split(/\r?\n/)) {
+    if (line.length === 0 || SAFE_OUTPUT_PATTERNS.some((pattern) => pattern.test(line))) continue;
+    throw new TypeError('CommandEvidence output must match the summary allowlist or [redacted]');
   }
 }
 
@@ -220,6 +266,7 @@ export function validateCommandEvidence(value: unknown): CommandEvidence {
   }
   validateExitCode(value.exitCode, 'CommandEvidence exitCode');
   validateObservedAt(value.observedAt, 'CommandEvidence observedAt');
+  validateCommandOutput(value.output);
   return value as unknown as CommandEvidence;
 }
 
