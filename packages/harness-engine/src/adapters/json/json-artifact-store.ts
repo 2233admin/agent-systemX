@@ -395,9 +395,6 @@ export class JsonArtifactStore implements ArtifactStore {
     return stored?.snapshot ?? null;
   }
 
-  public async writeWorkflow(expectedRevision: number, next: WorkflowSnapshot): Promise<void> {
-    await this.writeWorkflowInternal(expectedRevision, next);
-  }
 
   private async writeWorkflowInternal(
     expectedRevision: number,
@@ -493,12 +490,13 @@ export class JsonArtifactStore implements ArtifactStore {
       const message = error instanceof Error ? error.message : '';
       if (!message.includes('revision conflict') && !message.includes('write lock conflict')) throw error;
       const latest = await this.readStoredWorkflow(request.next.workflowId);
+      const lockConflict = message.includes('write lock conflict');
       return {
         kind: 'conflict',
         operationId: request.operationId,
         revision: latest?.snapshot.revision ?? 0,
-        violations: [{ code: 'artifact.revision.conflict', message }],
-        recoveryActions: [{ code: 'artifact.revision.reread' }],
+        violations: [{ code: lockConflict ? 'artifact.write.lock-conflict' : 'artifact.revision.conflict', message }],
+        recoveryActions: [{ code: lockConflict ? 'artifact.write.retry-after-owner-releases' : 'artifact.revision.reread' }],
       };
     }
   }

@@ -26,6 +26,5 @@ export type WorkflowWriteResult =
 
 export interface ArtifactStore {
   readWorkflow(workflowId: string): Promise<WorkflowSnapshot | null>;
-  writeWorkflow(expectedRevision: number, next: WorkflowSnapshot): Promise<void>;
   writeWorkflowConditional(request: WorkflowWriteRequest): Promise<WorkflowWriteResult>;
 }

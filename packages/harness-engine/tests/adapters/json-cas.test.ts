@@ -31,7 +31,25 @@ async function makeStore(): Promise<JsonArtifactStore> {
   return new JsonArtifactStore(await makeRoot());
 }
 
+async function seedWorkflow(store: JsonArtifactStore, expectedRevision: number, next: WorkflowSnapshot): Promise<void> {
+  const result = await store.writeWorkflowConditional({
+    expectedRevision,
+    next,
+    operationId: `seed-${expectedRevision}-${next.plans.length}`,
+    idempotencyKey: `seed-${expectedRevision}-${next.plans.length}-${next.plans[0]?.title ?? 'empty'}`,
+    inputDigest: `seed-${expectedRevision}-${next.plans.length}-${next.plans[0]?.title ?? 'empty'}`,
+  });
+  if (result.kind !== 'applied') {
+    throw new Error(`${result.kind}: ${result.violations.map((violation) => violation.code).join(',')}`);
+  }
+}
+
+
 describe('JsonArtifactStore conditional writes', () => {
+  test('does not expose the legacy public writeWorkflow bypass', async () => {
+    const store = await makeStore();
+    expect('writeWorkflow' in store).toBe(false);
+  });
   test('returns an applied result for a matching CAS write', async () => {
     const store = await makeStore();
     const result = await store.writeWorkflowConditional({
@@ -47,7 +65,7 @@ describe('JsonArtifactStore conditional writes', () => {
 
   test('returns a structured conflict without replacing the artifact', async () => {
     const store = await makeStore();
-    await store.writeWorkflow(0, snapshot(1, 'Original'));
+    await seedWorkflow(store, 0, snapshot(1, 'Original'));
     const result = await store.writeWorkflowConditional({
       expectedRevision: 0,
       next: snapshot(1, 'Stale'),
@@ -100,7 +118,7 @@ describe('JsonArtifactStore conditional writes', () => {
   test('rejects tampered and future canonical envelopes', async () => {
     const root = await makeRoot();
     const store = new JsonArtifactStore(root);
-    await store.writeWorkflow(0, snapshot(1));
+    await seedWorkflow(store, 0, snapshot(1));
     const path = join(root, 'workflows', 'workflow-1.json');
     const envelope = JSON.parse(await readFile(path, 'utf8')) as Record<string, unknown>;
     const value = envelope.value as Record<string, unknown>;
