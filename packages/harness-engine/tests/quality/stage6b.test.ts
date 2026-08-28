@@ -186,3 +186,29 @@ describe('Stage6B plugin and Skill conformance', () => {
     expect(result.result).toBe('pass');
   });
 });
+describe('Stage6B evidence binding', () => {
+  test('valid quality conclusions without EvidenceRef are Unknown and contain no synthetic evidence', () => {
+    const quality = validatePlanQuality({ path: 'plans/plan-1.md', content: validPlan });
+    const roles = validateRoleMap({
+      mappings: [{ roleId: 'reviewer', allowedHostIds: ['claude-code'], sourceDigest: 'a'.repeat(64), evidence: undefined }],
+      loadOrder: ['reviewer'],
+    });
+    const audit = auditPlanFiles({ root: 'plans', files: [{ path: 'PLAN.md', content: validPlan }] });
+    const plugin = validatePluginPackage({
+      root: 'plugins/example',
+      manifests: {
+        claude: { name: 'example', version: '0.1.0', description: 'Example plugin', skills: './skills/' },
+        codex: { name: 'example', version: '0.1.0', description: 'Example plugin', skills: './skills/' },
+      },
+      files: [],
+    });
+    for (const result of [quality, roles, audit]) {
+      expect(result.result).toBe('unknown');
+      expect(result.evidenceRefs).toEqual([]);
+      expect(result.knowledge.kind).toBe('unknown');
+      expect(JSON.stringify(result)).not.toContain('harness-engine.quality');
+    }
+    expect(plugin.knowledge?.kind).toBe('unknown');
+    expect(plugin.evidenceRefs).toEqual([]);
+  });
+});

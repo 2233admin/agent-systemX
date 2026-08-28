@@ -24,8 +24,8 @@ export function evidenceFrom(value: unknown): EvidenceRef | undefined {
   }
 }
 
-function fallbackEvidence(): EvidenceRef {
-  return { source: 'harness-engine.quality', observedAt: new Date().toISOString() };
+function observationTime(evidence: EvidenceRef | undefined): string {
+  return evidence?.observedAt ?? new Date().toISOString();
 }
 
 export function finding(
@@ -36,14 +36,13 @@ export function finding(
   recoveryCode = 'quality.fix-input',
 ): QualityFinding {
   const safePath = path.startsWith('/') || /^[A-Za-z]:[\\/]/.test(path) ? `<absolute>/${path.split(/[\\/]/).pop() ?? 'unknown'}` : path;
-  const ref = evidence ?? fallbackEvidence();
-  return {
+  const base = {
     code,
     severity,
     path: safePath,
-    evidence: ref,
     recovery: { code: recoveryCode },
   };
+  return evidence === undefined ? base as QualityFinding : { ...base, evidence };
 }
 
 export function toViolations(findings: readonly QualityFinding[]): readonly Violation[] {
@@ -56,9 +55,20 @@ export function evaluate(
   evidence: EvidenceRef | undefined,
   unknownReason?: string,
 ): QualityEvaluation {
-  const evidenceRefs = evidence === undefined ? [] : [evidence];
+  if (evidence === undefined) {
+    const fact = unknown(unknownReason ?? 'quality.evidence.missing', observationTime(undefined), 'provide a real EvidenceRef before accepting a quality result');
+    return {
+      result: 'unknown',
+      findings: [],
+      evidenceRefs: [],
+      knowledge: fact,
+      unknownFacts: [fact],
+      violations: toViolations([]),
+    };
+  }
+  const evidenceRefs = [evidence];
   if (unknownReason !== undefined) {
-    const fact = unknown(unknownReason, evidence?.observedAt ?? new Date().toISOString(), 'provide a readable source and evidence reference');
+    const fact = unknown(unknownReason, observationTime(evidence), 'provide a readable source and evidence reference');
     return {
       result: 'unknown',
       findings,
@@ -72,7 +82,7 @@ export function evaluate(
     result,
     findings,
     evidenceRefs,
-    knowledge: known(result === 'pass', evidence ?? fallbackEvidence()),
+    knowledge: known(result === 'pass', evidence),
     violations: toViolations(findings),
   };
 }
