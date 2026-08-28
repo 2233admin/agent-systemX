@@ -214,13 +214,17 @@ async function acquireWriteLock(lockPath: string): Promise<void> {
 
 function validatePlan(value: unknown): PlanRow {
   if (!isRecord(value)
-    || Object.keys(value).some((key) => !['id', 'title', 'status', 'metadata', 'executionLease'].includes(key))
-    || !Object.hasOwn(value, 'id') || !Object.hasOwn(value, 'title') || !Object.hasOwn(value, 'status')
+    || Object.keys(value).some((key) => !['id', 'title', 'status', 'metadata', 'baseSha', 'headSha', 'branch', 'worktreePath', 'executionLease'].includes(key))
     || !Object.hasOwn(value, 'metadata')
     || typeof value.id !== 'string' || value.id.trim().length === 0
     || typeof value.title !== 'string' || value.title.trim().length === 0
     || !isPlanStatus(value.status) || !isRecord(value.metadata)) {
     throw new TypeError('Workflow plan row is malformed');
+  }
+  for (const field of ['baseSha', 'headSha', 'branch', 'worktreePath'] as const) {
+    if (value[field] !== undefined && (typeof value[field] !== 'string' || value[field].trim().length === 0)) {
+      throw new TypeError(`Workflow plan ${field} must be non-empty when present`);
+    }
   }
   const executionLease = value.executionLease === undefined
     ? undefined
@@ -228,15 +232,22 @@ function validatePlan(value: unknown): PlanRow {
   if (value.status === 'Done' && executionLease !== undefined) {
     throw new TypeError('A Done workflow plan cannot retain an execution lease');
   }
+  const baseSha = typeof value.baseSha === 'string' ? value.baseSha : undefined;
+  const headSha = typeof value.headSha === 'string' ? value.headSha : undefined;
+  const branch = typeof value.branch === 'string' ? value.branch : undefined;
+  const worktreePath = typeof value.worktreePath === 'string' ? value.worktreePath : undefined;
   return {
     id: value.id,
     title: value.title,
     status: value.status,
     metadata: sanitizeJson(value.metadata) as Readonly<Record<string, unknown>>,
+    ...(baseSha === undefined ? {} : { baseSha }),
+    ...(headSha === undefined ? {} : { headSha }),
+    ...(branch === undefined ? {} : { branch }),
+    ...(worktreePath === undefined ? {} : { worktreePath }),
     ...(executionLease === undefined ? {} : { executionLease }),
   };
 }
-
 function validateWorkflowDto(value: unknown): WorkflowDto {
   if (!isRecord(value)) {
     throw new TypeError('Workflow artifact must contain a JSON object');
@@ -349,6 +360,10 @@ function toEnvelope(snapshot: WorkflowSnapshot, operations: Record<string, Opera
         title: validatedPlan.title,
         status: validatedPlan.status,
         metadata: sanitizeJson(validatedPlan.metadata),
+        ...(validatedPlan.baseSha === undefined ? {} : { baseSha: validatedPlan.baseSha }),
+        ...(validatedPlan.headSha === undefined ? {} : { headSha: validatedPlan.headSha }),
+        ...(validatedPlan.branch === undefined ? {} : { branch: validatedPlan.branch }),
+        ...(validatedPlan.worktreePath === undefined ? {} : { worktreePath: validatedPlan.worktreePath }),
         ...(validatedPlan.executionLease === undefined
           ? {}
           : { executionLease: sanitizeJson(validatedPlan.executionLease) }),

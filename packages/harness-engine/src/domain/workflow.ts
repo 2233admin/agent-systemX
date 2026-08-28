@@ -9,6 +9,10 @@ export interface PlanRow {
   readonly title: string;
   readonly status: PlanStatus;
   readonly metadata: Readonly<Record<string, unknown>>;
+  readonly baseSha?: string;
+  readonly headSha?: string;
+  readonly branch?: string;
+  readonly worktreePath?: string;
   readonly executionLease?: ExecutionLease;
 }
 

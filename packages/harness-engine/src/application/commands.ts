@@ -1,5 +1,6 @@
 import type { WorkflowSnapshot } from '../domain/workflow.ts';
 import type { EvidenceRef, RecoveryAction, Unknown, Violation } from '../core/result.ts';
+import type { PlanCompletionInput } from '../gates/completion.ts';
 
 
 export interface WorkflowCommandEnvelope {
@@ -19,6 +20,9 @@ export interface RegisterPlanCommand extends WorkflowCommandEnvelope {
   readonly planId: string;
   readonly title: string;
   readonly baseSha: string;
+}
+export interface CompletePlanCommand extends WorkflowCommandEnvelope {
+  readonly completion: PlanCompletionInput;
 }
 
 

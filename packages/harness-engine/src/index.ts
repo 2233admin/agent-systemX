@@ -80,6 +80,15 @@ export type { ReviewPackage } from './domain/review';
 export { createReviewPackage, isConcreteRevision, validateResidualClosure, validateReviewPackage } from './domain/review';
 export type { QcIdentity, ReviewReady, SddGateInput } from './gates/sdd';
 export { validateSddGate } from './gates/sdd';
+export type {
+  DeliveryEvidence,
+  PlanCompletion,
+  PlanCompletionInput,
+  QaEvidence,
+  QcEvidence,
+  ResidualClosure as CompletionResidualClosure,
+} from './gates/completion';
+export { validateOwnershipInventory, validatePlanCompletion } from './gates/completion';
 export type { IterationGateInput, IterationPhase, PhaseTransition, ResidualClosure } from './gates/iteration';
 export { evaluateIterationGate } from './gates/iteration';
 export type {
@@ -183,7 +192,7 @@ export {
   validateCanonicalArtifact,
 } from './artifacts/canonical';
 export type {
-  CreateWorkflowCommand,
+  CompletePlanCommand,
   WorkflowCommandEnvelope,
   WorkflowCommandResult,
 } from './application/commands';

@@ -1,8 +1,10 @@
 import type { EvidenceRef, RecoveryAction, Unknown, Violation } from '../core/result.ts';
 import { parseAssignmentBranchForms, parseAssignmentExecutionMode, parseAssignmentFields } from '../domain/assignment.ts';
-import type { WorkflowSnapshot } from '../domain/workflow.ts';
+import { transitionPlanStatus, type WorkflowSnapshot } from '../domain/workflow.ts';
+import { validatePlanCompletion } from '../gates/completion.ts';
 import type { ArtifactStore, WorkflowWriteResult } from '../ports/artifacts.ts';
 import type {
+  CompletePlanCommand,
   CreateWorkflowCommand,
   RegisterPlanCommand,
   WorkflowCommandResult,
@@ -134,7 +136,7 @@ export class WorkflowFacade {
     const next: WorkflowSnapshot = {
       ...current,
       revision: current.revision + 1,
-      plans: [...current.plans, { id: input.planId, title: input.title, status: 'Todo', metadata: { baseSha: input.baseSha } }],
+      plans: [...current.plans, { id: input.planId, title: input.title, status: 'Todo', baseSha: input.baseSha, metadata: {} }],
     };
     return fromWriteResult('registerPlan', await this.store.writeWorkflowConditional({
       expectedRevision: input.expectedRevision,
@@ -158,6 +160,34 @@ export class WorkflowFacade {
       return failed('status', input.operationId, snapshot.revision, 'blocked', [{ code: 'artifact.revision.conflict' }], [{ code: 'artifact.revision.reread' }]);
     }
     return applied('status', input.operationId, snapshot, snapshot.revision);
+  }
+  public async completePlan(input: CompletePlanCommand): Promise<WorkflowSnapshotResult> {
+    const gate = validatePlanCompletion(input.completion);
+    if (gate.kind !== 'pass') {
+      return failed('completePlan', input.operationId, input.expectedRevision, gate.kind === 'fail' ? 'rejected' : gate.kind, gate.violations, gate.recovery);
+    }
+    const current = await this.store.readWorkflow(input.workflowId);
+    if (current === null) return failed('completePlan', input.operationId, input.expectedRevision, 'blocked', [{ code: 'workflow.missing' }], [{ code: 'workflow.create' }]);
+    if (current.revision !== input.expectedRevision) return failed('completePlan', input.operationId, current.revision, 'blocked', [{ code: 'artifact.revision.conflict' }], [{ code: 'artifact.revision.reread' }]);
+    const planIndex = current.plans.findIndex((plan) => plan.id === input.planId);
+    const plan = current.plans[planIndex];
+    if (plan === undefined) return failed('completePlan', input.operationId, current.revision, 'rejected', [{ code: 'plan.missing' }], [{ code: 'plan.register' }]);
+    let completedPlan;
+    try {
+      completedPlan = transitionPlanStatus(plan, 'Done', { leaseRemaining: false, reviewComplete: true, qaComplete: true });
+    } catch {
+      return failed('completePlan', input.operationId, current.revision, 'rejected', [{ code: 'plan.transition.invalid' }], [{ code: 'plan.reconcile' }]);
+    }
+    const plans = [...current.plans];
+    plans[planIndex] = completedPlan;
+    const next: WorkflowSnapshot = { ...current, revision: current.revision + 1, plans };
+    return fromWriteResult('completePlan', await this.store.writeWorkflowConditional({
+      expectedRevision: input.expectedRevision,
+      next,
+      operationId: input.operationId,
+      idempotencyKey: input.idempotencyKey,
+      inputDigest: input.inputDigest,
+    }));
   }
 }
 
