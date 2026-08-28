@@ -38,12 +38,12 @@ export async function createProductionHarnessControlPlaneFacade(): Promise<Harne
   const sourceVersion = '1';
   const observedAt = new Date().toISOString();
   const publicPorts: ExistingPublicApplicationPorts = {
-    readRevision: async (revisionId) => {
+    readRevision: async (revisionId, clientId) => {
       try {
         const revision = await configRepository.findById(revisionId);
         return revision === null
           ? unavailable('control-plane.revision.missing')
-          : { revisionId, schemaVersion: 1, clientId: 'omp', source: 'control-plane', sourceVersion, observedAt };
+          : { revisionId, schemaVersion: 1, clientId, source: 'control-plane', sourceVersion, observedAt };
       } catch {
         return unavailable('control-plane.revision.unavailable');
       }
@@ -53,7 +53,8 @@ export async function createProductionHarnessControlPlaneFacade(): Promise<Harne
         const revision = await configRepository.findById(revisionId);
         if (revision === null) return unavailable('control-plane.manifest.revision-missing');
         const probes = clientId === 'claude' ? await claudeProbe.probeHardControlCapabilities() : [];
-        const digest = createHash('sha256').update(JSON.stringify({ revisionId, clientId, skills: revision.skills.map((skill) => skill.name), probes: probes.map((probe) => probe.status) })).digest('hex');
+        const digestInput = { revisionId, clientId, instructions: revision.instructions, skills: revision.skills, mcp: revision.mcp, hooks: revision.hooks, plugins: revision.plugins, probes: probes.map((probe) => ({ capabilityId: probe.capabilityId, status: probe.status, evidenceRef: probe.evidenceRef })) };
+        const digest = createHash('sha256').update(JSON.stringify(digestInput)).digest('hex');
         return { revisionId, clientId, manifestDigest: digest, itemCount: revision.instructions.length + revision.skills.length + revision.mcp.length + revision.hooks.length + revision.plugins.length, source: 'control-plane', sourceVersion, observedAt };
       } catch {
         return unavailable('control-plane.manifest.unavailable');

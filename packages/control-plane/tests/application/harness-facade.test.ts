@@ -17,7 +17,9 @@ function ports(overrides: Partial<ExistingPublicApplicationPorts> = {}): Existin
 describe('control-plane Harness public facade', () => {
   test('returns only stable allowlisted DTOs', async () => {
     const facade = createHarnessControlPlaneFacade(ports());
-    await expect(facade.readConfigRevision('rev-1')).resolves.toMatchObject({ revisionId: 'rev-1' });
+    await expect(facade.readConfigRevision('rev-1', 'omp')).resolves.toMatchObject({ revisionId: 'rev-1' });
+    const claude = createHarnessControlPlaneFacade(ports({ readRevision: async (revisionId, clientId) => ({ revisionId, schemaVersion: 1, clientId, source: 'fixture', sourceVersion: '1', observedAt: now }) }));
+    await expect(claude.readConfigRevision('rev-1', 'claude')).resolves.toMatchObject({ clientId: 'claude' });
     await expect(facade.readAssemblyManifest('rev-1', 'omp')).resolves.toMatchObject({ manifestDigest: 'digest' });
     await expect(facade.probeClient('omp')).resolves.toMatchObject({ status: 'supported' });
     await expect(facade.prepareLaunch('rev-1', 'omp')).resolves.toMatchObject({ launchBoundary: 'invocation-scoped' });
@@ -26,7 +28,7 @@ describe('control-plane Harness public facade', () => {
   test('maps missing, malformed, permission and unavailable facts to unknown', async () => {
     const unknown = { kind: 'unknown' as const, reasonCode: 'permission-denied', observedAt: now, recovery: 'request read permission' };
     const facade = createHarnessControlPlaneFacade(ports({ readRevision: async () => unknown, probe: async () => unknown, planLaunch: async () => { throw new Error('offline'); } }));
-    await expect(facade.readConfigRevision('missing')).resolves.toMatchObject({ kind: 'unknown' });
+    await expect(facade.readConfigRevision('missing', 'omp')).resolves.toMatchObject({ kind: 'unknown' });
     await expect(facade.probeClient('omp')).resolves.toEqual(unknown);
     await expect(facade.prepareLaunch('rev-1', 'omp')).resolves.toMatchObject({ kind: 'unknown' });
     const malformed = createHarnessControlPlaneFacade(ports({ readManifest: async () => ({ revisionId: 'rev-1' } as never) }));

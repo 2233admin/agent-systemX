@@ -674,14 +674,14 @@ export interface HarnessLaunchPlanRef {
 }
 
 export interface HarnessControlPlanePort {
-  readConfigRevision(revisionId: string): Promise<HarnessConfigRevisionRef | HarnessUnknown>;
+  readConfigRevision(revisionId: string, clientId: 'omp' | 'claude'): Promise<HarnessConfigRevisionRef | HarnessUnknown>;
   readAssemblyManifest(revisionId: string, clientId: 'omp' | 'claude'): Promise<HarnessAssemblyManifestRef | HarnessUnknown>;
   probeClient(clientId: 'omp' | 'claude' | 'codex' | 'opencode'): Promise<HarnessClientCapability | HarnessUnknown>;
   prepareLaunch(revisionId: string, clientId: 'omp' | 'claude'): Promise<HarnessLaunchPlanRef | HarnessUnknown>;
 }
 
 export interface ExistingPublicApplicationPorts {
-  readonly readRevision: (revisionId: string) => Promise<HarnessConfigRevisionRef | HarnessUnknown>;
+  readonly readRevision: (revisionId: string, clientId: 'omp' | 'claude') => Promise<HarnessConfigRevisionRef | HarnessUnknown>;
   readonly readManifest: (revisionId: string, clientId: 'omp' | 'claude') => Promise<HarnessAssemblyManifestRef | HarnessUnknown>;
   readonly probe: (clientId: 'omp' | 'claude' | 'codex' | 'opencode') => Promise<HarnessClientCapability | HarnessUnknown>;
   readonly planLaunch: (revisionId: string, clientId: 'omp' | 'claude') => Promise<HarnessLaunchPlanRef | HarnessUnknown>;

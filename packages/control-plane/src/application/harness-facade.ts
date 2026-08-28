@@ -62,8 +62,8 @@ function isLaunchPlan(value: unknown): value is HarnessLaunchPlanRef {
 
 export function createHarnessControlPlaneFacade(ports: ExistingPublicApplicationPorts): HarnessControlPlanePort {
   return {
-    async readConfigRevision(revisionId) {
-      try { const value = await ports.readRevision(revisionId); return isUnknown(value) ? value : isRevision(value) ? value : unknown('control-plane.revision.shape-invalid'); }
+    async readConfigRevision(revisionId, clientId) {
+      try { const value = await ports.readRevision(revisionId, clientId); return isUnknown(value) ? value : isRevision(value) ? value : unknown('control-plane.revision.shape-invalid'); }
       catch { return unknown('control-plane.revision.unavailable'); }
     },
     async readAssemblyManifest(revisionId, clientId) {

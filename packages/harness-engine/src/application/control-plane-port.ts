@@ -45,7 +45,7 @@ export interface LaunchPlanRef {
 }
 
 export interface ControlPlaneFacade {
-  readConfigRevision(revisionId: string): Promise<ConfigRevisionRef | ControlPlaneUnknown>;
+  readConfigRevision(revisionId: string, clientId: 'omp' | 'claude'): Promise<ConfigRevisionRef | ControlPlaneUnknown>;
   readAssemblyManifest(revisionId: string, clientId: 'omp' | 'claude'): Promise<AssemblyManifestRef | ControlPlaneUnknown>;
   probeClient(clientId: 'omp' | 'claude' | 'codex' | 'opencode'): Promise<ClientCapability | ControlPlaneUnknown>;
   prepareLaunch(revisionId: string, clientId: 'omp' | 'claude'): Promise<LaunchPlanRef | ControlPlaneUnknown>;

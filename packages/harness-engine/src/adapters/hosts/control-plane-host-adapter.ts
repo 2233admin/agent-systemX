@@ -55,7 +55,7 @@ export class ControlPlaneHostAdapter implements HostAdapter {
     if (host.hostId !== this.clientId) return unknown(host, 'host.client.identity-mismatch');
     const [capability, revision, manifest, launch] = await Promise.all([
       this.facade.probeClient(this.clientId),
-      this.facade.readConfigRevision(this.revisionId),
+      this.facade.readConfigRevision(this.revisionId, this.clientId),
       this.facade.readAssemblyManifest(this.revisionId, this.clientId),
       this.facade.prepareLaunch(this.revisionId, this.clientId),
     ]);
