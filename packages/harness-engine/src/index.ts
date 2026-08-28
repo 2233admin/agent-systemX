@@ -230,5 +230,17 @@ export type { ReadOnlyProcessResult, RealSmokeEvidence, RealSmokeInput } from '.
 export { collectRealSmokeEvidence, evidenceRefForSmoke, normalizeWindowsPath, runReadOnlyProcess, validateRealSmokeEvidence } from './smoke/evidence';
 export type { HostSmokeInput, HostSmokeResult } from './cli/host-smoke';
 export { runHostSmoke } from './cli/host-smoke';
+export type { HarnessPathResolution } from './artifacts/paths';
+export { normalizeHarnessPath, resolveHarnessPath } from './artifacts/paths';
+export type { ArtifactSchemaStatus } from './artifacts/status-schema';
+export { inspectArtifactSchema } from './artifacts/status-schema';
+export type { ArtifactV2Envelope, MigrationResult } from './artifacts/migration';
+export { migrateArtifact } from './artifacts/migration';
+export type { ProjectRecord } from './artifacts/project-register';
+export { registerProject } from './artifacts/project-register';
+export type { ResidualRecord } from './artifacts/residual';
+export type { DoctorResult } from './artifacts/doctor';
+export { doctor } from './artifacts/doctor';
+export { closeResidual, validateResidualRecord } from './artifacts/residual';
 export type { CliResult } from './cli/index';
 export { main as harnessMain, runCli } from './cli/index';

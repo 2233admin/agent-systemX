@@ -8,6 +8,8 @@ import { JsonArtifactStore } from '../adapters/json/json-artifact-store.ts';
 import { createWorkflowFacade } from '../application/harness-application.ts';
 import type { WorkflowCommandResult } from '../application/commands.ts';
 import type { WorkflowSnapshot } from '../domain/workflow.ts';
+import { runArtifactCommand, formatArtifactCommandResult } from './commands/artifact-commands.ts';
+import { parseArtifactCommand } from './parsers/artifact-commands.ts';
 import { collectRealSmokeEvidence } from '../smoke/evidence.ts';
 
 export interface CliResult {
@@ -189,6 +191,11 @@ async function smokeEvidence(args: readonly string[]): Promise<CliResult> {
 
 export async function runCli(args: readonly string[]): Promise<CliResult> {
   if (args[0] === 'smoke' && args[1] === 'evidence') return smokeEvidence(args);
+  if (args[0] === 'artifact') {
+    try { parseArtifactCommand(args); } catch { return { exitCode: 2, stdout: '', stderr: 'usage: harness artifact <path|status|project register|migrate> ... --json\n' }; }
+    const result = await runArtifactCommand(args);
+    return { exitCode: result.result === 'invalid' ? 1 : 0, stdout: formatArtifactCommandResult(result), stderr: '' };
+  }
   const command = args[0];
   const filePath = args[1];
   if (args.length !== 2
