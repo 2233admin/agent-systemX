@@ -76,6 +76,16 @@ describe('Stage 4 real smoke evidence', () => {
     }
   });
 
+  test('rejects generic bun run and PowerShell execution', () => {
+    expect(() => runReadOnlyProcess(['bun', 'run', 'write-script.ts'])).toThrow('allowlist');
+    expect(() => runReadOnlyProcess(['powershell.exe', '-NoProfile', '-Command', 'Remove-Item file'])).toThrow('allowlist');
+  });
+
+  test('redacts unknown process output instead of returning raw content', async () => {
+    const result = await runReadOnlyProcess(['cmd.exe', '/d', '/c', 'echo unknown payload']);
+    expect(result.stdoutSummary).toBe('[redacted]');
+  });
+
   test('terminates an allowlisted timed-out command without shell injection', async () => {
     const result = await runReadOnlyProcess(['cmd.exe', '/d', '/c', 'timeout /t 1 /nobreak'], { timeoutMs: 10 });
     expect(result.timedOut).toBe(true);

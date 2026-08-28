@@ -100,20 +100,30 @@ export interface ReadOnlyProcessResult {
   readonly stderrSummary: string;
 }
 
+const SAFE_SUMMARY_PATTERNS = [
+  /^bun test v\d+\.\d+\.\d+(?:\s+\([0-9a-f]+\))?$/i,
+  /^\s*\d+\s+(?:pass|fail|skip)$/,
+  /^\s*\d+\s+expect\(\)\s+calls$/,
+  /^Ran \d+ tests? across \d+ files?\. \[\d+(?:\.\d+)?ms\]$/,
+  /^exitCode=-?\d+\s*$/,
+] as const;
+
 function summary(value: string): string {
+  if (value.length === 0) return '';
   if (SENSITIVE.test(value)) return '[redacted]';
-  return value.length > 2000 ? `${value.slice(0, 2000)}[truncated]` : value;
+  const lines = value.split(/\r?\n/);
+  return lines.every((line) => line.length === 0 || SAFE_SUMMARY_PATTERNS.some((pattern) => pattern.test(line)))
+    ? value
+    : '[redacted]';
 }
 
 const READ_ONLY_SUBCOMMANDS: Record<string, readonly RegExp[]> = {
-  bun: [/^test(?:\s|$)/i, /^run\s+[^;|&]+$/i],
+  bun: [/^test(?:\s|$)/i],
   bunx: [/^tsc(?:\s|$)/i],
   git: [/^(?:status|rev-parse|show|worktree\s+list)(?:\s|$)/i],
   gh: [/^auth\s+status(?:\s|$)/i, /^repo\s+view(?:\s|$)/i, /^pr\s+list(?:\s|$)/i],
   orca: [/^status(?:\s|$)/i, /^worktree\s+ps(?:\s|$)/i, /^terminal\s+list(?:\s|$)/i],
   'cmd.exe': [/^\/d\s+\/c\s+(?:echo|exit|timeout)(?:\s|$)/i],
-  powershell: [/^-NoProfile\s+-Command\s+.*HARNESS_REAL_WRITE/i],
-  'powershell.exe': [/^-NoProfile\s+-Command\s+.*HARNESS_REAL_WRITE/i],
 };
 
 function assertReadOnlyArgv(argv: readonly string[]): void {
