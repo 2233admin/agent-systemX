@@ -192,6 +192,34 @@ export {
   validateCanonicalArtifact,
 } from './artifacts/canonical';
 export type {
+  AdapterCorrelationEnvelope,
+  AdapterEventCorrelation,
+  AdapterError,
+  AdapterRequestCorrelation,
+  ControlledTransport,
+} from './adapters/contracts';
+export {
+  evidenceForCorrelation,
+  reconcileCorrelation,
+  reconcileEventSequence,
+  unknownAdapterResult,
+  validateAdapterCorrelation,
+  validateAdapterError,
+  validateAdapterEventCorrelation,
+  validateAdapterRequestCorrelation,
+} from './adapters/contracts';
+export { ControlledOrcaAdapter } from './adapters/orca/orca-adapter';
+export type { OrcaAdapter, OrcaObservationInput } from './adapters/orca/orca-adapter';
+export { ControlledGithubAdapter } from './adapters/github/github-adapter';
+export type { GithubAdapter, GithubReadbackContext } from './adapters/github/github-adapter';
+export { ControlledHostAdapter } from './adapters/hosts/controlled-host-adapter';
+export type {
+  ClaudeHostAdapter,
+  CodexHostAdapter,
+  OmpHostAdapter,
+  OpencodeHostAdapter,
+} from './adapters/hosts/controlled-host-adapter';
+export type {
   CompletePlanCommand,
   WorkflowCommandEnvelope,
   WorkflowCommandResult,

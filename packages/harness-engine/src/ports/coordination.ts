@@ -1,9 +1,11 @@
-import type { EvidenceRef, Known, Unknown } from '../core/result.ts';
-import { isRfc3339Timestamp, isUnknown, validateEvidenceRef, validateKnown } from '../core/result.ts';
+import type { AdapterCorrelationEnvelope } from '../adapters/contracts.ts';
+import { validateAdapterCorrelation } from '../adapters/contracts.ts';
+import { isRfc3339Timestamp, isUnknown, validateEvidenceRef, validateKnown, type EvidenceRef, type Known, type Unknown } from '../core/result.ts';
 export interface AdapterMetadata {
   readonly source: string;
   readonly version: string;
   readonly observedAt: string;
+  readonly correlation?: AdapterCorrelationEnvelope;
 }
 
 export type PortResult<T> = Known<T> | Unknown;
@@ -58,41 +60,41 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 function nonEmpty(value: unknown): value is string {
   return typeof value === 'string' && value.trim().length > 0;
 }
-
 function validateDto(value: unknown, required: readonly string[], allowed: readonly string[]): boolean {
   if (!isRecord(value)) return false;
   if (Object.keys(value).some((key) => !allowed.includes(key))) return false;
   if (required.some((key) => !Object.hasOwn(value, key))) return false;
   if (!nonEmpty(value.source) || !nonEmpty(value.version) || !isRfc3339Timestamp(value.observedAt)) return false;
-  return Object.keys(value).every((key) => nonEmpty(value[key]));
+  if (value.correlation !== undefined && !validateAdapterCorrelation(value.correlation)) return false;
+  return Object.entries(value).every(([key, item]) => key === 'correlation' || nonEmpty(item));
 }
 
 export function validateCoordinationRun(value: unknown): value is CoordinationRunDto {
   return validateDto(value, ['runId', 'source', 'version', 'observedAt'], [
-    'runId', 'status', 'source', 'version', 'observedAt',
+    'runId', 'status', 'source', 'version', 'observedAt', 'correlation',
   ]);
 }
 
 export function validateCoordinationTask(value: unknown): value is CoordinationTaskDto {
   return validateDto(value, ['taskId', 'source', 'version', 'observedAt'], [
-    'taskId', 'runId', 'planId', 'status', 'source', 'version', 'observedAt',
+    'taskId', 'runId', 'planId', 'status', 'source', 'version', 'observedAt', 'correlation',
   ]);
 }
 
 export function validateCoordinationDispatch(value: unknown): value is CoordinationDispatchDto {
   return validateDto(value, ['dispatchId', 'source', 'version', 'observedAt'], [
-    'dispatchId', 'runId', 'taskId', 'status', 'source', 'version', 'observedAt',
+    'dispatchId', 'runId', 'taskId', 'status', 'source', 'version', 'observedAt', 'correlation',
   ]);
 }
 
 export function validateCoordinationWorker(value: unknown): value is CoordinationWorkerDto {
   return validateDto(value, ['workerId', 'source', 'version', 'observedAt'], [
-    'workerId', 'runId', 'taskId', 'status', 'source', 'version', 'observedAt',
+    'workerId', 'runId', 'taskId', 'status', 'source', 'version', 'observedAt', 'correlation',
   ]);
 }
 export function validateCoordinationDelivery(value: unknown): value is CoordinationDeliveryDto {
   return validateDto(value, ['deliveryId', 'dispatchId', 'source', 'version', 'observedAt'], [
-    'deliveryId', 'dispatchId', 'runId', 'taskId', 'status', 'source', 'version', 'observedAt',
+    'deliveryId', 'dispatchId', 'runId', 'taskId', 'status', 'source', 'version', 'observedAt', 'correlation',
   ]);
 }
 
