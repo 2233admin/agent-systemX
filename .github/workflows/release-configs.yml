@@ -11,13 +11,13 @@ on:
   workflow_dispatch:
 
 permissions:
-  attestations: write
-  contents: write
-  id-token: write
+  contents: read
 
 jobs:
   validate-release:
     if: github.event_name == 'pull_request'
+    permissions:
+      contents: read
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -38,6 +38,10 @@ jobs:
 
   release:
     if: github.event_name == 'push'
+    permissions:
+      attestations: write
+      contents: write
+      id-token: write
     runs-on: ubuntu-latest
     defaults:
       run:

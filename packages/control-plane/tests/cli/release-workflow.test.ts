@@ -7,6 +7,11 @@ test('release workflow is registered, pinned, deterministic, and attested', asyn
   expect(workflow).toContain("pull_request:\n    branches:\n      - main");
   expect(workflow).toContain('workflow_dispatch:');
   expect(workflow).toContain('bun-version: 1.3.14');
+  const topLevel = workflow.slice(0, workflow.indexOf('jobs:'));
+  expect(topLevel).toContain('permissions:\n  contents: read');
+  expect(topLevel).not.toContain('contents: write');
+  expect(workflow).toContain("if: github.event_name == 'pull_request'\n    permissions:\n      contents: read");
+  expect(workflow).toContain("if: github.event_name == 'push'\n    permissions:\n      attestations: write\n      contents: write\n      id-token: write");
   expect(workflow).toContain('tag version $VERSION does not match package.json $PACKAGE_VERSION');
   expect(workflow).toContain('git merge-base --is-ancestor "$GITHUB_SHA" origin/main');
   expect(workflow).toContain('actions/attest-build-provenance@v2');
