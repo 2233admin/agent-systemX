@@ -15,6 +15,18 @@ export interface ConfigRevisionRepository {
   listAll(): Promise<readonly StableConfigRevision[]>;
   findById(revisionId: string): Promise<StableConfigRevision | null>;
 }
+export interface ConfigSearchResult {
+  readonly revisionId: string;
+  readonly configName: string;
+  readonly triggerCategory: TriggerCategory;
+  readonly rank: number;
+}
+
+export interface ConfigSearchPort {
+  search(query: string, limit: number): Promise<readonly ConfigSearchResult[]>;
+  rebuild(): Promise<void>;
+}
+
 
 /**
  * `[Story 3.1]` Everything `create` needs besides the candidate itself.
@@ -613,4 +625,68 @@ export interface ClaudeContentMaterializerPort {
  */
 export interface SelfUpdatePort {
   checkAndApply(currentVersion: string): Promise<string | null>;
+}
+
+export interface HarnessUnknown {
+  readonly kind: 'unknown';
+  readonly reasonCode: string;
+  readonly observedAt: string;
+  readonly recovery: string;
+}
+
+export interface HarnessConfigRevisionRef {
+  readonly revisionId: string;
+  readonly schemaVersion: number;
+  readonly clientId: 'omp' | 'claude';
+  readonly source: string;
+  readonly sourceVersion: string;
+  readonly observedAt: string;
+}
+
+export interface HarnessAssemblyManifestRef {
+  readonly revisionId: string;
+  readonly clientId: 'omp' | 'claude';
+  readonly manifestDigest: string;
+  readonly itemCount: number;
+  readonly source: string;
+  readonly sourceVersion: string;
+  readonly observedAt: string;
+}
+
+export interface HarnessClientCapability {
+  readonly clientId: 'omp' | 'claude' | 'codex' | 'opencode';
+  readonly clientVersion: string;
+  readonly status: 'supported' | 'degraded' | 'unsupported' | 'unknown';
+  readonly source: string;
+  readonly sourceVersion: string;
+  readonly reasonCode?: string;
+  readonly observedAt: string;
+}
+
+export interface HarnessLaunchPlanRef {
+  readonly revisionId: string;
+  readonly clientId: 'omp' | 'claude';
+  readonly planDigest: string;
+  readonly launchBoundary: 'invocation-scoped';
+  readonly source: string;
+  readonly sourceVersion: string;
+  readonly observedAt: string;
+}
+
+export interface HarnessControlPlanePort {
+  readConfigRevision(revisionId: string, clientId: 'omp' | 'claude'): Promise<HarnessConfigRevisionRef | HarnessUnknown>;
+  readAssemblyManifest(revisionId: string, clientId: 'omp' | 'claude'): Promise<HarnessAssemblyManifestRef | HarnessUnknown>;
+  probeClient(clientId: 'omp' | 'claude' | 'codex' | 'opencode'): Promise<HarnessClientCapability | HarnessUnknown>;
+  prepareLaunch(revisionId: string, clientId: 'omp' | 'claude'): Promise<HarnessLaunchPlanRef | HarnessUnknown>;
+}
+
+export interface ExistingPublicApplicationPorts {
+  readonly readRevision: (revisionId: string, clientId: 'omp' | 'claude') => Promise<HarnessConfigRevisionRef | HarnessUnknown>;
+  readonly readManifest: (revisionId: string, clientId: 'omp' | 'claude') => Promise<HarnessAssemblyManifestRef | HarnessUnknown>;
+  readonly probe: (clientId: 'omp' | 'claude' | 'codex' | 'opencode') => Promise<HarnessClientCapability | HarnessUnknown>;
+  readonly planLaunch: (revisionId: string, clientId: 'omp' | 'claude') => Promise<HarnessLaunchPlanRef | HarnessUnknown>;
+}
+
+export interface HarnessControlPlanePortFactory {
+  createHarnessControlPlaneFacade(): HarnessControlPlanePort;
 }

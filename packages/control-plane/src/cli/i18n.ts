@@ -119,6 +119,13 @@ const zh: Dict = {
   'parseError.unknownFlag': '未知参数：{flag}',
   'parseError.unknownClient': '未知客户端：{client}',
   'parseError.unknownCommand': '未知命令：{command}',
+  'parseError.searchDuplicateRebuild': 'configs search：--rebuild 只能传一次',
+  'parseError.searchDuplicateJson': 'configs search：--json 只能传一次',
+  'parseError.searchDuplicateLimit': 'configs search：--limit 只能传一次',
+  'parseError.searchInvalidLimit': 'configs search：--limit 的值无效：{value}',
+  'parseError.searchRebuildOptions': 'configs search：--rebuild 不接受查询或其他选项',
+  'parseError.searchRequiresQuery': 'configs search：需要一个查询',
+  'parseError.searchOneQuery': 'configs search：只接受一个查询',
   'parseError.denylistedForwardedArg':
     'configs {command}：转发参数 "{arg}" 不被允许——如果原样传给真实的 `omp` 二进制文件，会破坏本 Story 单一扩展来源/复用默认 profile/不自动恢复这几条保证',
   // `[Story 4.6 review fix]` `claude-code` has no forwarded-args delivery
@@ -277,6 +284,13 @@ const en: Dict = {
   'tui.listFooter': '↑↓ select · enter use · → details · q quit',
   'tui.detailFooter': 'enter use · esc back · q quit',
 
+  'parseError.searchDuplicateRebuild': 'configs search: --rebuild can only be passed once',
+  'parseError.searchDuplicateJson': 'configs search: --json can only be passed once',
+  'parseError.searchDuplicateLimit': 'configs search: --limit can only be passed once',
+  'parseError.searchInvalidLimit': 'configs search: invalid --limit value: {value}',
+  'parseError.searchRebuildOptions': 'configs search: --rebuild accepts no query or other options',
+  'parseError.searchRequiresQuery': 'configs search: a query is required',
+  'parseError.searchOneQuery': 'configs search: exactly one query is accepted',
   'usage.prefix': 'usage:',
   'parseError.missingId': 'configs {command} <id>: missing <id>',
   'parseError.compareMinIds': 'configs compare <id> <id> [...ids]: requires at least 2 ids',

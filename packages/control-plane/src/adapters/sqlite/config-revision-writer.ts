@@ -26,10 +26,10 @@ import { parseCandidateRevision, parseEvidenceRef, parseSupersedesRevisionId, pa
 import { SupersedesConflictError } from '../../application/ports';
 import type { EstablishConfigRevisionParams, ConfigRevisionWriter } from '../../application/ports';
 import type { StableConfigRevision } from '../../domain/config';
-import { runConfigRevisionMigrations } from './repository';
+import { readConfigRevisions, rebuildConfigSearchAtomically, runConfigRevisionMigrations } from './repository';
+import { SqliteConfigSearchAdapter } from './config-search';
 import { factColumns } from './fact-columns';
 import { openSqliteDatabase } from './connection';
-
 /**
  * `[Story 3.2]` The exact substring SQLite's error message contains when
  * `idx_stable_config_revision_supersedes_revision_id` rejects a duplicate
@@ -45,10 +45,15 @@ const SUPPORTED_SCHEMA_VERSION = 1;
 
 export class SqliteConfigRevisionWriter implements ConfigRevisionWriter {
   private readonly db: Database;
+  private readonly searchAdapter: SqliteConfigSearchAdapter;
 
   constructor(dbPath: string) {
     this.db = openSqliteDatabase(dbPath);
-    runConfigRevisionMigrations(this.db);
+    const searchRepairNeeded = runConfigRevisionMigrations(this.db);
+    this.searchAdapter = new SqliteConfigSearchAdapter(this.db);
+    if (searchRepairNeeded) {
+      rebuildConfigSearchAtomically(this.db, () => readConfigRevisions(this.db), this.searchAdapter);
+    }
   }
 
   async create(params: EstablishConfigRevisionParams): Promise<StableConfigRevision> {
@@ -169,6 +174,7 @@ export class SqliteConfigRevisionWriter implements ConfigRevisionWriter {
             revision.evidenceRef,
             revision.supersedesRevisionId,
           );
+        this.searchAdapter.indexRevision(revision);
       })();
     } catch (error) {
       // `[Story 3.2]` Only a non-null `supersedesRevisionId` can ever

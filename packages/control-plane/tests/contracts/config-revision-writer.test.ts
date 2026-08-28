@@ -1,10 +1,12 @@
 import { describe, expect, test } from 'bun:test';
+import { Database } from 'bun:sqlite';
 import { mkdtempSync, rmSync } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 
 import { SqliteConfigRevisionWriter } from '../../src/adapters/sqlite/config-revision-writer';
 import { SqliteConfigRevisionRepository } from '../../src/adapters/sqlite/repository';
+import { normalizeSearchText } from '../../src/adapters/sqlite/config-search';
 import {
   InvalidCandidateError,
   InvalidTriggerCategoryError,
@@ -377,6 +379,40 @@ describe('SqliteConfigRevisionWriter.create', () => {
           expect(await repo.listAll()).toEqual([]);
         } finally {
           repo.close();
+        }
+      } finally {
+        writer.close();
+      }
+    });
+  });
+
+  test('establish and revise each create an independently searchable revision projection', async () => {
+    await withTempDb(async (dbPath) => {
+      const writer = new SqliteConfigRevisionWriter(dbPath);
+      try {
+        const established = await writer.create({
+          triggerCategory: 'new-scenario',
+          evidenceRef: 'establish-evidence',
+          candidate: { ...VALID_CANDIDATE, configName: 'established-config' },
+          supersedesRevisionId: null,
+        });
+        const revised = await writer.create({
+          triggerCategory: 'bad-case',
+          evidenceRef: 'revise-evidence',
+          candidate: { ...VALID_CANDIDATE, configName: 'revised-config' },
+          supersedesRevisionId: established.revisionId,
+        });
+        const db = new Database(dbPath);
+        try {
+          const rows = db.query<{ revision_id: string; config_name: string }, []>(
+            'SELECT revision_id, config_name FROM config_search_document ORDER BY revision_id',
+          ).all();
+          expect(rows).toEqual([
+            { revision_id: established.revisionId, config_name: normalizeSearchText('established-config') },
+            { revision_id: revised.revisionId, config_name: normalizeSearchText('revised-config') },
+          ].sort((a, b) => a.revision_id.localeCompare(b.revision_id)));
+        } finally {
+          db.close();
         }
       } finally {
         writer.close();

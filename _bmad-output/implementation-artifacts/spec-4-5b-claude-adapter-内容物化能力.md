@@ -15,14 +15,19 @@ context:
 warnings: ['oversized']
 deferred:
   - summary: >-
-      `materialized/` 目前没有任何清理代码：invocation 目录（含其 `materialized/` 子目录）在
-      launch 达到终态后不会被删除，会持续占用磁盘直到人工清理。
+      历史发现（首次实现复核时）：`materialized/` invocation 目录当时没有清理代码，launch
+      达到终态后会持续占用磁盘，需由后续回顾收口。
     evidence: >-
-      `adapters/system/claude-invocation-dir.ts`（Story 4.3）与本 Story新增的
-      `content-materializer.ts` 均未实现任何删除/清理逻辑；`launchClaudeFresh` 也未在任何终态分支
-      调用过清理。
+      首次复核时 `adapters/system/claude-invocation-dir.ts`、本 Story 的
+      `content-materializer.ts` 与 `launchClaudeFresh` 均未实现清理；该历史证据保留，
+      后续 fix outcome 已补齐端口与 finally 清理。
     location: 'packages/control-plane/src/adapters/system/claude-invocation-dir.ts'
     severity: low
+    status: resolved
+    resolved_ref: '_bmad-output/implementation-artifacts/epic-4-retro-2026-08-24.md'
+    resolved_evidence: >-
+      `ClaudeInvocationDirPort.cleanup`、`FsClaudeInvocationDirPort` 的递归删除实现，
+      以及 `launchClaudeFresh` 的 `finally` 调用；当前代码以 best-effort 清理 invocation 目录。
   - summary: >-
       MCP 内容物化路径（`materializeMcp`/`--mcp-config`/`--strict-mcp-config` 动态交付、
       `claude.mcp-project-scope-control` 的 required-fail-closed 分支）已完整实现并有单元测试覆盖，
@@ -37,13 +42,17 @@ deferred:
     location: 'packages/control-plane/src/application/claude-launch.ts'
     severity: low
   - summary: >-
-      `_bmad-output/implementation-artifacts/sprint-status.yaml` 中
-      `4-5b-claude-adapter-内容物化能力` 条目仍为 `backlog`——本 Story 的 Tasks & Acceptance 未列出更新
-      该文件为交付项，故未修改；负责人/后续 Story 需要另行把它标记为 `done` 才能解除 Story 4.6/4.7 的
-      顺序依赖。
-    evidence: '_bmad-output/implementation-artifacts/sprint-status.yaml:60'
+      历史发现（首次 review，2026-08-24）：`sprint-status.yaml` 中
+      `4-5b-claude-adapter-内容物化能力` 条目当时仍为 `backlog`，本 Story 的 Tasks & Acceptance
+      未列出更新该文件为交付项。当前 `sprint-status.yaml` 已将本 Story 标记为 `done`，该历史
+      状态差异已收口，不再构成 Story 4.6/4.7 的顺序依赖。
+    evidence: >-
+      首次 review 时核对 `sprint-status.yaml:60` 得到 `backlog`；后续状态同步已将该条目更新为
+      `done`，与 Epic 4 当前状态及本 Story 的已完成实现一致。
     location: '_bmad-output/implementation-artifacts/sprint-status.yaml'
     severity: low
+    status: resolved
+    resolved_ref: '_bmad-output/implementation-artifacts/epic-4-context.md'
   - summary: >-
       sanitizePathSegment 对两个不同 Skill 名字清洗成同一路径片段的情况没有碰撞检测，会静默用
       fs.cp 覆盖已存在目标目录。
@@ -129,7 +138,7 @@ deferred:
 - 任一 `required` capability 的 `sourceRef` 是 `Unknown` 或指向的路径不可读时，整次 launch 在 spawn 前 fail-closed（走 `applyFailure`，同 `invocation-dir`/`spawn-process` 现有错误分支的模式），不得部分物化后仍然 spawn。
 - `computeClaudeKnownDifferences` 改为：某类引用非空且全部成功物化时不再报告"未物化"差异；仍有引用因 `sourceRef` 不可解析而降级时报告差异（复用 manifest 已有的 `degradedCapabilities` 机制，不新增平行的差异分类）。
 - Probe 新增 `claude.plugin-dir-delivery`/`claude.append-system-prompt-delivery`（同 `hasFlag` 风格的存在性检查，非 `unknown` 默认）；本 Story 交付前必须真实重新执行一次 probe（不得复用旧版本快照）。
-- `materialized/` 清理绑定既有 invocation 目录清理节点，不早于——本 Story 若该清理节点尚不存在，只需保证不提前清理，不需要新建一个完整的通用清理系统（那是既有缺口，AD-21 已记录）。
+- `materialized/` 清理绑定既有 invocation 目录清理节点，不得早于 Claude 进程或其显式 spawn 的子进程可能仍在读取期间；当前实现由 `ClaudeInvocationDirPort.cleanup` 在 `launchClaudeFresh` 的 `finally` 中调用，清理失败不掩盖启动结果。
 
 **Block If：** 无（AD-21 已把设计问题拍板，本 Story 只是落地）。
 
@@ -230,4 +239,4 @@ deferred:
 - `cd packages/control-plane && bun run typecheck` -- 通过，0 错误（协调者独立复核，非仅依赖实现子代理自报）。
 - `cd packages/control-plane && bun test` -- 441 pass / 0 fail / 1627 expect() calls（基线约 403 项 + 本 Story 实现与审查补丁新增约 38 项），无回归；协调者独立重跑一次结果一致，未观察到已知的 Windows SQLite 并发计时抖动。
 
-**残留风险：** 见 frontmatter `deferred`（8 项，均为需要非真实数据/边界输入才会触发的结构性缺口，如 `sanitizePathSegment` 无同名碰撞检测、imported skill `sourceRef` 无路径遍历校验等——详见 Review Triage Log 的 defer 列表）；invocation 目录/`materialized/` 尚无清理代码，属既有缺口延续；MCP 动态交付路径在真实 `.cap/` 数据下今天不可达，仅有构造用例覆盖；`sprint-status.yaml` 未随本次实现更新为 `done`，需负责人或后续流程另行处理。
+- **残留风险：** 见 frontmatter `deferred`（剩余项均为需要非真实数据/边界输入才会触发的结构性缺口，如 `sanitizePathSegment` 无同名碰撞检测、imported skill `sourceRef` 无路径遍历校验等——详见 Review Triage Log 的 defer 列表）；invocation 目录清理已由 Epic 4 回顾第二轮 fix outcome 落地并验证，不再是当前残留风险；MCP 动态交付路径在真实 `.cap/` 数据下当时不可达，仅有构造用例覆盖；`sprint-status.yaml` 已将本 Story 标记为 `done`。

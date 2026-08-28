@@ -39,9 +39,10 @@ import { FsClaudeInvocationDirPort } from '../adapters/system/claude-invocation-
 import { FsClaudeContentMaterializer } from '../adapters/clients/claude/content-materializer';
 import type {
   ConfigRevisionRepository,
+  ConfigSearchPort,
   LaunchPlanRepository,
-  OmpCapabilityProbePort,
   OmpProcessPort,
+  OmpCapabilityProbePort,
   LaunchContextWriter,
   ClaudeCapabilityProbePort,
   ClaudeContentMaterializerPort,
@@ -57,6 +58,8 @@ import {
   getConfigRevisionDetail,
   getSupersedesChain,
   listConfigRevisions,
+  rebuildConfigSearch,
+  searchConfigRevisions,
   type ConfigQueryError,
 } from '../application/queries';
 import {
@@ -126,6 +129,7 @@ import {
   renderSupersedesChainSection,
   renderSwitchAccepted,
   renderUnsupportedClient,
+  renderSearchResults,
 } from './render';
 import { runTui } from './tui';
 
@@ -135,7 +139,7 @@ import { runTui } from './tui';
 // language-dependent, so this is composed via `usageLine()` rather than
 // being a static constant.
 const USAGE_SYNTAX =
-  'configs <list|show <id>|compare <id> <id> [...ids]|use <id> [--client <id>] [--yes] [-- ...args]|status [<planId>]|switch <id> [--client <id>] [--yes] [-- ...args]|establish --trigger-category <cat> --evidence <ref> [--from <path>]|revise --trigger-category <cat> --evidence <ref> --supersedes <revisionId> [--from <path>]|supply --config-name <name> --group <group> [--group <group>...]>';
+  'configs <list|show <id>|compare <id> <id> [...ids]|use <id> [--client <id>] [--yes] [-- ...args]|status [<planId>]|switch <id> [--client <id>] [--yes] [-- ...args]|establish --trigger-category <cat> --evidence <ref> [--from <path>]|revise --trigger-category <cat> --evidence <ref> --supersedes <revisionId> [--from <path>]|supply --config-name <name> --group <group> [--group <group>...]|search <query> [--limit <n>] [--json]|search --rebuild>';
 
 function usageLine(): string {
   return `${t('usage.prefix')} ${USAGE_SYNTAX}`;
@@ -194,6 +198,13 @@ type ParsedCommand =
       readonly kind: 'supply';
       readonly configName: string;
       readonly groups: readonly string[];
+    }
+  | {
+      readonly kind: 'search';
+      readonly query: string | null;
+      readonly limit: number;
+      readonly json: boolean;
+      readonly rebuild: boolean;
     };
 
 function parseUseOrSwitch(kind: 'use' | 'switch', rest: readonly string[]): ParsedCommand {
@@ -531,6 +542,73 @@ ${usageLine()}` };
   return { kind: 'supply', configName: configName.trim(), groups };
 }
 
+function parseSearch(rest: readonly string[]): ParsedCommand {
+  let query: string | null = null;
+  let limit = 20;
+  let json = false;
+  let rebuild = false;
+  let explicitLimit = false;
+
+  for (let index = 0; index < rest.length; index += 1) {
+    const token = rest[index]!;
+    if (token === '--') {
+      const terminatedQuery = rest[++index];
+      if (terminatedQuery === undefined || query !== null || index !== rest.length - 1) {
+        return { kind: 'usage-error', message: `${t('parseError.searchOneQuery')}\n${usageLine()}` };
+      }
+      query = terminatedQuery;
+      continue;
+    }
+    if (token === '--rebuild') {
+      if (rebuild) {
+        return { kind: 'usage-error', message: `${t('parseError.searchDuplicateRebuild')}\n${usageLine()}` };
+      }
+      rebuild = true;
+      continue;
+    }
+    if (token === '--json') {
+      if (json) {
+        return { kind: 'usage-error', message: `${t('parseError.searchDuplicateJson')}\n${usageLine()}` };
+      }
+      json = true;
+      continue;
+    }
+    if (token === '--limit' || token.startsWith('--limit=')) {
+      if (explicitLimit) {
+        return { kind: 'usage-error', message: `${t('parseError.searchDuplicateLimit')}\n${usageLine()}` };
+      }
+      explicitLimit = true;
+      const raw = token === '--limit' ? rest[++index] : token.slice('--limit='.length);
+      if (raw === undefined || !/^[0-9]+$/.test(raw)) {
+        return { kind: 'usage-error', message: `${t('parseError.searchInvalidLimit', { value: raw ?? '' })}\n${usageLine()}` };
+      }
+      limit = Number(raw);
+      if (!Number.isSafeInteger(limit) || limit < 1 || limit > 50) {
+        return { kind: 'usage-error', message: `${t('parseError.searchInvalidLimit', { value: raw })}\n${usageLine()}` };
+      }
+      continue;
+    }
+    if (token.startsWith('-') && token !== '-') {
+      return { kind: 'usage-error', message: `${t('parseError.unknownFlag', { flag: token })}\n${usageLine()}` };
+    }
+    if (query !== null) {
+      return { kind: 'usage-error', message: `${t('parseError.searchOneQuery')}\n${usageLine()}` };
+    }
+    query = token;
+  }
+
+  if (rebuild) {
+    if (query !== null || json || explicitLimit) {
+      return { kind: 'usage-error', message: `${t('parseError.searchRebuildOptions')}\n${usageLine()}` };
+    }
+    return { kind: 'search', query: null, limit, json: false, rebuild: true };
+  }
+  if (query === null || query.trim().length === 0) {
+    return { kind: 'usage-error', message: `${t('parseError.searchRequiresQuery')}\n${usageLine()}` };
+  }
+  return { kind: 'search', query, limit, json, rebuild: false };
+}
+
 function parseCommand(argv: readonly string[]): ParsedCommand {
   const [command, ...rest] = argv;
   switch (command) {
@@ -560,6 +638,8 @@ function parseCommand(argv: readonly string[]): ParsedCommand {
       return parseRevise(rest);
     case 'supply':
       return parseSupply(rest);
+    case 'search':
+      return parseSearch(rest);
     default:
       // `command` is always defined here: `main()` intercepts `argv.length
       // === 0` before `parseCommand` is ever called, so this `default`
@@ -1229,6 +1309,17 @@ export async function main(argv: readonly string[], overrides: CliOverrides = {}
 
   try {
     switch (parsed.kind) {
+      case 'search': {
+        const searchRepository = deps.configRepository as unknown as ConfigSearchPort;
+        if (parsed.rebuild) {
+          await rebuildConfigSearch(searchRepository);
+          return 0;
+        }
+        const results = await searchConfigRevisions(searchRepository, parsed.query!, parsed.limit);
+        console.log(renderSearchResults(results, parsed.json));
+        return 0;
+      }
+
       case 'list': {
         const revisions = await listConfigRevisions(deps.configRepository);
         console.log(renderList(revisions));
