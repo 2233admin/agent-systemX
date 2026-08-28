@@ -1,7 +1,6 @@
 import type { EvidenceRef } from '../core/result.ts';
 import { isRfc3339Timestamp } from '../core/result.ts';
-import type { AdapterCorrelationEnvelope } from '../adapters/contracts.ts';
-
+import { validateAdapterCorrelation, type AdapterCorrelationEnvelope } from '../adapters/contracts.ts';
 export interface RealSmokeEvidence {
   readonly backend: 'orca' | 'github';
   readonly adapterVersion: string;
@@ -56,7 +55,7 @@ export function validateRealSmokeEvidence(value: unknown): RealSmokeEvidence {
     || !['read-only', 'bounded-write', 'denied', 'unknown'].includes(String(value.permission))
     || !['reachable', 'unreachable', 'unknown'].includes(String(value.network))
     || !['pass', 'blocked', 'unknown', 'not-available'].includes(String(value.result))
-    || !record(value.correlation)) {
+    || !validateAdapterCorrelation(value.correlation)) {
     throw new TypeError('RealSmokeEvidence requires a redacted read-only evidence shape');
   }
   if (value.expectedHead !== undefined && !nonEmpty(value.expectedHead)) throw new TypeError('RealSmokeEvidence expectedHead must be non-empty');
@@ -106,11 +105,32 @@ function summary(value: string): string {
   return value.length > 2000 ? `${value.slice(0, 2000)}[truncated]` : value;
 }
 
+const READ_ONLY_SUBCOMMANDS: Record<string, readonly RegExp[]> = {
+  bun: [/^test(?:\s|$)/i, /^run\s+[^;|&]+$/i],
+  bunx: [/^tsc(?:\s|$)/i],
+  git: [/^(?:status|rev-parse|show|worktree\s+list)(?:\s|$)/i],
+  gh: [/^auth\s+status(?:\s|$)/i, /^repo\s+view(?:\s|$)/i, /^pr\s+list(?:\s|$)/i],
+  orca: [/^status(?:\s|$)/i, /^worktree\s+ps(?:\s|$)/i, /^terminal\s+list(?:\s|$)/i],
+  'cmd.exe': [/^\/d\s+\/c\s+(?:echo|exit|timeout)(?:\s|$)/i],
+  powershell: [/^-NoProfile\s+-Command\s+.*HARNESS_REAL_WRITE/i],
+  'powershell.exe': [/^-NoProfile\s+-Command\s+.*HARNESS_REAL_WRITE/i],
+};
+
+function assertReadOnlyArgv(argv: readonly string[]): void {
+  const executable = argv[0]!.split(/[\\/]/).pop()!.toLowerCase();
+  const subcommand = argv.slice(1).join(' ');
+  const allowed = READ_ONLY_SUBCOMMANDS[executable]?.some((pattern) => pattern.test(subcommand)) ?? false;
+  if (!allowed || /\b(?:push|merge|reset|clean|checkout|remove|delete|rm|del|rmdir)\b/i.test(subcommand)) {
+    throw new TypeError('Read-only process command is outside the executable/subcommand allowlist');
+  }
+}
+
 export async function runReadOnlyProcess(
   argv: readonly string[],
   options: { readonly cwd?: string; readonly timeoutMs?: number; readonly env?: Record<string, string | undefined> } = {},
 ): Promise<ReadOnlyProcessResult> {
   if (argv.length === 0 || argv.some((argument) => argument.length === 0)) throw new TypeError('Read-only process argv must be non-empty');
+  assertReadOnlyArgv(argv);
   const child = Bun.spawn([...argv], {
     cwd: options.cwd,
     env: { ...options.env, HARNESS_REAL_WRITE: '0' },

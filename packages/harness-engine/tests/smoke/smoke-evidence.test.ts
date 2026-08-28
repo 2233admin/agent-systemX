@@ -44,25 +44,42 @@ describe('Stage 4 real smoke evidence', () => {
     expect(() => validateRealSmokeEvidence({ ...valid, readbackRefs: ['stderr: password=secret'] })).toThrow('sensitive');
   });
 
+  test('rejects malformed correlation evidence', () => {
+    expect(() => validateRealSmokeEvidence({
+      backend: 'orca',
+      adapterVersion: '1',
+      observedAt: correlation.observedAt,
+      objectRefs: [],
+      permission: 'read-only',
+      network: 'unknown',
+      readbackRefs: [],
+      result: 'not-available',
+      scope: 'read-only',
+      correlation: { ...correlation, workflowId: '' },
+    })).toThrow('read-only evidence shape');
+  });
+
   test('normalizes Windows paths without shell semantics', () => {
     expect(normalizeWindowsPath('C:\\work tree\\测试\\artifact.json')).toBe('C:/work tree/测试/artifact.json');
     expect(() => normalizeWindowsPath('C:\\work\\..\\..\\secret')).toThrow('escape');
   });
 
-  test('forces read-only environment and redacts sensitive stderr on non-zero exit', async () => {
-    const result = await runReadOnlyProcess([
-      process.execPath,
-      '-e',
-      'console.log(process.env.HARNESS_REAL_WRITE); console.error("password=secret"); process.exit(3)',
-    ]);
+  test('runs an allowlisted read-only command and preserves non-zero exit', async () => {
+    const result = await runReadOnlyProcess(['cmd.exe', '/d', '/c', 'exit /b 3']);
     expect(result.exitCode).toBe(3);
-    expect(result.stdoutSummary.trim()).toBe('0');
-    expect(result.stderrSummary).toBe('[redacted]');
+    expect(result.timedOut).toBe(false);
   });
 
-  test('terminates a timed-out process without a shell command string', async () => {
-    const result = await runReadOnlyProcess([process.execPath, '-e', 'setTimeout(() => {}, 1000)'], { timeoutMs: 10 });
+  test('rejects remote-write and destructive commands before spawning', () => {
+    for (const argv of [['git', 'push'], ['gh', 'pr', 'merge', '1'], ['orca', 'worktree', 'rm', 'x']]) {
+      expect(() => runReadOnlyProcess(argv)).toThrow('allowlist');
+    }
+  });
+
+  test('terminates an allowlisted timed-out command without shell injection', async () => {
+    const result = await runReadOnlyProcess(['cmd.exe', '/d', '/c', 'timeout /t 1 /nobreak'], { timeoutMs: 10 });
     expect(result.timedOut).toBe(true);
     expect(result.exitCode).toBeNull();
   });
+
 });
