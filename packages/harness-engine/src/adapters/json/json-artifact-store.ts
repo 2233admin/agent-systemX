@@ -1,7 +1,7 @@
 import { mkdir, readFile, rename, rm, writeFile } from 'node:fs/promises';
 import { randomUUID } from 'node:crypto';
 import { join } from 'node:path';
-import { canonicalHashFor } from '../../artifacts/canonical';
+import { canonicalHashFor, createCanonicalArtifact, validateCanonicalArtifact, type CanonicalArtifactEnvelope } from '../../artifacts/canonical.ts';
 import { isRfc3339Timestamp } from '../../core/result';
 import { validateArtifactRevision } from '../../core/ids';
 import { isPlanStatus, type ExecutionLease, type IntegrationMergeLease, type PlanRow, type WorkflowSnapshot } from '../../domain/workflow';
@@ -29,6 +29,25 @@ type WorkflowDto = {
   integrationMergeLease?: unknown;
   updatedAt: string;
   canonicalHash?: string;
+};
+
+type WorkflowEnvelopeValue = {
+  plans: unknown[];
+  integrationMergeLease?: unknown;
+  operations?: Record<string, unknown>;
+};
+
+type WorkflowEnvelopeDto = CanonicalArtifactEnvelope<WorkflowEnvelopeValue>;
+
+type StoredWorkflow = {
+  readonly snapshot: WorkflowSnapshot;
+  readonly operations: Record<string, OperationRecord>;
+};
+
+type OperationRecord = {
+  readonly operationId: string;
+  readonly inputDigest: string;
+  readonly snapshot: WorkflowSnapshot;
 };
 
 function isRecord(value: unknown): value is JsonRecord {
@@ -259,6 +278,37 @@ function validateWorkflowDto(value: unknown): WorkflowDto {
   return value as unknown as WorkflowDto;
 }
 
+function validateWorkflowEnvelope(value: unknown): { dto: WorkflowDto; operations: Record<string, OperationRecord> } {
+  const envelope = validateCanonicalArtifact(value);
+  if (envelope.artifactKind !== 'workflow') throw new TypeError('Workflow artifact kind must be workflow');
+  if (!isRecord(envelope.value) || !Array.isArray(envelope.value.plans)) {
+    throw new TypeError('Workflow canonical envelope value must contain plans');
+  }
+  const dto = validateWorkflowDto({
+    schemaVersion: 1,
+    revision: envelope.revision,
+    workflowId: envelope.workflowId,
+    plans: envelope.value.plans,
+    ...(envelope.value.integrationMergeLease === undefined ? {} : { integrationMergeLease: envelope.value.integrationMergeLease }),
+    updatedAt: envelope.observedAt,
+  });
+  const operations: Record<string, OperationRecord> = {};
+  if (envelope.value.operations !== undefined) {
+    if (!isRecord(envelope.value.operations)) throw new TypeError('Workflow operation evidence must be an object');
+    for (const [key, raw] of Object.entries(envelope.value.operations)) {
+      if (!isRecord(raw) || typeof raw.operationId !== 'string' || typeof raw.inputDigest !== 'string' || !isRecord(raw.snapshot)) {
+        throw new TypeError('Workflow operation evidence is malformed');
+      }
+      operations[key] = {
+        operationId: raw.operationId,
+        inputDigest: raw.inputDigest,
+        snapshot: toSnapshot(validateWorkflowDto(raw.snapshot)),
+      };
+    }
+  }
+  return { dto, operations };
+}
+
 function toSnapshot(dto: WorkflowDto): WorkflowSnapshot {
   const integrationMergeLease = dto.integrationMergeLease === undefined
     ? undefined
@@ -273,7 +323,7 @@ function toSnapshot(dto: WorkflowDto): WorkflowSnapshot {
   };
 }
 
-function toDto(snapshot: WorkflowSnapshot): WorkflowDto {
+function toEnvelope(snapshot: WorkflowSnapshot, operations: Record<string, OperationRecord>): WorkflowEnvelopeDto {
   if (snapshot.schemaVersion !== CURRENT_SCHEMA_VERSION) {
     throw new Error(`Unsupported workflow schema version: ${String(snapshot.schemaVersion)}`);
   }
@@ -291,11 +341,7 @@ function toDto(snapshot: WorkflowSnapshot): WorkflowDto {
   const integrationMergeLease = snapshot.integrationMergeLease === undefined
     ? undefined
     : assertLease(snapshot.integrationMergeLease, 'Workflow integration merge lease', 'integration-merge') as IntegrationMergeLease;
-  const updatedAt = new Date().toISOString();
-  const dto: WorkflowDto = {
-    schemaVersion: CURRENT_SCHEMA_VERSION,
-    revision: snapshot.revision,
-    workflowId: snapshot.workflowId,
+  const value: WorkflowEnvelopeValue = {
     plans: snapshot.plans.map((plan) => {
       const validatedPlan = validatePlan(plan);
       return {
@@ -308,36 +354,56 @@ function toDto(snapshot: WorkflowSnapshot): WorkflowDto {
           : { executionLease: sanitizeJson(validatedPlan.executionLease) }),
       };
     }),
-    ...(integrationMergeLease === undefined ? {} : { integrationMergeLease }),
-    updatedAt,
+    ...(integrationMergeLease === undefined ? {} : { integrationMergeLease: sanitizeJson(integrationMergeLease) }),
+    ...(Object.keys(operations).length === 0 ? {} : { operations: sanitizeJson(operations) as Record<string, unknown> }),
   };
-  return { ...dto, canonicalHash: canonicalHashFor(dto) };
+  return createCanonicalArtifact({
+    artifactKind: 'workflow',
+    workflowId: snapshot.workflowId,
+    revision: snapshot.revision,
+    value,
+    observedAt: snapshot.updatedAt ?? new Date().toISOString(),
+  });
 }
 
 export class JsonArtifactStore implements ArtifactStore {
-  private readonly idempotency = new Map<string, { digest: string; result: WorkflowWriteResult }>();
 
   public constructor(private readonly rootDirectory: string) {}
 
-  public async readWorkflow(workflowId: string): Promise<WorkflowSnapshot | null> {
+  private async readStoredWorkflow(workflowId: string): Promise<StoredWorkflow | null> {
     const path = workflowPath(this.rootDirectory, workflowId);
     let raw: string;
     try {
       raw = await readFile(path, 'utf8');
     } catch (error) {
-      if (isNodeError(error) && error.code === 'ENOENT') {
-        return null;
-      }
+      if (isNodeError(error) && error.code === 'ENOENT') return null;
       throw error;
     }
-    const dto = validateWorkflowDto(JSON.parse(raw) as unknown);
-    if (dto.workflowId !== workflowId) {
-      throw new Error('Workflow artifact ID does not match requested workflowId');
+    const parsed = JSON.parse(raw) as unknown;
+    if (isRecord(parsed) && parsed.artifactKind !== undefined) {
+      const envelope = validateWorkflowEnvelope(parsed);
+      if (envelope.dto.workflowId !== workflowId) throw new Error('Workflow artifact ID does not match requested workflowId');
+      return { snapshot: toSnapshot(envelope.dto), operations: envelope.operations };
     }
-    return toSnapshot(dto);
+    const dto = validateWorkflowDto(parsed);
+    if (dto.workflowId !== workflowId) throw new Error('Workflow artifact ID does not match requested workflowId');
+    return { snapshot: toSnapshot(dto), operations: {} };
+  }
+
+  public async readWorkflow(workflowId: string): Promise<WorkflowSnapshot | null> {
+    const stored = await this.readStoredWorkflow(workflowId);
+    return stored?.snapshot ?? null;
   }
 
   public async writeWorkflow(expectedRevision: number, next: WorkflowSnapshot): Promise<void> {
+    await this.writeWorkflowInternal(expectedRevision, next);
+  }
+
+  private async writeWorkflowInternal(
+    expectedRevision: number,
+    next: WorkflowSnapshot,
+    operations: Record<string, OperationRecord> = {},
+  ): Promise<void> {
     validateRevision(expectedRevision);
     if (!Number.isSafeInteger(expectedRevision + 1) || next.revision !== expectedRevision + 1) {
       throw new Error(`Workflow revision must advance exactly once: expected ${expectedRevision + 1}, received ${next.revision}`);
@@ -347,15 +413,16 @@ export class JsonArtifactStore implements ArtifactStore {
     await mkdir(directory, { recursive: true });
     const lockPath = `${destination}.lock`;
     await acquireWriteLock(lockPath);
-
     try {
-      const current = await this.readWorkflow(next.workflowId);
-      const currentRevision = current?.revision ?? 0;
+      const current = await this.readStoredWorkflow(next.workflowId);
+      const currentRevision = current?.snapshot.revision ?? 0;
       if (currentRevision !== expectedRevision) {
         throw new Error(`Workflow revision conflict: expected ${expectedRevision}, found ${currentRevision}`);
       }
-
-      const dto = toDto(next);
+      const preservedOperations = Object.keys(operations).length === 0
+        ? current?.operations ?? {}
+        : operations;
+      const dto = toEnvelope(next, preservedOperations);
       const temporary = join(directory, `.${next.workflowId}.${randomUUID()}.tmp`);
       try {
         await writeFile(temporary, `${JSON.stringify(dto, null, 2)}\n`, 'utf8');
@@ -364,7 +431,6 @@ export class JsonArtifactStore implements ArtifactStore {
         await rm(temporary, { force: true });
       }
     } finally {
-      // 只在持有者退出写入流程后清理锁；不自动删除未知遗留锁，避免破坏活跃写入。
       await rm(lockPath, { force: true });
     }
   }
@@ -381,37 +447,56 @@ export class JsonArtifactStore implements ArtifactStore {
       };
     }
     const key = `${request.next.workflowId}:${request.idempotencyKey}`;
-    const previous = this.idempotency.get(key);
+    const current = await this.readStoredWorkflow(request.next.workflowId);
+    const previous = current?.operations[key];
     if (previous !== undefined) {
-      if (previous.digest === request.inputDigest) return previous.result;
+      if (previous.inputDigest === request.inputDigest) {
+        return {
+          kind: 'applied',
+          operationId: previous.operationId,
+          revision: previous.snapshot.revision,
+          value: previous.snapshot,
+        };
+      }
       return {
         kind: 'rejected',
         operationId: request.operationId,
-        revision: previous.result.revision,
+        revision: current?.snapshot.revision ?? 0,
         violations: [{ code: 'artifact.idempotency.digest-conflict' }],
         recoveryActions: [{ code: 'artifact.idempotency.new-key' }],
       };
     }
+    const effectiveNext: WorkflowSnapshot = {
+      ...request.next,
+      updatedAt: request.next.updatedAt ?? new Date().toISOString(),
+    };
+    const operations = {
+      ...(current?.operations ?? {}),
+      [key]: {
+        operationId: request.operationId,
+        inputDigest: request.inputDigest,
+        snapshot: effectiveNext,
+      },
+    };
     try {
-      await this.writeWorkflow(request.expectedRevision, request.next);
-      const value = await this.readWorkflow(request.next.workflowId);
-      if (value === null) throw new Error('Workflow artifact disappeared after write');
+      await this.writeWorkflowInternal(request.expectedRevision, effectiveNext, operations);
+      const stored = await this.readStoredWorkflow(request.next.workflowId);
+      if (stored === null) throw new Error('Workflow artifact disappeared after write');
       const result: WorkflowWriteResult = {
         kind: 'applied',
         operationId: request.operationId,
-        revision: value.revision,
-        value,
+        revision: stored.snapshot.revision,
+        value: stored.snapshot,
       };
-      this.idempotency.set(key, { digest: request.inputDigest, result });
       return result;
     } catch (error) {
       const message = error instanceof Error ? error.message : '';
       if (!message.includes('revision conflict') && !message.includes('write lock conflict')) throw error;
-      const current = await this.readWorkflow(request.next.workflowId);
+      const latest = await this.readStoredWorkflow(request.next.workflowId);
       return {
         kind: 'conflict',
         operationId: request.operationId,
-        revision: current?.revision ?? 0,
+        revision: latest?.snapshot.revision ?? 0,
         violations: [{ code: 'artifact.revision.conflict', message }],
         recoveryActions: [{ code: 'artifact.revision.reread' }],
       };

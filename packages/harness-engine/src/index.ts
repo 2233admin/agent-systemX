@@ -183,18 +183,11 @@ export {
   validateCanonicalArtifact,
 } from './artifacts/canonical';
 export type {
-  AppendEvidenceCommand,
-  ClaimExecutionLeaseCommand,
   CreateWorkflowCommand,
-  PrepareExecutionCommand,
-  RegisterAssignmentCommand,
-  RegisterPlanCommand,
-  ReleaseExecutionLeaseCommand,
-  TransitionPlanCommand,
   WorkflowCommandEnvelope,
   WorkflowCommandResult,
 } from './application/commands';
 export type { ReadWorkflowQuery, StatusQuery, StatusView, ValidateQuery, ValidationView } from './application/queries';
-export { createWorkflowApplication, createWorkflowFacade, WorkflowFacade } from './application/harness-application';
+export { createWorkflowFacade, WorkflowFacade } from './application/harness-application';
 export type { CliResult } from './cli/index';
 export { main as harnessMain, runCli } from './cli/index';

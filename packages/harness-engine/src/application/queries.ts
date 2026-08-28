@@ -4,7 +4,9 @@ import type { WorkflowSnapshot } from '../domain/workflow.ts';
 
 export interface ReadWorkflowQuery extends WorkflowCommandEnvelope {}
 
-export interface StatusQuery extends WorkflowCommandEnvelope {}
+export interface StatusQuery extends WorkflowCommandEnvelope {
+  readonly consistency?: 'latest' | 'exact';
+}
 
 export interface ValidateQuery {
   readonly operationId: string;

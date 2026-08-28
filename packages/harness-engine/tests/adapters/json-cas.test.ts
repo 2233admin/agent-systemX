@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, test } from 'bun:test';
-import { mkdtemp, rm } from 'node:fs/promises';
+import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { JsonArtifactStore } from '../../src/adapters/json/json-artifact-store.ts';
@@ -21,10 +21,14 @@ function snapshot(revision: number, title = 'Plan'): WorkflowSnapshot {
   };
 }
 
-async function makeStore(): Promise<JsonArtifactStore> {
+async function makeRoot(): Promise<string> {
   const root = await mkdtemp(join(tmpdir(), 'harness-cas-'));
   temporaryDirectories.push(root);
-  return new JsonArtifactStore(root);
+  return root;
+}
+
+async function makeStore(): Promise<JsonArtifactStore> {
+  return new JsonArtifactStore(await makeRoot());
 }
 
 describe('JsonArtifactStore conditional writes', () => {
@@ -70,5 +74,40 @@ describe('JsonArtifactStore conditional writes', () => {
     expect(repeat).toEqual(first);
     expect(changed.kind).toBe('rejected');
     expect(await store.readWorkflow('workflow-1')).toMatchObject({ revision: 1 });
+  });
+  test('persists a canonical envelope and replays idempotency after reopening', async () => {
+    const root = await makeRoot();
+    const store = new JsonArtifactStore(root);
+    const request = {
+      expectedRevision: 0,
+      next: snapshot(1),
+      operationId: 'op-restart',
+      idempotencyKey: 'key-restart',
+      inputDigest: 'digest-restart',
+    } as const;
+    const first = await store.writeWorkflowConditional(request);
+    const raw = JSON.parse(await readFile(join(root, 'workflows', 'workflow-1.json'), 'utf8')) as Record<string, unknown>;
+    expect(raw.artifactKind).toBe('workflow');
+    expect(raw.value).toMatchObject({ plans: [{ id: 'plan-1' }] });
+    const reopened = new JsonArtifactStore(root);
+    const replay = await reopened.writeWorkflowConditional(request);
+    expect(replay).toEqual(first);
+    const changed = await reopened.writeWorkflowConditional({ ...request, inputDigest: 'different-digest' });
+    expect(changed.kind).toBe('rejected');
+    expect(await reopened.readWorkflow('workflow-1')).toMatchObject({ revision: 1 });
+  });
+
+  test('rejects tampered and future canonical envelopes', async () => {
+    const root = await makeRoot();
+    const store = new JsonArtifactStore(root);
+    await store.writeWorkflow(0, snapshot(1));
+    const path = join(root, 'workflows', 'workflow-1.json');
+    const envelope = JSON.parse(await readFile(path, 'utf8')) as Record<string, unknown>;
+    const value = envelope.value as Record<string, unknown>;
+    await writeFile(path, JSON.stringify({ ...envelope, value: { ...value, plans: [] } }));
+    await expect(store.readWorkflow('workflow-1')).rejects.toThrow('canonical hash');
+    const future = JSON.parse(await readFile(path, 'utf8')) as Record<string, unknown>;
+    await writeFile(path, JSON.stringify({ ...future, schemaVersion: 99 }));
+    await expect(store.readWorkflow('workflow-1')).rejects.toThrow('future');
   });
 });

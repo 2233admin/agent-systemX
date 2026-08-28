@@ -1,17 +1,10 @@
-import { JsonArtifactStore } from '../adapters/json/json-artifact-store.ts';
 import type { EvidenceRef, RecoveryAction, Unknown, Violation } from '../core/result.ts';
 import { parseAssignmentBranchForms, parseAssignmentExecutionMode, parseAssignmentFields } from '../domain/assignment.ts';
 import type { WorkflowSnapshot } from '../domain/workflow.ts';
 import type { ArtifactStore, WorkflowWriteResult } from '../ports/artifacts.ts';
 import type {
-  AppendEvidenceCommand,
-  ClaimExecutionLeaseCommand,
   CreateWorkflowCommand,
-  PrepareExecutionCommand,
-  RegisterAssignmentCommand,
   RegisterPlanCommand,
-  ReleaseExecutionLeaseCommand,
-  TransitionPlanCommand,
   WorkflowCommandResult,
   WorkflowSnapshotResult,
 } from './commands.ts';
@@ -20,14 +13,22 @@ import type { ReadWorkflowQuery, StatusQuery, StatusView, ValidateQuery, Validat
 const EMPTY_EVIDENCE: readonly EvidenceRef[] = [];
 const EMPTY_UNKNOWN: readonly Unknown[] = [];
 
-function applied<T>(stage: string, operationId: string, value: T, revision: number): WorkflowCommandResult<T> {
+function boundaryEvidence(stage: string, operationId: string, observedAt?: string): EvidenceRef {
+  return {
+    source: 'harness-engine.application',
+    observedAt: observedAt ?? new Date().toISOString(),
+    locator: `${stage}:${operationId}`,
+  };
+}
+
+function applied<T>(stage: string, operationId: string, value: T, revision: number, observedAt?: string): WorkflowCommandResult<T> {
   return {
     kind: 'applied',
     value,
     revision,
     operationId,
     stage,
-    evidenceRefs: EMPTY_EVIDENCE,
+    evidenceRefs: [boundaryEvidence(stage, operationId, observedAt)],
     failureRefs: EMPTY_EVIDENCE,
     unknownFacts: EMPTY_UNKNOWN,
     violations: [],
@@ -43,21 +44,24 @@ function failed<T>(
   violations: readonly Violation[],
   recoveryActions: readonly RecoveryAction[],
 ): WorkflowCommandResult<T> {
+  const evidence = boundaryEvidence(stage, operationId);
   return {
     kind,
     revision,
     operationId,
     stage,
-    evidenceRefs: EMPTY_EVIDENCE,
-    failureRefs: EMPTY_EVIDENCE,
-    unknownFacts: EMPTY_UNKNOWN,
+    evidenceRefs: [evidence],
+    failureRefs: [evidence],
+    unknownFacts: kind === 'unknown' || kind === 'not-available'
+      ? [{ kind: 'unknown', reasonCode: `${stage}.${kind}`, observedAt: evidence.observedAt, recovery: recoveryActions[0]?.code }]
+      : EMPTY_UNKNOWN,
     violations,
     recoveryActions,
   };
 }
 
 function fromWriteResult<T>(stage: string, result: WorkflowWriteResult): WorkflowCommandResult<T> {
-  if (result.kind === 'applied') return applied(stage, result.operationId, result.value as T, result.revision);
+  if (result.kind === 'applied') return applied(stage, result.operationId, result.value as T, result.revision, result.value.updatedAt);
   return failed(stage, result.operationId, result.revision, result.kind === 'conflict' ? 'blocked' : 'rejected', result.violations, result.recoveryActions);
 }
 
@@ -150,37 +154,13 @@ export class WorkflowFacade {
     if (snapshot === null) {
       return failed('status', input.operationId, input.expectedRevision, 'blocked', [{ code: 'workflow.missing' }], [{ code: 'workflow.create' }]);
     }
+    if (input.consistency === 'exact' && snapshot.revision !== input.expectedRevision) {
+      return failed('status', input.operationId, snapshot.revision, 'blocked', [{ code: 'artifact.revision.conflict' }], [{ code: 'artifact.revision.reread' }]);
+    }
     return applied('status', input.operationId, snapshot, snapshot.revision);
-  }
-
-  public registerAssignment(input: RegisterAssignmentCommand): Promise<WorkflowCommandResult<WorkflowSnapshot>> {
-    return Promise.resolve(failed('registerAssignment', input.operationId, input.expectedRevision, 'not-available', [{ code: 'stage1.assignment-persistence.not-available' }], [{ code: 'stage1.follow-up' }]));
-  }
-
-  public prepareExecution(input: PrepareExecutionCommand): Promise<WorkflowCommandResult<WorkflowSnapshot>> {
-    return Promise.resolve(failed('prepareExecution', input.operationId, input.expectedRevision, 'not-available', [{ code: 'stage1.execution-preparation.not-available' }], [{ code: 'stage1.follow-up' }]));
-  }
-
-  public claimExecutionLease(input: ClaimExecutionLeaseCommand): Promise<WorkflowCommandResult<WorkflowSnapshot>> {
-    return Promise.resolve(failed('claimExecutionLease', input.operationId, input.expectedRevision, 'not-available', [{ code: 'stage1.lease.not-available' }], [{ code: 'stage1.follow-up' }]));
-  }
-
-  public transitionPlan(input: TransitionPlanCommand): Promise<WorkflowCommandResult<WorkflowSnapshot>> {
-    return Promise.resolve(failed('transitionPlan', input.operationId, input.expectedRevision, 'not-available', [{ code: 'stage1.transition.not-available' }], [{ code: 'stage1.follow-up' }]));
-  }
-
-  public appendEvidence(input: AppendEvidenceCommand): Promise<WorkflowCommandResult<WorkflowSnapshot>> {
-    return Promise.resolve(failed('appendEvidence', input.operationId, input.expectedRevision, 'not-available', [{ code: 'stage1.evidence.not-available' }], [{ code: 'stage1.follow-up' }]));
-  }
-
-  public releaseExecutionLease(input: ReleaseExecutionLeaseCommand): Promise<WorkflowCommandResult<WorkflowSnapshot>> {
-    return Promise.resolve(failed('releaseExecutionLease', input.operationId, input.expectedRevision, 'not-available', [{ code: 'stage1.lease.not-available' }], [{ code: 'stage1.follow-up' }]));
   }
 }
 
 export function createWorkflowFacade(store: ArtifactStore): WorkflowFacade {
   return new WorkflowFacade(store);
-}
-export function createWorkflowApplication(artifactRoot: string): WorkflowFacade {
-  return createWorkflowFacade(new JsonArtifactStore(artifactRoot));
 }

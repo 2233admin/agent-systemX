@@ -4,7 +4,8 @@ import { basename, dirname, extname, isAbsolute, join, resolve } from 'node:path
 import { tmpdir } from 'node:os';
 
 import type { DispatchInput } from '../gates/dispatch.ts';
-import { createWorkflowApplication } from '../application/harness-application.ts';
+import { JsonArtifactStore } from '../adapters/json/json-artifact-store.ts';
+import { createWorkflowFacade } from '../application/harness-application.ts';
 import type { WorkflowCommandResult } from '../application/commands.ts';
 import type { WorkflowSnapshot } from '../domain/workflow.ts';
 
@@ -82,7 +83,7 @@ async function validateAssignment(filePath: string): Promise<CliResult> {
     };
   }
   const inputDigest = createHash('sha256').update(raw, 'utf8').digest('hex');
-  const facade = createWorkflowApplication(dirname(resolve(filePath)));
+  const facade = createWorkflowFacade(new JsonArtifactStore(dirname(resolve(filePath))));
   return renderValidationResult(await facade.validate({
     operationId: `cli-validate:${filePath}`,
     actorId: 'harness-cli',
@@ -138,12 +139,13 @@ async function statusWorkflow(filePath: string): Promise<CliResult> {
     await Bun.write(join(temporaryRoot, 'workflows', `${workflowId}.json`), await readFile(absolute, 'utf8'));
   }
   try {
-    const facade = createWorkflowApplication(artifactRoot);
+    const facade = createWorkflowFacade(new JsonArtifactStore(artifactRoot));
     const result = await facade.status({
       workflowId,
       operationId: `cli-status:${filePath}`,
       actorId: 'harness-cli',
       expectedRevision: 0,
+      consistency: 'latest',
       idempotencyKey: `cli-status:${filePath}`,
       inputDigest: createHash('sha256').update(workflowId, 'utf8').digest('hex'),
     });
