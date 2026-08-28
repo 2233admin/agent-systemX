@@ -228,5 +228,7 @@ export type { ReadWorkflowQuery, StatusQuery, StatusView, ValidateQuery, Validat
 export { createWorkflowFacade, WorkflowFacade } from './application/harness-application';
 export type { ReadOnlyProcessResult, RealSmokeEvidence, RealSmokeInput } from './smoke/evidence';
 export { collectRealSmokeEvidence, evidenceRefForSmoke, normalizeWindowsPath, runReadOnlyProcess, validateRealSmokeEvidence } from './smoke/evidence';
+export type { HostSmokeInput, HostSmokeResult } from './cli/host-smoke';
+export { runHostSmoke } from './cli/host-smoke';
 export type { CliResult } from './cli/index';
 export { main as harnessMain, runCli } from './cli/index';

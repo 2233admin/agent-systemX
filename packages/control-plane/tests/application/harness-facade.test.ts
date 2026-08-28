@@ -1,0 +1,35 @@
+import { describe, expect, test } from 'bun:test';
+import { createHarnessControlPlaneFacade } from '../../src/application/public-entry';
+import type { ExistingPublicApplicationPorts } from '../../src/application/ports';
+
+const now = '2026-08-28T00:00:00.000Z';
+
+function ports(overrides: Partial<ExistingPublicApplicationPorts> = {}): ExistingPublicApplicationPorts {
+  return {
+    readRevision: async () => ({ revisionId: 'rev-1', schemaVersion: 1, clientId: 'omp', observedAt: now }),
+    readManifest: async () => ({ revisionId: 'rev-1', clientId: 'omp', manifestDigest: 'digest', itemCount: 1, observedAt: now }),
+    probe: async () => ({ clientId: 'omp', clientVersion: '1.0', status: 'supported', observedAt: now }),
+    planLaunch: async () => ({ revisionId: 'rev-1', clientId: 'omp', planDigest: 'plan', launchBoundary: 'invocation-scoped', observedAt: now }),
+    ...overrides,
+  };
+}
+
+describe('control-plane Harness public facade', () => {
+  test('returns only stable allowlisted DTOs', async () => {
+    const facade = createHarnessControlPlaneFacade(ports());
+    await expect(facade.readConfigRevision('rev-1')).resolves.toMatchObject({ revisionId: 'rev-1' });
+    await expect(facade.readAssemblyManifest('rev-1', 'omp')).resolves.toMatchObject({ manifestDigest: 'digest' });
+    await expect(facade.probeClient('omp')).resolves.toMatchObject({ status: 'supported' });
+    await expect(facade.prepareLaunch('rev-1', 'omp')).resolves.toMatchObject({ launchBoundary: 'invocation-scoped' });
+  });
+
+  test('maps missing, malformed, permission and unavailable facts to unknown', async () => {
+    const unknown = { kind: 'unknown' as const, reasonCode: 'permission-denied', observedAt: now, recovery: 'request read permission' };
+    const facade = createHarnessControlPlaneFacade(ports({ readRevision: async () => unknown, probe: async () => unknown, planLaunch: async () => { throw new Error('offline'); } }));
+    await expect(facade.readConfigRevision('missing')).resolves.toMatchObject({ kind: 'unknown' });
+    await expect(facade.probeClient('omp')).resolves.toEqual(unknown);
+    await expect(facade.prepareLaunch('rev-1', 'omp')).resolves.toMatchObject({ kind: 'unknown' });
+    const malformed = createHarnessControlPlaneFacade(ports({ readManifest: async () => ({ revisionId: 'rev-1' } as never) }));
+    await expect(malformed.readAssemblyManifest('rev-1', 'omp')).resolves.toMatchObject({ reasonCode: 'control-plane.manifest.shape-invalid' });
+  });
+});
