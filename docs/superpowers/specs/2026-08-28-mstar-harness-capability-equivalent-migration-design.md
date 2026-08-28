@@ -1,6 +1,6 @@
 ---
 title: "mstar-harness 能力等价迁移设计规格"
-status: approved-design
+status: review
 created: 2026-08-28
 updated: 2026-08-28
 driver: 负责人
@@ -12,277 +12,342 @@ scope: "agent-systemX / packages/harness-engine"
 
 ## 决策摘要
 
-本规格把负责人已批准的方案 A 落成可实施的设计约束。迁移目标是让 `packages/harness-engine` 在本仓边界内提供与 mstar-harness 等价的工程交付门禁和事实生命周期；等价指可观察行为、失败语义、证据关联和恢复边界等价，不指源代码、目录布局、默认路径、宿主生态或运行时状态源相同。
+本规格把 mstar-harness 的可复用能力改写为 agent-systemX 可使用、可验证、可回滚的本仓合同。迁移目标不是把上游代码、目录或运行时整体搬进来，而是逐项把上游语义转换为本仓合同，再由本仓实现或 adapter 落地。只有完成这三个层次的转换，才称为能力等价：
 
-方案 A 对调用者呈现一个单一的 `WorkflowFacade` 深模块。调用者不自行拼接 `dispatch`、`lease`、`worktree`、`sdd`、`qc` 或后端调用；Facade 在内部按阶段协调既有领域门禁和适配器，并返回统一的阶段结果、证据引用、Unknown、阻断原因和恢复动作。内部仍保留显式 typed port，以避免 Facade 把不同事实源压成一个未经证明的成功状态。
+```text
+mstar semantics
+  → agent-systemX contract
+  → implementation / adapter / evidence
+```
 
-本设计不把 `harness-engine` 并入 `control-plane`，不复制 Orca 或 GitHub 的事实状态，不引入 daemon、常驻轮询、自动重派或跨客户端语义等价。
+采用已批准的方案 A：对外以单一 `WorkflowFacade` 作为深模块，调用者不自行拼接 `dispatch`、`lease`、`worktree`、`sdd`、`qc` 或后端调用。Facade 内部仍使用显式 typed ports 和独立 domain/gates，避免把不同事实源、阶段和故障结果压成一个未经证明的成功状态。
+
+`packages/control-plane` 与 `packages/harness-engine` 保持两个能力面。control-plane 拥有稳定配置、客户端装配和安全启动；harness-engine 拥有工程交付生命周期；Orca 与 GitHub 继续拥有各自的实时或远端事实。mstar 的 `.mstar` 状态树、默认路径、全部宿主、prompt/Skill 原文、自动重派和 daemon 不进入本仓 SSOT 或首轮产品。
+
+本文件处于 `review`，表示设计规格仍需书面规格审批；它不改变 BMad 权威文件，不授予实现授权。
 
 ## 1. 问题与目标
 
 ### 1.1 当前问题
 
-当前工程治理能力分散在 BMad 文档、Plugin、一次性工具、Orca orchestration 和 GitHub Issue/PR 中。已有规则能够描述期望行为，但缺少一条由稳定身份、条件写入、lease、worktree、审查、QC/QA、PR 和 residual 组成的可重算执行链。
+当前工程治理能力分散在 BMad 文档、Plugin、一次性工具、Orca orchestration 和 GitHub Issue/PR 中。它们拥有规则或工具，却缺少一条可重算的工作流事实链：
 
-当前 `packages/harness-engine` 已有 `core`、`domain`、`gates`、`ports`、`adapters/json`、`cli` 及相应测试目录，形成了领域骨架和本地 JSON 存储。但当前 CLI 只有 `validate` 与 `status`，`src/adapters/` 尚无具体 Orca、GitHub 或 host adapter。Epic 5 在 `sprint-status.yaml` 中仍为 `backlog`；该状态不能被代码目录或测试文件替代。
+```text
+Workflow → Plan → Assignment → Dispatch → Lease/Worktree
+         → Worker Delivery → Review Package → QC/QA
+         → Integration → PR/Checks → Residual/Close
+```
+
+当前 `packages/harness-engine` 已有 `core`、`domain`、`gates`、`ports`、`adapters/json`、`cli` 和测试目录，但实现仍是领域骨架与本地 JSON/CLI 阶段。当前 CLI 只有 `validate` 与 `status`；`src/adapters/` 只有 JSON 存储，没有具体 Orca、GitHub 或 host adapter。Epic 5 在 `sprint-status.yaml` 中仍为 `backlog`，不能用代码目录、测试文件或 BMad 状态冒充外部验收完成。
 
 ### 1.2 目标
 
-本设计的目标如下：
-
-1. 以单一 `WorkflowFacade` 隐藏跨阶段协调复杂度，同时保留事实层级和故障域。
-2. 将 mstar-harness 中稳定、机械、与具体后端无关的规则转为可测试的 TypeScript 领域能力。
-3. 通过 Orca、GitHub 和 Agent host adapter 接入外部事实，不把外部事实复制成第二权威。
-4. 使所有本地状态变更经过应用层和条件 `ArtifactStore`，禁止 CLI 或 adapter 绕过授权直接写入。
-5. 让每个结论都能区分 `pass`、`fail`、`blocked`、`unknown` 和 `not-available`，并保留来源、时间、作用域与恢复动作。
-6. 以六个硬门决定外部验收是否达到 `Verified` 或 `merge-ready`，不以 BMad 状态、worker 退出码或 fake adapter 结果代替真实证据。
-7. 保留现有 `control-plane` 对配置、客户端装配和安全启动的所有权，确保 OMP/Claude 既有行为不因接入 Harness 改变。
+1. 以 `WorkflowFacade` 隐藏多阶段协调复杂度，同时保留阶段事实、证据和故障域。
+2. 将 mstar 的稳定机械规则转换为本仓可重算的 domain/gates 合同。
+3. 将依赖 Orca、GitHub、Windows、本地文件系统、权限和具体 Agent host 的部分改造为 typed adapter 合同。
+4. 建立明确的 canonical persistence schema、条件写入、并发恢复和幂等证据追加方向。
+5. 保证 control-plane 的配置事实与 harness-engine 的工程交付事实不重叠、不互相写入内部数据库。
+6. 用可执行的阶段 inputs/outputs/gates 和六个硬门决定 `Verified`/`merge-ready`。
+7. 保持所有不可证明事实为 `Unknown`、`Blocked` 或 `not-available`，不以退出码、文件存在或 BMad 状态提升证据等级。
 
 ### 1.3 非目标
 
-本设计不做以下事情：
-
-- 不把 mstar 的 `.mstar` 目录、默认路径或状态树设为本仓事实源。
-- 不直接 vendor mstar engine，也不做源代码逐文件复制。
-- 不复制 Orca 的 Run/Task/Dispatch 实时队列，不复制 GitHub 全量正文。
-- 不让 `harness-engine` 拥有 `StableConfigRevision`、`AssemblyManifest`、客户端配置物化、凭据、transcript 或 Session 内容。
+- 不直接 vendor mstar engine，不进行源代码逐文件迁移。
+- 不把 `.mstar` 目录、mstar 默认路径或其状态树设为本仓事实源。
+- 不复制 Orca 实时队列、GitHub 全量正文或 Agent host 的 prompt/transcript/credentials/tool payload。
+- 不把 `harness-engine` 并入 `control-plane`，不共享 control-plane 内部 domain 或 SQLite repository。
+- 不一次性激活所有 Agent host，不统一不同 host 的 prompt、hook、Session、权限或配置语义。
 - 不建设 daemon、常驻轮询、Webhook 调度、自动重派或自动唤醒。
-- 不一次性激活所有 Agent host，不把 host 的 prompt、hook、Session 或配置语义统一成公共语义。
-- 不把需求价值、产品方向、授权扩大、residual 接受、业务正确性、最佳模型或最佳宿主代码化。
-- 不把 BMad、mstar、Plugin 或具体方法包升级为 Agent System 的产品本体或成功指标。
-- 不将 dsh/OpenCode UI panel 作为首轮引擎核心。
+- 不把需求价值、产品方向、授权扩大、residual 接受、业务正确性或最佳模型/宿主代码化。
+- 不把 BMad、mstar、Plugin 或具体方法包定义为 agent-system 的产品本体或成功指标。
+- 不将 dsh/OpenCode UI panel、完整 knowledge/compound 生命周期作为首轮引擎核心。
 
-## 2. 能力等价定义
+## 2. “不是搬运，是本仓化重实现”的决策原则
 
-### 2.1 等价的判定对象
+### 2.1 三段映射原则
 
-每项 mstar 能力按以下五个维度判断：
+每个 mstar 能力必须形成以下三列映射，缺少任一列就不能进入实现：
 
-- **输入等价**：对相同的工作流、计划、任务身份和环境事实，接受同类输入，并拒绝同类非法输入。
-- **状态等价**：关键阶段和转换具有同等的单调性、唯一性和阻断条件。
-- **结果等价**：通过、失败、阻断、未知和不可用不会被压成同一种结果。
-- **证据等价**：结论关联到同等强度的来源、时间、版本、作用域和恢复信息。
-- **安全边界等价**：不因适配本仓而放松 ownership、隐私、expected revision/head、lease 或 fail-closed 要求。
+| mstar semantics | agent-systemX contract | implementation / adapter / evidence |
+| --- | --- | --- |
+| 上游解决的工程问题、状态、约束或失败语义 | 本仓保留什么、改变什么、拒绝什么，以及结果状态和证据要求 | 本仓模块、typed port、schema、fixture、smoke 和回滚证据 |
 
-以下情况不算能力等价：只复刻命令名称、只生成相似目录、只通过静态 fixture、只返回进程退出码、只把 BMad Story 标为 `done`，或把 fake adapter 的结果写成真实后端支持。
+映射遵循四条规则：
 
-### 2.2 等价等级
+1. 保留的是可验证的行为语义，不保留上游偶然的目录名、默认值、宿主假设或实现语言细节。
+2. 依赖外部事实的语义必须落在 adapter；domain 只消费稳定 DTO、事实来源和 `Unknown`。
+3. 与本仓 SSOT、权限、隐私、Windows 或 Orca/GitHub ownership 冲突的上游假设必须明确改写或拒绝。
+4. 只有在实现、受控集成和真实证据层次均有落点时，才允许将该能力标为 active。
 
-- **机械等价**：纯函数、schema、状态机、路径规则、条件写入和 gate 结果可在无外部后端时重算。
-- **受控集成等价**：注入的 Orca/GitHub/Host port 能表达成功、失败、失联、重复、身份不一致和不可观察边界。
-- **真实后端等价**：当前版本、当前权限和当前自然存在对象上的 Orca/GitHub/Host smoke 可回读，且没有把不可用写成通过。
-- **运营等价**：发布、doctor、迁移、质量、知识和观察能力在本仓有明确归属、证据和回滚；没有因存在上游功能就自动承诺迁移。
+### 2.2 迁移矩阵
 
-## 3. 范围矩阵
+| 能力族 | 保留语义 | 改变语义 | 不可保留语义 | 验收证据 |
+| --- | --- | --- | --- | --- |
+| `core` / `status` | 封闭结果、severity、Unknown、fail-loud | 结果字段绑定本仓 `operationId`、来源和时间 | 用空值、空数组或退出码表达 Unknown | domain/contract fixtures；序列化两次结果一致 |
+| `workflow` / `plan` | 生命周期、branch anchors、依赖和完成门 | 统一为本仓 `WorkflowSnapshot` canonical schema | 依赖 mstar 文件名或隐式全局状态 | 状态转换负例、schema validator、revision CAS |
+| `lease` | execution/integration lease、stale 保护、fencing 语义 | 通过本仓 ArtifactStore 和本机进程证据实现 | 无证明强抢、用进程内 mutex 代替跨进程事实 | 并发 fixture、stale/second-writer 负例、恢复证据 |
+| `dispatch` | Assignment 完整性、branch/worktree 对齐、anti-recursion | 接入本仓 Orca identity 和 host capability | 直接按 mstar 默认 branch 或角色名推断权限 | dispatch gate tests、Orca identity fixture、real readback |
+| `worktree` | 可写路径和分支对齐、孤儿/冲突可见 | 适配 Windows 路径、盘符、空格、长路径和 junction 规则 | 假设 POSIX 路径、固定 `.mstar` 根或静默规范化越权路径 | Windows-safe path fixtures、真实 worktree readback、拒绝越界 |
+| `sdd` / `mstar-review-qc` | BASE SHA、review package、QC seat、residual closure | 使用本仓 `planId`、review range、diff basis 和 reviewer identity | `worker_done` 直接等于 Done；未绑定 diff 的泛化审查 | review package validator、QC/QA negative cases、independent review |
+| `iteration` / `prreview` | 阶段门、push cadence、tally/score/verdict 可重算 | GitHub 状态通过 DeliveryAdapter 获取，权限语义留给 GitHub | 复制 GitHub Project 为授权源或自造 merge 权限 | head/check/review fixtures、head drift 失效、真实回读 |
+| `path` / `conventions` / `artifacts` | 产物生命周期、可定位和可迁移 | 使用 repo-local、可配置 control-root 和 Windows-safe 路径 | 强制 `.mstar` 目录和上游默认布局 | path escape fixtures、迁移幂等、恢复/回滚证据 |
+| `Orca` | Run/Task/Dispatch/Worker/Delivery 身份关联和回执 | 只读稳定对象和 allowlist 观察，按本仓 correlation fields 关联 | 复制实时队列、自动重派、自动唤醒 | controlled fixtures + 当前对象 real smoke + 回读 |
+| `GitHub` | Issue/PR/check/review/merge 交付事实、当前 head 约束 | 只保存引用和校验结果；写操作按 expected head 授权 | 复制全量正文、把 Project 当授权或 SSOT | head/check/review readback、expected-head 写后回读 |
+| `host` | 宿主 capability、启动/完成/不可观察状态 | 以 `HostAdapter` 按 host/version/evidence 独立激活 | 一次性激活全部 host、跨 host 配置/Session 等价 | contract→fixture→probe→real smoke→active |
+| `roles` / `lint` / `audit` / `plugin validate` | 机械质量、secret/supply-chain 和角色一致性检查 | 与现有 Plugin registry/conformance 合并 | 复制 Skill 正文、把价值/审美/模型判断代码化 | typed findings、secret non-disclosure、独立复核 |
+| `migrate` / `init/doctor` / release | 初始化、迁移、安装和发布可验证性 | 只处理本仓 repo-local 产物和发布链 | 修改用户全局配置、把安装成功当 capability verified | 幂等迁移、doctor negative cases、release smoke |
+| `compound` / knowledge / UI | 作为后续维护和观察参考 | 只有真实使用价值成立才接入 | 观察面成为事实后端、复制私域/Session 内容 | 独立价值裁决、scope/overlap 检查、观察证据 |
 
-| mstar 能力 | 处理方式 | 首轮范围 | 本仓落点与边界 |
-| --- | --- | --- | --- |
-| `core`：Result、Evidence、Unknown、severity、enforcement | 直接迁移语义 | P0 | `src/core`；保持 `Known`/`Unknown` 和封闭 GateResult，不携带私密内容 |
-| `workflow`：snapshot、生命周期、branch anchors | 直接迁移并本地化 | P0 | `src/domain/workflow`；增加 Orca/GitHub 引用，不复制其状态 |
-| `lease`：execution/integration lease、条件写锁、steal 规则 | 直接迁移状态机，后端证明经 adapter | P0 | `src/domain/lease`；无法证明 stale 时 `blocked`，不强抢 |
-| `dispatch`：Assignment、branch gate、QC seat、anti-recursion | 直接迁移机械规则 | P0 | `src/gates/dispatch`；Orca 身份由 `CoordinationAdapter` 提供 |
-| `worktree`：路径、分支、plan 对齐 | 直接迁移规则，路径语义本地化 | P0 | `src/gates/worktree`；不照搬 `.mstar` 默认路径 |
-| `sdd`：task brief、BASE SHA、review package | 直接迁移规则，证据改用本仓 delivery | P0 | `src/gates/sdd`、`src/domain/review` |
-| `path`、`status`、`conventions`、`artifacts` | 迁移行为并改为 repo-local | P0 | 版本化 `ArtifactStore`；不得成为新的远端事实源 |
-| `mstar-review-qc`、`qa` | 直接迁移机械门，判断留在负责人/Agent | P0 | gate/application；必须绑定 `planId`、review range、diff basis |
-| `iteration`、`prreview` | 直接迁移可重算部分 | P1 | Phase 2/3/4、tally、score、verdict；不重造 GitHub 权限语义 |
-| `Orca`：Run/Task/Dispatch/Worker/Delivery | adapter 改造 | P0 | `CoordinationAdapter` 与 `adapters/orca`；只读稳定身份和回执，不复制实时队列 |
-| `GitHub`：Issue/PR/checks/reviews/merge | adapter 改造 | P0 | `DeliveryAdapter` 与 `adapters/github`；当前 head 绑定，写后回读 |
-| `host`、OMP、Claude、Codex、OpenCode | adapter 改造 | P0/P1 | `HostAdapter`；OMP/Claude 经 `control-plane facade`，Codex/OpenCode 先保持 `unsupported | unknown` |
-| `roles`、`lint`、`audit`、`skill-authoring`、`agent-plugins` | 选择性迁移机械检查 | P1 | 与现有 Plugin registry/conformance 合并，不复制 Skill 正文 |
-| `migrate`、`init/doctor`、release checks | 本仓适配 | P1 | 只处理 repo-local 产物、安装检查和发布验证，不默认改用户配置 |
-| `project`、`compound`、`mstar-compound-refresh` | 选择性迁移 | P1/P2 | 仅在真实使用价值明确后接入，Project 仍为观察面 |
-| `design-md`、UI panel | 仅作参考 | P2 | 不进入首轮引擎核心；观察层不能成为事实后端 |
-| mstar prompt/Skill 原文、默认宿主生态 | 仅作设计参考或禁止 | 不迁移 | 由现有 Plugins、BMad 和各 host reference 按本仓合同管理 |
-| `.mstar` 状态树、全量宿主一次性激活、自动重派、daemon | 禁止 | 不迁移 | 与当前 SSOT、后端所有权和安全边界冲突 |
+## 3. 必须改写的 mstar 假设
 
-## 4. control-plane、harness-engine 与 SSOT
+### 3.1 `.mstar` 路径与状态源
 
-### 4.1 control-plane 所有权
+mstar 的路径约定只能作为语义来源，不能成为本仓路径合同。本仓使用 repo-local、可配置的 control-root 与版本化 JSON `ArtifactStore`。路径解析必须接受 Windows 盘符、反斜杠、空格、非 ASCII、长路径和 junction/symlink 边界；路径越界或根外引用必须 fail closed 或明确 `Unknown`。
 
-`packages/control-plane` 继续唯一拥有：
+Workflow/Plan/Gate/Lease/Residual 的唯一本地事实是 `ArtifactStore` 中的 canonical persisted aggregate。JSON/Markdown projection、命令输出、TUI、ownership 文档和 evidence bundle 都是派生或审计载体，不得成为可写第二权威。Orca 和 GitHub 的事实仍分别属于它们自己。
 
-- `StableConfigRevision`、`CapabilityReference`；
-- `AssemblyManifest`、`AdapterPlan`；
-- OMP/Claude Code 的启动、配置应用和内容物化；
-- 客户端 capability probe；
-- invocation isolation、secret/privacy allowlist；
-- OMP/Claude 客户端装配的产品事实。
+### 3.2 宿主假设
 
-Harness 不导入 control-plane 内部 domain、SQLite repository 或实现细节。需要读取配置或请求宿主能力时，只使用公开、版本化的 `ControlPlaneFacade` DTO。
-
-### 4.2 harness-engine 所有权
-
-`packages/harness-engine` 只拥有工程交付生命周期：
-
-- `Workflow`、`Plan`、`Assignment`；
-- Task/Dispatch identity 的本地关联；
-- execution/integration lease；
-- branch/worktree alignment；
-- SDD review package；
-- QC/QA 与 iteration gate；
-- PR review arithmetic；
-- residual 生命周期；
-- 本地 artifact 的 schema、revision、证据索引和投影。
-
-### 4.3 外部事实源
-
-- **Orca** 是 Run、Task、Dispatch、Worker、Delivery 的事实后端。Harness 只读取、关联和解释，不能复制实时队列或自行重派。
-- **GitHub** 是 Issue、PR、checks、reviews、merge state 的事实后端。Harness 只保存 allowlist 引用和校验结果，不能复制全量正文。
-- **Agent host** 拥有 prompt、transcript、credentials、tool payload 和原生 Session 内容；这些字段不能越过 adapter 进入 engine artifact。
-
-### 4.4 ArtifactStore 与 WorkflowFacade
-
-首轮本地事实由版本化 JSON `ArtifactStore` 保存。它是 Workflow/Plan/Gate/Lease/Residual 的 SSOT，不是 Orca/GitHub 的替代品。
-
-`WorkflowFacade` 是外部调用的唯一组合入口。它至少提供以下语义操作，而不要求调用者自行拼接内部 gate：
-
-- 创建或读取 workflow snapshot；
-- 登记 Plan、Task、Assignment；
-- 准备并校验执行；
-- 协调 lease、worktree、dispatch、review、QC/QA 和 PR 交付；
-- 追加 completion、failure、residual 和 delivery evidence；
-- 查询当前状态并返回恢复动作。
-
-Facade 内部可调用现有 `src/domain`、`src/gates` 和 typed ports，但不得把 `pass` 视为真实后端成功，也不得以一个总状态覆盖各阶段事实。
-
-## 5. 分阶段数据流
-
-### 5.1 总体数据流
+mstar 的宿主生态不直接搬入。每个 host 必须独立拥有 `HostAdapter`、host identity、版本、能力探测、输入/启动/完成/清理语义和 evidence scope。激活顺序固定为：
 
 ```text
-WorkflowFacade command
-  → load local ArtifactStore snapshot
-  → validate identity / assignment / branch / worktree
-  → claim execution or integration lease
-  → run deterministic local gates
-  → call Orca/GitHub/Host adapters for scoped evidence
-  → reconcile identity, version, head, hashes and event ordering
-  → append conditional local revision/evidence
-  → render status, recovery and remaining Unknown
+contract → fixture → capability probe → real smoke → active
 ```
 
-`WorkflowFacade` 可返回一个统一的阶段结果，但必须保留各阶段的事实和证据引用，不能把 adapter 的 `configured`、`accepted` 或进程退出码提升为 `Done`。
+首轮只接入 OMP/Claude 的 control-plane facade；Codex/OpenCode 没有真实证据时保持 `unsupported | unknown`；Cursor/Kimi/ZCode 只保留扩展点。
 
-### 5.2 阶段切分
+### 3.3 Orca/GitHub ownership
 
-#### Stage 0：设计审批与基线冻结
+Orca 继续是 Run、Task、Dispatch、Worker、Delivery 的实时后端；GitHub 继续是 Issue、PR、checks、reviews、merge state 的远端后端。Harness 只能通过 `CoordinationAdapter`/`DeliveryAdapter` 读取、关联、解释和追加受控证据，不能建立第三套实时服务，也不能把外部全量内容复制进本地 SSOT。
 
-冻结本规格、`SPEC-harness-engine`、`architecture-harness-engine`、ownership、failure ledger、golden fixtures、当前 head 和验证分层。未明确 owner、SSOT、恢复动作和停止条件时，不进入真实接线。
+任何 GitHub 写操作必须有明确授权、`expectedHead`、写前读取、写后回读和幂等 operation；未能证明当前 head 或权限时不得写入。Orca 不提供自动重派或自动唤醒语义，Harness 不得自行补上。
 
-#### Stage 1：Facade 与受控本地写入
+### 3.4 Windows 假设
 
-把 CLI 的直接 `JsonArtifactStore` 构造、synthetic defaults、synthetic host capability 和 synthetic lease 路径收敛到 `WorkflowFacade`。所有写入携带 actor、operation、expected revision 和输入摘要；原始 writer 不对外暴露。
+mstar 中可行的 POSIX 路径、进程、锁和 shell 习惯不得直接作为本仓合同。Windows 适配必须显式处理：
 
-#### Stage 2：P0 机械门禁
+- drive letter、UNC、反斜杠和大小写比较；
+- 空格、非 ASCII 和长路径；
+- junction/symlink 根外指向；
+- 原子临时文件替换、文件锁和锁恢复；
+- 进程存活、退出、权限错误和文件占用；
+- 不经 shell 的 argv、cwd、env、stdio 和取消传播。
 
-闭合 `core/path/status/workflow/assignment/lease/dispatch/worktree/sdd/QC/QA`。每个门提供稳定 violation code、Unknown 原因、恢复动作和确定性负例。Plan 只有在任务回收、BASE..HEAD review package、QC/QA、residual closure、delivery evidence 和 lease 释放均成立时才能进入 Done。
+无法证明路径、锁或进程状态时返回 `Unknown`/`Blocked`，不能以 POSIX 经验推断成功。
 
-#### Stage 3：受控适配器
+### 3.5 权限假设
 
-实现 Orca、GitHub 和 Host 的 typed ports 及注入式 fixture。每个 adapter 只返回 allowlist DTO、来源、版本、观察时间和 Unknown；不传播 prompt、transcript、credentials、tool payload 或未脱敏 stderr。
+mstar 的角色、默认 branch、宿主权限和本地执行权限不自动转化为本仓授权。权限来源必须是当前合同、当前 actor、当前 host capability、当前 GitHub/Orca 返回和可回读 evidence。`ownership.json` 或文档声明只是审计记录，不是 runtime lock；runtime lock 由应用层 lease 和 expected revision/head 强制。
 
-#### Stage 4：真实后端回读
+### 3.6 JSON ArtifactStore 假设
 
-使用自然存在的 Orca/GitHub 对象执行默认只读或有界回读 smoke。验证当前版本、权限、网络、身份关联、跨 Run、重复、失联、accepted-but-not-executed、head 漂移和写后回读。不可用时记录 `not-available`，不创建额外任务、PR、worktree 或 lease 来制造样本。
+JSON 是首轮持久化实现，不等于“任意 JSON 文件都可写”。canonical 方向固定为：
 
-#### Stage 5：control-plane facade 与宿主接入
+```text
+typed domain command
+  → application authorization
+  → canonical persisted aggregate
+  → versioned JSON serialization
+  → allowlist projection / query view
+```
 
-通过公开 facade 接入 OMP/Claude，检查既有配置装配和安全启动无回归。Host 状态严格按 `contract → fixture → capability probe → real smoke → active` 推进；Codex/OpenCode 在真实证据不足时保持 `unsupported | unknown`。
+不得反过来从人类 CLI 输出、Markdown 或可编辑 projection 推导权威状态。每次写入必须携带 `expectedRevision`；写入由同一聚合范围内的临时文件原子替换完成；跨进程冲突返回类型化冲突而非覆盖。只有在真实多 writer、查询或恢复压力出现并完成新决策后，才可增加 SQLite adapter；不能因为 control-plane 使用 SQLite 就共享数据库。
 
-#### Stage 6：P1/P2 资产
+## 4. Facade、边界与 canonical persistence schema
 
-在 P0 真实闭环稳定后，再按价值接入 iteration、PR review、project、migrate、quality、audit、roles、plugin、doctor、release、compound、knowledge 和 observation。每项能力独立拥有 contract、测试、证据和回滚，不因映射表中存在就自动进入实现。
+### 4.1 `WorkflowFacade` 的 typed commands
 
-#### Stage 7：独立验收
+`WorkflowFacade` 是外部调用边界，不是无界的“协调一切”函数。公开操作使用 typed command，且每个 command 绑定 actor、operation、目标、输入摘要和条件版本：
 
-由 fresh reviewer 在当前 head 上生成 review package，绑定实现者、审查者、`base..head`、source hash、evidence manifest 和六硬门。只有六门全部 `pass`，并且 Orca/GitHub real smoke 均 `pass`，才能形成 `Verified`/`merge-ready`。
+- `createWorkflow(CreateWorkflowCommand)`
+- `readWorkflow(ReadWorkflowQuery)`
+- `registerPlan(RegisterPlanCommand)`
+- `registerAssignment(RegisterAssignmentCommand)`
+- `prepareExecution(PrepareExecutionCommand)`
+- `claimExecutionLease(ClaimExecutionLeaseCommand)`
+- `dispatch(DispatchCommand)`
+- `reconcile(ReconcileCommand)`
+- `appendCompletionEvidence(AppendCompletionEvidenceCommand)`
+- `closePlan(ClosePlanCommand)`
+- `queryStatus(StatusQuery)`
 
-## 6. 错误、Unknown、隐私与 ownership 约束
+每个 command 的返回值必须包含 `operationId`、`stage`、`result`、`evidenceRefs`、`failureRefs`、`unknownFacts` 和 `recoveryActions`。调用者不能把 `result=pass` 当作真实后端成功；真实后端能力必须在对应 adapter evidence 中单独表达。
 
-### 6.1 错误与 Unknown
+### 4.2 Facade 内部 seam
 
-所有跨边界结论使用封闭结果：`pass | fail | blocked | unknown`。外部依赖尚未可用时可额外记录 `not-available`，但它永远不是 `pass`。
+Facade 内部按以下顺序调用 domain、gates 和 ports：
 
-Unknown 必须包含原因码、观察时间、证据范围和恢复动作。禁止用 `false`、空数组、缺字段、进程退出码零或文件存在表示未知或成功。
+```text
+command
+  → identity/authorization validation
+  → read canonical aggregate
+  → deterministic local gates
+  → claim lease if side effect is allowed
+  → call scoped adapter
+  → reconcile correlation/head/hash/order
+  → conditional append to ArtifactStore
+  → return phase result and remaining Unknown
+```
 
-以下情况必须 fail closed 或保持阻断：
+CLI 是组合根；Facade 是应用用例边界；domain 不导入 Bun、SQLite、文件系统、Orca、GitHub 或 control-plane 内部实现；adapter 不拥有产品状态或自行选择终态。
 
-- 必需 Assignment、branch、worktree、lease、BASE SHA、review package 或证据缺失；
-- plan、workflow、lease、head、review range 或 adapter identity 不一致；
-- Orca/GitHub/Host 无法读取或返回未识别形状；
-- 无法证明 stale lease 已失效；
-- real smoke 缺失却试图宣布 active 或 Verified；
-- 当前 head 变化后继续使用旧 review package 或 merge-ready 结论。
+### 4.3 Canonical persisted schema 方向
 
-### 6.2 隐私与内容所有权
+本仓的 canonical persisted aggregate 至少需要能表达以下结构化对象，不得只依赖 `PlanRow.metadata`：
 
-engine artifact 只保存类型化引用、稳定 ID、来源、版本、摘要、hash、状态和 evidence reference。prompt、transcript、动态任务正文、凭据、工具参数/结果、私域原文和未脱敏 stderr 不得进入 ArtifactStore、日志、projection、receipt 或 facade DTO。
+| 对象 | 必要关联与事实 |
+| --- | --- |
+| `WorkflowSnapshot` | `schemaVersion`、`revision`、`workflowId`、`updatedAt`、plan references、workflow-level evidence index |
+| `Plan` | `planId`、`workflowId`、status、branch/worktree、base/head、dependencies、plan revision |
+| `Task` / `Assignment` | task identity、`executeAs`、delegation、task category、host identity、owned paths、branch form |
+| `Lease` | lease kind、resource key、holder、owner operation、fencing token、claimed/released evidence |
+| `GateResult` | gate name、state、violation codes、recovery actions、evidence refs、observedAt |
+| `EvidenceRef` | source、locator、observedAt、scope、content/hash reference；不含原文秘密 |
+| `ReviewPackage` | plan/task、reviewer identity、concrete `base..head`、diff basis、findings、resolution evidence |
+| `Residual` | residual ID、owner、decision、target、status、closure evidence |
+| `Operation` | operation ID、command kind、target resource key、idempotency key、stage、terminal outcome |
 
-`control-plane` 的 invocation-local 内容只由 control-plane 和客户端 adapter 在调用作用域内处理。Harness 不读取或持久化客户端 Session 内容，不把配置装配内容复制成自己的资产库。
+JSON 文件可以把这些对象序列化为一个按 `workflowId` 分区的 aggregate，或按明确的 append-only 子记录存储；两种形式都必须遵守同一 canonical schema、revision CAS、allowlist 和重建规则。projection 只能从 canonical aggregate 派生，不能回写成权威。
 
-### 6.3 Ownership 与写入
+### 4.4 Adapter correlation fields
 
-文档中的 ownership inventory 不是 runtime lock。runtime lock 由 application 层通过 execution/integration lease 强制。所有本地写入必须经过 `WorkflowFacade` 和带 expected revision 的 `ArtifactStore` 条件写入；所有 GitHub 写操作必须绑定 expected head 并在写后回读。
+所有 `CoordinationAdapter`、`DeliveryAdapter`、`HostAdapter` 的请求、响应和 evidence envelope 必须携带或可关联：
 
-同一对象只能有一个可写权威。Facade、adapter、projection、TUI 和 CLI 都不能绕过 owner 直接改写外部或本地事实。
+- `requestId`、`operationId`、`workflowId`、`planId`、`taskId`；
+- 外部对象 ID，如 `runId`、`dispatchId`、`workerId`、`deliveryId`、`issueRef`、`prRef`；
+- `source`、`sourceVersion`、`observedAt`、evidence locator/scope；
+- `baseSha`、`headSha`、`expectedHead`、`diffBasis`（适用时）；
+- `capabilityStatus`、`reasonCode`、`retryable`、`authorizationScope`；
+- `manifestHash`、`artifactManifestHash` 或等价输入摘要（适用时）。
 
-## 7. 测试设计与六硬门
+适配器不得返回未定义的动态字段、未脱敏 stderr、prompt、transcript、credentials、工具载荷或全量外部正文。重复、迟到、跨 Run、hash/head 不匹配和不可观察响应必须成为可关联的 `Unknown`/`Blocked`，不得更新错误的本地事实。
+
+## 5. 分阶段数据流、输入、输出与 gate
+
+| 阶段 | 输入 | 输出 | 必须通过的 gate | 停止条件 |
+| --- | --- | --- | --- | --- |
+| Stage 0 设计审批与基线 | 本规格、SPEC、architecture、当前 head、ownership、failure ledger | 批准记录、golden fixtures、owner 和 evidence manifest 起点 | 范围、SSOT、owner、回滚和证据分层明确 | 有未归属 WIP、冲突权威或当前失败未归因 |
+| Stage 1 Facade 与 guarded write | typed command、actor、input digest、canonical snapshot | authorization result、revision CAS、无 bypass 的 Facade path | 所有写入经 application；无 synthetic default；raw writer 不公开 | CLI 可直接构造 writer、缺 expected revision 或用默认值掩盖 Unknown |
+| Stage 2 P0 机械门 | canonical aggregate、本地 gate input、golden fixtures | GateResult、PlanCompletion、violation/recovery、revisioned artifact | Assignment、branch/worktree、lease、dispatch、SDD/QC/QA、Done 条件可重算 | 必要事实缺失仍返回 pass；重复 owner；Done 仍持 lease |
+| Stage 3 受控 adapter | versioned port contracts、sanitized fixtures、correlation fields | controlled evidence、adapter failure/Unknown、reconcile result | Orca/GitHub/Host 成功与负例均只证明 controlled integration | adapter 传播动态载荷、返回无法关联结果或自动执行未授权副作用 |
+| Stage 4 真实后端回读 | 自然存在 Orca/GitHub 对象、当前权限和网络 | current object readback、real-smoke evidence、not-available evidence | 当前身份、跨 Run、重复、失联、accepted-but-not-executed、head drift 可回读 | 创建额外对象制造样本；not-available 被算 pass |
+| Stage 5 control-plane facade 与 host | control-plane public DTO、OMP/Claude host context、版本 probe | host capability snapshot、真实/未知状态、回归证据 | OMP/Claude 既有行为无回归；host 按五步状态机激活 | 导入 control-plane 内部实现；没有 real smoke 却 active |
+| Stage 6 P1/P2 资产 | 已完成 P0、真实价值和前置 evidence | iteration/PR/project/migrate/quality/release/knowledge 等独立能力 | 每项拥有自己的 contract、测试、evidence、owner、rollback | 因上游存在就默认实现；观察面变成 SSOT |
+| Stage 7 独立验收 | 当前 head/range、fresh reviewer、六门证据包 | `ValidationDecision`、`Verified`/`merge-ready` 或非通过状态 | 六门全部 pass，Orca/GitHub real smoke pass | 任一门 fail/blocked/unknown/not-available，停止宣布通过 |
+
+### 5.1 依赖关系
+
+```text
+Stage 0
+  → Stage 1
+    → Stage 2
+      → Stage 3
+        → Stage 4
+Stage 1 + Stage 3
+  → Stage 5
+Stage 2 + Stage 3 + Stage 4 + Stage 5
+  → Stage 6
+Stage 0–6
+  → Stage 7
+```
+
+Stage 2 可使用本地和受控 fixture 闭合机械规则，但不能因此改变真实后端或 host 的状态。Stage 3 的 controlled evidence 不能替代 Stage 4。Stage 5 的 control-plane facade 是接缝，不是把 control-plane 状态复制到 Harness。Stage 6 的 P1/P2 能力必须逐项验收，不得用全量清单代替证据。
+
+## 6. 错误、Unknown、隐私与 ownership
+
+### 6.1 状态与错误
+
+跨边界结果采用封闭集合：`pass | fail | blocked | unknown`；外部条件不可得可记录 `not-available`，但它不是 `pass`。每个 `Unknown` 必须带 `reasonCode`、`observedAt`、scope/evidenceRef 和 recovery action。
+
+以下情况必须 fail closed 或保持阻断：必要字段/lease/review package/head/evidence 缺失；plan、task、identity、hash 或 revision 不一致；无法证明 stale lease 已失效；外部响应形状未知；真实 smoke 缺失却要宣布 active/Verified；迟到或重复 evidence 试图覆盖既有事实。
+
+### 6.2 隐私
+
+ArtifactStore、projection、日志、receipt、adapter envelope 和诊断只允许保存稳定 ID、类型化引用、来源、版本、摘要、hash、状态和 evidence reference。不得保存 prompt、transcript、credentials、动态任务正文、工具参数/结果、私域原文或未脱敏 stderr。control-plane 的 invocation-local 内容和客户端 Session 仍由 control-plane/host 拥有。
+
+### 6.3 Ownership 与并发
+
+`ownership` 记录用于审计，不替代 runtime lock。应用层必须使用 execution/integration lease、holder、fencing token、target resource key 和 expected revision/head。ArtifactStore 的写入必须是条件写入；同一资源的第二 writer 在无法证明前一 writer 已失效时返回 `blocked`，不得强抢。
+
+同一 command 的重复提交必须由 `operationId + idempotencyKey` 得到相同可回读结果或明确冲突；迟到、重复、冲突或 hash 不匹配的 evidence 只能追加为 uncorrelated `Unknown`，不得反写历史事实。
+
+## 7. 测试与六个硬门验收
 
 ### 7.1 测试层级
 
-1. **机械单元与合同测试**：覆盖 Result、Unknown、schema、状态转换、Assignment、branch/worktree、lease、SDD、QC/QA、iteration、PR arithmetic 和 ArtifactStore 条件写入。
-2. **golden fixture 测试**：每类 gate 至少包含正常、缺失、冲突、重复、失联、过期、不可观察和恢复样本；序列化输出可重复。
-3. **受控集成测试**：注入 Orca/GitHub/Host port，覆盖身份关联、accepted-but-not-executed、跨 Run、重复 delivery、head drift、权限未知和 adapter 错误。
-4. **真实后端/宿主 smoke**：使用当前自然存在对象，记录版本、权限、网络、时间、作用域和读后证据；不可用时写 `not-available`，不伪造通过。
-5. **回归测试**：Harness 接入后，`control-plane` 的配置修订、OMP/Claude 装配、安全启动、内容物化和隐私 allowlist 行为不得改变。
+- 机械单元与 schema/contract tests：验证 domain/gates、canonical schema、revision CAS、Unknown 和禁止字段。
+- golden fixtures：每个 gate 覆盖正常、缺失、冲突、重复、失联、过期、不可观察和恢复样本；序列化两次结果一致。
+- controlled integration：注入 Orca/GitHub/Host ports，验证 correlation、identity、head、权限、失败和幂等边界。
+- real backend/host smoke：只使用自然存在对象，记录当前版本、权限、网络、作用域、时间和回读结果；不可用写 `not-available`。
+- control-plane regression：验证配置修订、OMP/Claude 装配、启动、物化、隐私 allowlist 无回归。
 
-### 7.2 六个外部硬门
+### 7.2 六硬门记录字段
 
-每个硬门必须有当前 `head`、`sourceHash`、typed `evidenceRefs` 和 `failureRefs`。六门名称固定为：
+每个 `HardGateResult` 必须是结构化记录，至少包含：
 
-1. **`code-tests`**：代码路径、类型/schema、单元/合同/受控测试和 golden fixtures 完成；不存在未归因的当前失败。
-2. **`failure-ledger`**：所有当前失败有唯一 owner、rerun command、rerun result 或 closure evidence；零失败使用明确的空失败结构；旧快照不能替代当前记录。
-3. **`ownership`**：当前 branch、worktree、owned paths、实现者、未跟踪项和冲突路径可回读；不存在重叠写入或未归属 WIP。
-4. **`independent-review`**：审查者与实现者身份不同，review package 绑定实际 `base..head`；未解决 major finding 阻断，minor/info 必须有解决或明确接受理由。
-5. **`controlled-integration`**：注入式 Orca/GitHub/Host adapter 的合同和负例通过；明确 controlled 结果不能冒充真实后端支持。
-6. **`real-smoke`**：当前 Orca 与 GitHub real smoke，以及已声明 host 的真实 probe/smoke 证据可回读；`not-available`、fake、fixture、退出码零和静态文档都不算通过。
+```text
+name: code-tests | failure-ledger | ownership | independent-review
+      | controlled-integration | real-smoke
+state: pass | fail | blocked | unknown | not-available
+currentHead
+sourceHash
+artifactManifestHash
+evidenceRefs
+failureRefs
+owner
+observedAt
+command
+scope
+dependsOn
+```
 
-`ValidationDecision` 只有在六门全部 `state=pass`，且 Orca 与 GitHub real smoke 均为 `pass` 时才能是 `Verified`。任一门为 `fail`、`blocked`、`unknown` 或 `not-available`，结果只能是 `Partial`、`Draft`、`Blocked` 或 `Unknown`。
+`evidenceRefs` 和 `failureRefs` 必须是可回读的 typed references，不能只存人类字符串。每门的 `currentHead`、`sourceHash` 和 scope 必须与同一验收 bundle 一致。
+
+六门为：
+
+1. **`code-tests`**：代码路径、类型/schema、单元、合同和 golden fixtures 完成，没有未归因当前失败。
+2. **`failure-ledger`**：每个当前失败有 owner、rerun command、rerun result 或 closure evidence；零失败使用明确空失败结构。
+3. **`ownership`**：当前 branch、worktree、owned paths、实现者、未跟踪项和冲突项可回读，无重叠 writer。
+4. **`independent-review`**：审查者不同于实现者，review package 绑定实际 `base..head`；未解决 major finding 阻断。
+5. **`controlled-integration`**：注入式 Orca/GitHub/Host adapter 的成功和负例通过，且明确不提升为真实后端支持。
+6. **`real-smoke`**：当前 Orca、GitHub 和已声明 host 的真实 probe/smoke 可回读；`not-available`、fake、fixture、退出码零和静态文档均不算通过。
+
+只有六门全部 `pass`，且 Orca/GitHub real smoke 均 `pass`，才允许生成 `Verified`/`merge-ready`。任何一门为 `fail`、`blocked`、`unknown` 或 `not-available`，最终状态只能是 `Partial`、`Draft`、`Blocked` 或 `Unknown`。
 
 ## 8. 风险与回滚
 
 | 风险 | 触发信号 | 控制措施 | 回滚方式 |
 | --- | --- | --- | --- |
-| 范围膨胀 | mstar 资产逐项变成产品承诺 | 每项能力先过本仓价值、边界和 owner 审查 | 保留映射，撤销未激活的新增能力 |
-| 双重事实源 | `.mstar`、Orca/GitHub、ArtifactStore 同时可写 | 固定 SSOT 表和 facade/adapter 边界 | 删除本地投影，不回写外部事实 |
-| 证据压平 | fake、退出码或 BMad `done` 变成成功 | 封闭状态、evidenceRefs、六硬门 | 标记 non-Verified，追加 failure row |
-| adapter 语义泄漏 | Orca/GitHub/host 字段进入公共 domain | DTO allowlist 和独立端口 | 回滚 adapter，保留契约与 fixture |
-| 隐私泄漏 | artifact 或日志出现 prompt、凭据、transcript | schema allowlist、secret scan、内容不落盘 | 停止外部写入，删除本次 invocation-local 工件并保留脱敏证据 |
-| 并发覆盖 | stale revision/head、重复 lease、head 漂移 | expected revision/head、lease、幂等 reconcile | 只回滚引入回归的本地 source commit，不重写历史证据 |
-| 真实后端不可用 | Orca/GitHub/host 返回 `not-available` | 保持 `Unknown/Blocked`，不创建伪造样本 | 停止 acceptance，不把不可用项填入通过分母 |
-| control-plane 回归 | OMP/Claude 装配或启动行为变化 | facade 仅消费公开 DTO，运行回归 smoke | 移除 Harness 接线，保留 control-plane 原有路径 |
+| 上游语义误搬 | 出现 mstar 默认路径、状态或 host 假设 | 逐项执行三列映射并记录改变/拒绝语义 | 保留来源映射，撤销未激活本仓实现 |
+| Facade 上帝对象 | command 可任意协调全部阶段，返回一个大结果 | typed commands、operation scope、阶段结果和内部 typed ports | 回滚 facade 接线，不恢复旁路 writer |
+| 双重事实源 | `.mstar`、projection、Orca/GitHub、ArtifactStore 同时可写 | 固定 canonical schema 和 ownership 表 | 删除派生 projection，不回写外部事实 |
+| 并发覆盖 | stale revision/head、锁被误删、重复 operation | CAS、owner token、fencing、idempotency 和 reconcile | 只撤销引入回归的本地 source commit，保留 evidence |
+| adapter 语义泄漏 | 动态载荷或宿主字段进入公共 domain | versioned DTO、allowlist、correlation fields | 回滚具体 adapter，保留 contract/fixture |
+| Windows 不一致 | POSIX 路径或文件锁在 Windows 上误判 | Windows-safe fixtures、真实路径/锁 smoke、fail closed | 禁止该 host/路径激活，保留 Unknown/Blocked |
+| 验收造假 | fake、fixture、退出码或 BMad status 被算 real/Verified | 六硬门 typed records、当前 head/hash 和 real-smoke 分项 | 标记 non-Verified，追加 failure ledger |
+| 隐私泄漏 | artifact/log 中出现 prompt、凭据、transcript | schema allowlist、secret scan、调用期内容隔离 | 停止外部写入，清理调用期文件，保留脱敏 evidence |
+| control-plane 回归 | OMP/Claude 装配或启动事实变化 | 只走 public facade，保留 control-plane regression gate | 移除 Harness 接线，不改变 control-plane SSOT |
 
-回滚原则是保留 immutable evidence、failure ledger 和来源 artifact，只撤销引入行为回归的本地 source commit。不得强制 reset、删除他人 WIP、清理外部 Session、删除 Orca/GitHub 对象或恢复 synthetic defaults。
+回滚不得强制 reset、删除他人 WIP、删除 Orca/GitHub 对象、清理客户端 Session 或恢复 synthetic defaults。失败证据、failure ledger、来源 artifact 和已批准合同必须保留。
 
 ## 9. 未决但不阻塞项
 
-以下问题不阻塞本设计进入实现，但必须在对应阶段形成记录：
+1. JSON aggregate 的具体文件拆分、目录名和 projection 命名；canonical schema、revision CAS 和原子替换语义不变即可在实现阶段确定。
+2. GitHub 写操作的最小授权范围与具体 API 载荷；首轮可先完成只读回读，未授权写入保持 `Blocked`。
+3. Orca 可自然读取对象的具体集合和回执名称；不可读时记录 `not-available`，不改变 adapter 合同。
+4. OMP/Claude HostAdapter 的版本 pin、capability snapshot 和 smoke 命令；真实 probe 前不得写 `supported`。
+5. P1/P2 中 `project`、`compound`、`design-md`、UI observation、release/doctor 的排序；由真实使用价值和前置证据决定。
+6. 是否把 evidence index 进一步演进为完整 append-only event sourcing；当前 canonical aggregate + evidence references 已足够，不预先承诺完整事件重放。
+7. `SPEC-harness-engine` 与 `architecture-harness-engine` 的独立审批记录和 Epic 5 激活时点；本规格处于 `review`，不把设计状态写成实现或验收通过。
 
-1. 首轮 `ArtifactStore` 继续使用 JSON 的具体目录名和投影文件命名；只要 SSOT、schemaVersion、revision 和原子写入语义不变，可在实现阶段确定。
-2. GitHub 写操作的最小范围和具体 API 载荷；首轮可以先完成只读回读，再依据公开授权启用 expected-head 绑定写入。
-3. Orca 当前可自然读取的对象集合和具体事件回执形状；不可读取时使用 `not-available` 证据，不改变合同。
-4. OMP/Claude HostAdapter 的版本 pin、capability snapshot 和 smoke 命令；在真实环境探测前不得把文档声明写成 `supported`。
-5. `project`、`compound`、`design-md`、UI observation 和 release/doctor 的优先级；由真实使用价值和前置依赖决定，不影响 P0 gate。
-6. 是否在未来把 evidence ledger 增强为完整 append-only event sourcing；当前只要求可审查的证据引用和条件 ArtifactStore，不预先承诺完整事件重放架构。
-7. `SPEC-harness-engine` 和 `architecture-harness-engine` 当前仍是设计阶段产物；实现前需要完成独立能力域审批，但不需要为选择性吸收 mstar 重开 agent-system 主 PRD。只有当 Harness 改变主产品用户承诺、control-plane 所有权或既定非目标时，才重新打开主 PRD/架构决策。
+## 10. 规格自检
 
-## 10. 实施前自检结论
-
-- 未使用未完成占位符，所有要求均有明确处理方式或停止条件。
-- 迁移范围与 mstar adoption map 的四批顺序一致，并明确了直接迁移、adapter 改造、仅参考和禁止项。
-- `control-plane` 与 `harness-engine` 的所有权不重叠；Orca 和 GitHub 仍为外部事实后端。
-- 方案 A 的单一 Facade 只作为调用边界，不取消内部 typed ports、证据分层或故障域。
-- 未把当前代码目录、测试文件或 BMad `backlog/done` 状态写成验收通过。
-- `not-available`、fake、fixture、退出码零和静态文档均不能进入 `Verified` 结论。
-- 现有 Agent System PRD 的非目标没有被静默扩大；新增 Harness Engine 继续作为独立能力域推进。
+- frontmatter 已从 `approved-design` 调整为 `review`。
+- 已明确“mstar semantics → agent-systemX contract → implementation/adapter/evidence”三列映射。
+- 已逐项写出保留语义、改变语义、不可保留语义和验收证据。
+- 已明确 `.mstar`、宿主、Orca/GitHub ownership、Windows、权限和 JSON ArtifactStore 必须如何本仓化。
+- `WorkflowFacade` 已改为 typed commands，并规定 operation、授权、幂等和阶段结果边界。
+- 已补 canonical persistence schema 方向、adapter correlation fields、阶段 inputs/outputs/gates 和六硬门记录字段。
+- 未将 control-plane、harness-engine、Orca、GitHub 或 host 的 SSOT 混为一体。
+- 未将 fake、fixture、退出码、目录存在或 BMad 状态当作真实验收证据。
+- 未修改产品代码或 BMad 权威文件；本文件仅记录设计约束，书面规格批准前不授权实现。
