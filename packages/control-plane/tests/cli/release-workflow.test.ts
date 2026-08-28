@@ -4,9 +4,12 @@ import path from 'node:path';
 
 test('release workflow is registered, pinned, deterministic, and attested', async () => {
   const workflow = await readFile(path.resolve(import.meta.dir, '../../../../.github/workflows/release-configs.yml'), 'utf8');
+  const lockfile = await readFile(path.resolve(import.meta.dir, '../../../../bun.lock'), 'utf8');
   expect(workflow).toContain("pull_request:\n    branches:\n      - main");
   expect(workflow).toContain('workflow_dispatch:');
   expect(workflow).toContain('bun-version: 1.3.14');
+  expect(lockfile).toContain('"packages/control-plane"');
+  expect(workflow.match(/run: bun install --frozen-lockfile/g)).toHaveLength(2);
   const topLevel = workflow.slice(0, workflow.indexOf('jobs:'));
   expect(topLevel).toContain('permissions:\n  contents: read');
   expect(topLevel).not.toContain('contents: write');
@@ -14,7 +17,10 @@ test('release workflow is registered, pinned, deterministic, and attested', asyn
   expect(workflow).toContain("if: github.event_name == 'push'\n    permissions:\n      attestations: write\n      contents: write\n      id-token: write");
   expect(workflow).toContain('tag version $VERSION does not match package.json $PACKAGE_VERSION');
   expect(workflow).toContain('git merge-base --is-ancestor "$GITHUB_SHA" origin/main');
-  expect(workflow).toContain('actions/attest-build-provenance@v2');
+  expect(workflow).toContain('actions/attest-build-provenance@96b4a1ef7235a096b17240c259729fdd70c83d45');
+  expect(workflow).toContain('actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1');
+  expect(workflow).toContain('oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6');
+  expect(workflow).not.toMatch(/uses:\s+\S+@(?![0-9a-f]{40}\b)\S+/);
   expect(workflow).toContain('attestations: write');
   expect(workflow).toContain('id-token: write');
   expect(workflow).toContain('LC_ALL=C sha256sum configs-darwin-arm64 configs-darwin-x64 configs-linux-x64 configs-windows-x64.exe');
