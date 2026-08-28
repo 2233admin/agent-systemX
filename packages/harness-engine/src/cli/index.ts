@@ -8,6 +8,7 @@ import { JsonArtifactStore } from '../adapters/json/json-artifact-store.ts';
 import { createWorkflowFacade } from '../application/harness-application.ts';
 import type { WorkflowCommandResult } from '../application/commands.ts';
 import type { WorkflowSnapshot } from '../domain/workflow.ts';
+import { collectRealSmokeEvidence } from '../smoke/evidence.ts';
 
 export interface CliResult {
   readonly exitCode: 0 | 1 | 2;
@@ -160,8 +161,34 @@ async function statusWorkflow(filePath: string): Promise<CliResult> {
     if (temporaryRoot !== undefined) await rm(temporaryRoot, { recursive: true, force: true });
   }
 }
+async function smokeEvidence(args: readonly string[]): Promise<CliResult> {
+  if (args.length !== 9 || args[2] !== '--backend' || args[4] !== '--result' || args[6] !== '--missing' || args[7] === '') {
+    return { exitCode: 2, stdout: '', stderr: 'usage: harness smoke evidence --backend <orca|github> --result not-available --missing <names> --json\n' };
+  }
+  const backend = args[3];
+  const result = args[5];
+  if ((backend !== 'orca' && backend !== 'github') || result !== 'not-available' || args[8] !== '--json') {
+    return { exitCode: 2, stdout: '', stderr: 'usage: harness smoke evidence --backend <orca|github> --result not-available --missing <names> --json\n' };
+  }
+  const requiredEnv = (args[7] ?? '').split(',').filter((name) => name.length > 0);
+  const correlation = {
+    workflowId: 'unknown-workflow', planId: 'unknown-plan', operationId: `smoke-${backend}`, snapshotId: 'unknown-snapshot',
+    attemptId: 'preflight', source: `real-smoke.${backend}`, sourceVersion: '1', observedAt: new Date().toISOString(),
+  };
+  const evidence = await collectRealSmokeEvidence({
+    backend,
+    adapterVersion: 'stage4-readonly',
+    correlation,
+    requiredEnv,
+    environment: process.env,
+    read: async () => ({ objectRefs: [], permission: 'read-only', network: 'unknown', readbackRefs: [], result: 'not-available' }),
+  });
+  return { exitCode: 0, stdout: `${JSON.stringify(evidence)}\n`, stderr: '' };
+}
+
 
 export async function runCli(args: readonly string[]): Promise<CliResult> {
+  if (args[0] === 'smoke' && args[1] === 'evidence') return smokeEvidence(args);
   const command = args[0];
   const filePath = args[1];
   if (args.length !== 2
