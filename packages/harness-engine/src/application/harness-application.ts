@@ -1,0 +1,186 @@
+import { JsonArtifactStore } from '../adapters/json/json-artifact-store.ts';
+import type { EvidenceRef, RecoveryAction, Unknown, Violation } from '../core/result.ts';
+import { parseAssignmentBranchForms, parseAssignmentExecutionMode, parseAssignmentFields } from '../domain/assignment.ts';
+import type { WorkflowSnapshot } from '../domain/workflow.ts';
+import type { ArtifactStore, WorkflowWriteResult } from '../ports/artifacts.ts';
+import type {
+  AppendEvidenceCommand,
+  ClaimExecutionLeaseCommand,
+  CreateWorkflowCommand,
+  PrepareExecutionCommand,
+  RegisterAssignmentCommand,
+  RegisterPlanCommand,
+  ReleaseExecutionLeaseCommand,
+  TransitionPlanCommand,
+  WorkflowCommandResult,
+  WorkflowSnapshotResult,
+} from './commands.ts';
+import type { ReadWorkflowQuery, StatusQuery, StatusView, ValidateQuery, ValidationView } from './queries.ts';
+
+const EMPTY_EVIDENCE: readonly EvidenceRef[] = [];
+const EMPTY_UNKNOWN: readonly Unknown[] = [];
+
+function applied<T>(stage: string, operationId: string, value: T, revision: number): WorkflowCommandResult<T> {
+  return {
+    kind: 'applied',
+    value,
+    revision,
+    operationId,
+    stage,
+    evidenceRefs: EMPTY_EVIDENCE,
+    failureRefs: EMPTY_EVIDENCE,
+    unknownFacts: EMPTY_UNKNOWN,
+    violations: [],
+    recoveryActions: [],
+  };
+}
+
+function failed<T>(
+  stage: string,
+  operationId: string,
+  revision: number,
+  kind: 'rejected' | 'blocked' | 'unknown' | 'not-available',
+  violations: readonly Violation[],
+  recoveryActions: readonly RecoveryAction[],
+): WorkflowCommandResult<T> {
+  return {
+    kind,
+    revision,
+    operationId,
+    stage,
+    evidenceRefs: EMPTY_EVIDENCE,
+    failureRefs: EMPTY_EVIDENCE,
+    unknownFacts: EMPTY_UNKNOWN,
+    violations,
+    recoveryActions,
+  };
+}
+
+function fromWriteResult<T>(stage: string, result: WorkflowWriteResult): WorkflowCommandResult<T> {
+  if (result.kind === 'applied') return applied(stage, result.operationId, result.value as T, result.revision);
+  return failed(stage, result.operationId, result.revision, result.kind === 'conflict' ? 'blocked' : 'rejected', result.violations, result.recoveryActions);
+}
+
+function assignmentValidation(input: ValidateQuery): ValidationView {
+  const assignment = input.assignment.assignment ?? input.assignment.assignmentText;
+  const violations: Violation[] = [];
+  const fields = typeof assignment === 'string' ? parseAssignmentFields(assignment) : {};
+  const branchForms = typeof assignment === 'string' ? parseAssignmentBranchForms(assignment) : { forms: [] as const };
+  if (fields.executeAs === undefined) violations.push({ code: 'assignment.field.missing-execute-as' });
+  if (fields.delegation === undefined) violations.push({ code: 'assignment.field.missing-delegation' });
+  if (fields.taskCategory === undefined) violations.push({ code: 'assignment.field.missing-task-category' });
+  const executionMode = typeof assignment === 'string' ? parseAssignmentExecutionMode(assignment) : undefined;
+  if (executionMode !== 'sdd' && executionMode !== 'inline') violations.push({ code: 'assignment.execution-mode.unknown' });
+  const branchTargets = branchForms.forms.filter((form) => form.kind !== 'direct-on');
+  if (branchTargets.length === 0) violations.push({ code: 'branch.missing' });
+  if (branchTargets.length > 1) violations.push({ code: 'branch.multiple-forms' });
+  const branch = branchForms.workingBranch ?? branchForms.branchPolicy;
+  const protection = input.assignment.branchProtection;
+  const protectedBranches = typeof protection === 'object' && protection !== null && 'protectedBranches' in protection
+    && Array.isArray(protection.protectedBranches) ? protection.protectedBranches : ['main', 'master'];
+  const defaultBranch = typeof protection === 'object' && protection !== null && 'defaultBranch' in protection
+    && typeof protection.defaultBranch === 'string' ? protection.defaultBranch : 'main';
+  if (branch !== undefined && [...protectedBranches, defaultBranch].some((candidate) => candidate.toLowerCase() === branch.toLowerCase())
+    && branchForms.directOnReason === undefined) {
+    violations.push({ code: 'branch.protected-default' });
+  }
+  if (violations.length > 0) {
+    return failed('validate', input.operationId, input.expectedRevision, 'rejected', violations,
+      violations.map((violation) => ({ code: `recover.${violation.code}` })));
+  }
+  return applied('validate', input.operationId, { executeAs: fields.executeAs, delegation: fields.delegation, taskCategory: fields.taskCategory }, input.expectedRevision);
+}
+
+export class WorkflowFacade {
+  public constructor(private readonly store: ArtifactStore) {}
+
+  public async createWorkflow(input: CreateWorkflowCommand): Promise<WorkflowSnapshotResult> {
+    const snapshot: WorkflowSnapshot = {
+      schemaVersion: 1,
+      revision: 1,
+      workflowId: input.workflowId,
+      plans: [],
+      updatedAt: new Date().toISOString(),
+    };
+    return fromWriteResult('createWorkflow', await this.store.writeWorkflowConditional({
+      expectedRevision: input.expectedRevision,
+      next: snapshot,
+      operationId: input.operationId,
+      idempotencyKey: input.idempotencyKey,
+      inputDigest: input.inputDigest,
+    }));
+  }
+
+  public async readWorkflow(input: ReadWorkflowQuery): Promise<WorkflowSnapshotResult> {
+    const snapshot = await this.store.readWorkflow(input.workflowId);
+    if (snapshot === null) {
+      return failed('readWorkflow', input.operationId, input.expectedRevision, 'blocked', [{ code: 'workflow.missing' }], [{ code: 'workflow.create' }]);
+    }
+    if (snapshot.revision !== input.expectedRevision) {
+      return failed('readWorkflow', input.operationId, snapshot.revision, 'blocked', [{ code: 'artifact.revision.conflict' }], [{ code: 'artifact.revision.reread' }]);
+    }
+    return applied('readWorkflow', input.operationId, snapshot, snapshot.revision);
+  }
+
+  public async registerPlan(input: RegisterPlanCommand): Promise<WorkflowSnapshotResult> {
+    const current = await this.store.readWorkflow(input.workflowId);
+    if (current === null) return failed('registerPlan', input.operationId, input.expectedRevision, 'blocked', [{ code: 'workflow.missing' }], [{ code: 'workflow.create' }]);
+    if (current.revision !== input.expectedRevision) return failed('registerPlan', input.operationId, current.revision, 'blocked', [{ code: 'artifact.revision.conflict' }], [{ code: 'artifact.revision.reread' }]);
+    if (current.plans.some((plan) => plan.id === input.planId)) return failed('registerPlan', input.operationId, current.revision, 'rejected', [{ code: 'plan.duplicate' }], [{ code: 'plan.choose-new-id' }]);
+    const next: WorkflowSnapshot = {
+      ...current,
+      revision: current.revision + 1,
+      plans: [...current.plans, { id: input.planId, title: input.title, status: 'Todo', metadata: { baseSha: input.baseSha } }],
+    };
+    return fromWriteResult('registerPlan', await this.store.writeWorkflowConditional({
+      expectedRevision: input.expectedRevision,
+      next,
+      operationId: input.operationId,
+      idempotencyKey: input.idempotencyKey,
+      inputDigest: input.inputDigest,
+    }));
+  }
+
+  public async validate(input: ValidateQuery): Promise<ValidationView> {
+    return assignmentValidation(input);
+  }
+
+  public async status(input: StatusQuery): Promise<StatusView> {
+    const snapshot = await this.store.readWorkflow(input.workflowId);
+    if (snapshot === null) {
+      return failed('status', input.operationId, input.expectedRevision, 'blocked', [{ code: 'workflow.missing' }], [{ code: 'workflow.create' }]);
+    }
+    return applied('status', input.operationId, snapshot, snapshot.revision);
+  }
+
+  public registerAssignment(input: RegisterAssignmentCommand): Promise<WorkflowCommandResult<WorkflowSnapshot>> {
+    return Promise.resolve(failed('registerAssignment', input.operationId, input.expectedRevision, 'not-available', [{ code: 'stage1.assignment-persistence.not-available' }], [{ code: 'stage1.follow-up' }]));
+  }
+
+  public prepareExecution(input: PrepareExecutionCommand): Promise<WorkflowCommandResult<WorkflowSnapshot>> {
+    return Promise.resolve(failed('prepareExecution', input.operationId, input.expectedRevision, 'not-available', [{ code: 'stage1.execution-preparation.not-available' }], [{ code: 'stage1.follow-up' }]));
+  }
+
+  public claimExecutionLease(input: ClaimExecutionLeaseCommand): Promise<WorkflowCommandResult<WorkflowSnapshot>> {
+    return Promise.resolve(failed('claimExecutionLease', input.operationId, input.expectedRevision, 'not-available', [{ code: 'stage1.lease.not-available' }], [{ code: 'stage1.follow-up' }]));
+  }
+
+  public transitionPlan(input: TransitionPlanCommand): Promise<WorkflowCommandResult<WorkflowSnapshot>> {
+    return Promise.resolve(failed('transitionPlan', input.operationId, input.expectedRevision, 'not-available', [{ code: 'stage1.transition.not-available' }], [{ code: 'stage1.follow-up' }]));
+  }
+
+  public appendEvidence(input: AppendEvidenceCommand): Promise<WorkflowCommandResult<WorkflowSnapshot>> {
+    return Promise.resolve(failed('appendEvidence', input.operationId, input.expectedRevision, 'not-available', [{ code: 'stage1.evidence.not-available' }], [{ code: 'stage1.follow-up' }]));
+  }
+
+  public releaseExecutionLease(input: ReleaseExecutionLeaseCommand): Promise<WorkflowCommandResult<WorkflowSnapshot>> {
+    return Promise.resolve(failed('releaseExecutionLease', input.operationId, input.expectedRevision, 'not-available', [{ code: 'stage1.lease.not-available' }], [{ code: 'stage1.follow-up' }]));
+  }
+}
+
+export function createWorkflowFacade(store: ArtifactStore): WorkflowFacade {
+  return new WorkflowFacade(store);
+}
+export function createWorkflowApplication(artifactRoot: string): WorkflowFacade {
+  return createWorkflowFacade(new JsonArtifactStore(artifactRoot));
+}

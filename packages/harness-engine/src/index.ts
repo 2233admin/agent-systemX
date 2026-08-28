@@ -93,7 +93,7 @@ export type {
   ReviewVerdict,
 } from './gates/pr-review';
 export { calculateReviewTally, evaluatePrReview, evaluatePushCadence, validateMergeReady } from './gates/pr-review';
-export type { ArtifactStore } from './ports/artifacts';
+export type { ArtifactStore, WorkflowWriteRequest, WorkflowWriteResult } from './ports/artifacts';
 export type {
   AdapterMetadata,
   CoordinationAdapter,
@@ -172,5 +172,29 @@ export {
   validateFailureLedger,
   validateOwnershipRecord,
 } from './validation/failure-ledger';
+export type {
+  CanonicalArtifactEnvelope,
+  CanonicalArtifactKind,
+} from './artifacts/canonical';
+export {
+  canonicalHashFor,
+  canonicalize,
+  createCanonicalArtifact,
+  validateCanonicalArtifact,
+} from './artifacts/canonical';
+export type {
+  AppendEvidenceCommand,
+  ClaimExecutionLeaseCommand,
+  CreateWorkflowCommand,
+  PrepareExecutionCommand,
+  RegisterAssignmentCommand,
+  RegisterPlanCommand,
+  ReleaseExecutionLeaseCommand,
+  TransitionPlanCommand,
+  WorkflowCommandEnvelope,
+  WorkflowCommandResult,
+} from './application/commands';
+export type { ReadWorkflowQuery, StatusQuery, StatusView, ValidateQuery, ValidationView } from './application/queries';
+export { createWorkflowApplication, createWorkflowFacade, WorkflowFacade } from './application/harness-application';
 export type { CliResult } from './cli/index';
 export { main as harnessMain, runCli } from './cli/index';

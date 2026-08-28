@@ -1,10 +1,11 @@
-import { copyFile, mkdir, mkdtemp, readFile, rm } from 'node:fs/promises';
+import { mkdir, mkdtemp, readFile, rm } from 'node:fs/promises';
+import { createHash } from 'node:crypto';
 import { basename, dirname, extname, isAbsolute, join, resolve } from 'node:path';
 import { tmpdir } from 'node:os';
 
-import { validateDispatch, type DispatchDecision, type DispatchInput } from '../gates/dispatch.ts';
-import { JsonArtifactStore } from '../adapters/json/json-artifact-store.ts';
-import type { GateResult } from '../core/result.ts';
+import type { DispatchInput } from '../gates/dispatch.ts';
+import { createWorkflowApplication } from '../application/harness-application.ts';
+import type { WorkflowCommandResult } from '../application/commands.ts';
 import type { WorkflowSnapshot } from '../domain/workflow.ts';
 
 export interface CliResult {
@@ -12,12 +13,6 @@ export interface CliResult {
   readonly stdout: string;
   readonly stderr: string;
 }
-
-const CLI_WORKFLOW_ID = 'harness-cli-workflow';
-const CLI_PLAN_ID = 'harness-cli-plan';
-const CLI_TASK_ID = 'harness-cli-task';
-const CLI_WORKTREE = '/harness-cli/worktree';
-const CLI_CLAIMED_AT = '2026-01-01T00:00:00.000Z';
 
 function usage(): string {
   return 'usage: harness validate <assignment-file> | harness status <workflow-file>';
@@ -39,80 +34,32 @@ function failureBlock(
   ].join('\n');
 }
 
-function dispatchDefaults(input: DispatchInput): DispatchInput {
-  const hasOwn = (key: string): boolean => Object.hasOwn(input as object, key);
-  const planId = hasOwn('planId') ? input.planId : CLI_PLAN_ID;
-  const taskId = hasOwn('taskId') ? input.taskId : CLI_TASK_ID;
-  const worktree = hasOwn('worktree')
-    ? input.worktree
-    : hasOwn('worktreePath')
-      ? input.worktreePath
-      : CLI_WORKTREE;
-
-  return {
-    ...input,
-    planId,
-    taskId,
-    worktree,
-    ...(hasOwn('branchProtection') ? {} : { branchProtection: { defaultBranch: 'main', protectedBranches: ['main', 'master'] } }),
-    ...(hasOwn('hostCapability') ? {} : {
-      hostCapability: {
-        status: 'supported' as const,
-        hostId: 'harness-cli',
-        hostVersion: 'local',
-        evidence: { source: 'harness-cli.local-host', observedAt: CLI_CLAIMED_AT, hostId: 'harness-cli', hostVersion: 'local' },
-      },
-    }),
-    ...(hasOwn('leaseState') ? {} : {
-      leaseState: {
-        kind: 'execution' as const,
-        workflowId: CLI_WORKFLOW_ID,
-        planId: planId as string,
-        holderId: 'harness-cli',
-        worktreePath: worktree as string,
-        fencingToken: 1,
-        claimedAt: CLI_CLAIMED_AT,
-      },
-    }),
-  };
-}
-
 function assignmentInput(raw: string, filePath: string): DispatchInput {
-  if (extname(filePath).toLowerCase() !== '.json') {
-    return dispatchDefaults({ assignment: raw });
-  }
-
+  if (extname(filePath).toLowerCase() !== '.json') return { assignment: raw };
   let parsed: unknown;
   try {
     parsed = JSON.parse(raw) as unknown;
   } catch {
-    return dispatchDefaults({ assignment: raw });
+    return { assignment: raw };
   }
-
-  if (typeof parsed === 'string') {
-    return dispatchDefaults({ assignment: parsed });
-  }
-  if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed)) {
-    return dispatchDefaults({ assignment: raw });
-  }
+  if (typeof parsed === 'string') return { assignment: parsed };
+  if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed)) return { assignment: raw };
   const record = parsed as Record<string, unknown>;
   const assignment = typeof record.assignment === 'string'
     ? record.assignment
     : typeof record.assignmentText === 'string'
       ? record.assignmentText
       : undefined;
-  return dispatchDefaults({
+  return {
     ...record,
     ...(assignment === undefined ? {} : { assignment }),
-  } as DispatchInput);
+  } as DispatchInput;
 }
 
-function renderValidationResult(result: GateResult<DispatchDecision>): CliResult {
-  if (result.kind === 'pass') {
-    return { exitCode: 0, stdout: 'status: pass\nphase: validate\n', stderr: '' };
-  }
+function renderValidationResult(result: WorkflowCommandResult<unknown>): CliResult {
+  if (result.kind === 'applied') return { exitCode: 0, stdout: 'status: pass\nphase: validate\n', stderr: '' };
   const codes = result.violations.map((violation) => violation.code).join(', ');
-  const recovery = result.recovery
+  const recovery = result.recoveryActions
     .map((action) => action.description)
     .filter((description): description is string => description !== undefined)
     .join('; ');
@@ -134,32 +81,16 @@ async function validateAssignment(filePath: string): Promise<CliResult> {
       stderr: '',
     };
   }
-  return renderValidationResult(validateDispatch(assignmentInput(raw, filePath)));
-}
-
-async function readWorkflow(filePath: string): Promise<WorkflowSnapshot | null> {
-  const absolute = isAbsolute(filePath) ? filePath : resolve(filePath);
-  const extension = extname(absolute);
-  if (extension.toLowerCase() !== '.json') {
-    throw new TypeError('Workflow artifact must be a JSON file');
-  }
-  const workflowId = basename(absolute, extension);
-  if (extension === '.json' && basename(dirname(absolute)).toLowerCase() === 'workflows') {
-    return new JsonArtifactStore(dirname(dirname(absolute))).readWorkflow(workflowId);
-  }
-
-  const temporaryRoot = await mkdtemp(join(tmpdir(), 'harness-cli-'));
-  try {
-    const temporaryWorkflows = join(temporaryRoot, 'workflows');
-    await mkdir(temporaryWorkflows);
-    await copyFile(absolute, join(temporaryWorkflows, `${workflowId}.json`));
-    return await new JsonArtifactStore(temporaryRoot).readWorkflow(workflowId);
-  } catch (error) {
-    if (error instanceof Error && 'code' in error && error.code === 'ENOENT') return null;
-    throw error;
-  } finally {
-    await rm(temporaryRoot, { recursive: true, force: true });
-  }
+  const inputDigest = createHash('sha256').update(raw, 'utf8').digest('hex');
+  const facade = createWorkflowApplication(dirname(resolve(filePath)));
+  return renderValidationResult(await facade.validate({
+    operationId: `cli-validate:${filePath}`,
+    actorId: 'harness-cli',
+    expectedRevision: 0,
+    idempotencyKey: `cli-validate:${filePath}`,
+    inputDigest,
+    assignment: assignmentInput(raw, filePath),
+  }));
 }
 
 function renderLease(plan: WorkflowSnapshot['plans'][number]): string {
@@ -193,18 +124,38 @@ function workflowFailure(error: unknown): CliResult {
 }
 
 async function statusWorkflow(filePath: string): Promise<CliResult> {
+  const absolute = isAbsolute(filePath) ? filePath : resolve(filePath);
+  if (extname(absolute).toLowerCase() !== '.json') return workflowFailure(new TypeError('Workflow artifact must be a JSON file'));
+  const workflowId = basename(absolute, '.json');
+  let artifactRoot: string;
+  let temporaryRoot: string | undefined;
+  if (basename(dirname(absolute)).toLowerCase() === 'workflows') {
+    artifactRoot = dirname(dirname(absolute));
+  } else {
+    temporaryRoot = await mkdtemp(join(tmpdir(), 'harness-cli-'));
+    artifactRoot = temporaryRoot;
+    await mkdir(join(temporaryRoot, 'workflows'), { recursive: true });
+    await Bun.write(join(temporaryRoot, 'workflows', `${workflowId}.json`), await readFile(absolute, 'utf8'));
+  }
   try {
-    const snapshot = await readWorkflow(filePath);
-    if (snapshot === null) {
-      return {
-        exitCode: 1,
-        stdout: `${failureBlock('status', 'workflow.artifact.missing', 'provide an existing workflow artifact')}\n`,
-        stderr: '',
-      };
+    const facade = createWorkflowApplication(artifactRoot);
+    const result = await facade.status({
+      workflowId,
+      operationId: `cli-status:${filePath}`,
+      actorId: 'harness-cli',
+      expectedRevision: 0,
+      idempotencyKey: `cli-status:${filePath}`,
+      inputDigest: createHash('sha256').update(workflowId, 'utf8').digest('hex'),
+    });
+    if (result.kind !== 'applied' || result.value === undefined) {
+      const code = result.violations.map((violation) => violation.code).join(', ') || 'workflow.artifact.missing';
+      return { exitCode: 1, stdout: `${failureBlock('status', code, 'provide an existing workflow artifact', result.kind)}\n`, stderr: '' };
     }
-    return renderStatus(snapshot);
+    return renderStatus(result.value);
   } catch (error) {
     return workflowFailure(error);
+  } finally {
+    if (temporaryRoot !== undefined) await rm(temporaryRoot, { recursive: true, force: true });
   }
 }
 
@@ -217,7 +168,6 @@ export async function runCli(args: readonly string[]): Promise<CliResult> {
     || filePath.trim().length === 0) {
     return { exitCode: 2, stdout: '', stderr: `${usage()}\n` };
   }
-
   return command === 'validate' ? validateAssignment(filePath) : statusWorkflow(filePath);
 }
 
@@ -228,6 +178,4 @@ export async function main(args = process.argv.slice(2)): Promise<void> {
   process.exitCode = result.exitCode;
 }
 
-if (import.meta.main) {
-  await main();
-}
+if (import.meta.main) await main();
