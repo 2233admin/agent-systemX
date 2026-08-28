@@ -169,6 +169,9 @@ export class WorkflowFacade {
     const current = await this.store.readWorkflow(input.workflowId);
     if (current === null) return failed('completePlan', input.operationId, input.expectedRevision, 'blocked', [{ code: 'workflow.missing' }], [{ code: 'workflow.create' }]);
     if (current.revision !== input.expectedRevision) return failed('completePlan', input.operationId, current.revision, 'blocked', [{ code: 'artifact.revision.conflict' }], [{ code: 'artifact.revision.reread' }]);
+    if (input.completion.planRevision !== current.revision) {
+      return failed('completePlan', input.operationId, current.revision, 'blocked', [{ code: 'completion.plan-revision.stale' }], [{ code: 'completion.plan-reread' }]);
+    }
     const planIndex = current.plans.findIndex((plan) => plan.id === input.planId);
     const plan = current.plans[planIndex];
     if (plan === undefined) return failed('completePlan', input.operationId, current.revision, 'rejected', [{ code: 'plan.missing' }], [{ code: 'plan.register' }]);

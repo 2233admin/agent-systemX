@@ -4,6 +4,8 @@ import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { JsonArtifactStore } from '../../src/adapters/json/json-artifact-store.ts';
 import { createWorkflowFacade } from '../../src/application/harness-application.ts';
+import type { PlanCompletionInput } from '../../src/gates/completion.ts';
+import type { ArtifactStore } from '../../src/ports/artifacts.ts';
 
 const temporaryDirectories: string[] = [];
 
@@ -106,5 +108,47 @@ describe('WorkflowFacade', () => {
     });
     expect(validation.kind).toBe('applied');
     expect(validation.stage).toBe('validate');
+  });
+
+  test('blocks a stale completion planRevision before writing', async () => {
+    const snapshot = {
+      schemaVersion: 1 as const,
+      revision: 2,
+      workflowId: 'workflow-1',
+      plans: [{ id: 'plan-1', title: 'Plan', status: 'InReview' as const, metadata: {} }],
+      updatedAt: '2026-08-28T00:00:00.000Z',
+    };
+    const store: ArtifactStore = {
+      readWorkflow: async () => snapshot,
+      writeWorkflowConditional: async () => {
+        throw new Error('must not write');
+      },
+    };
+    const completion: PlanCompletionInput = {
+      workflowId: 'workflow-1',
+      planId: 'plan-1',
+      planRevision: 1,
+      baseSha: '1111111111111111',
+      headSha: '2222222222222222',
+      workerDone: true,
+      tasksRecovered: true,
+      reviewPackage: { planId: 'plan-1', taskId: 'task-1', baseSha: '1111111111111111', headSha: '2222222222222222', path: 'review.json', createdAt: '2026-08-28T00:00:00.000Z' },
+      qc: { planId: 'plan-1', taskId: 'task-1', reviewerId: 'reviewer-1', reviewRange: '1111111111111111..2222222222222222', baseSha: '1111111111111111', headSha: '2222222222222222', seats: 1, executionMode: 'inline', reviewerIds: ['reviewer-1'], passed: true, evidence: [{ source: 'fixture', observedAt: '2026-08-28T00:00:00.000Z' }] },
+      qa: { planId: 'plan-1', baseSha: '1111111111111111', headSha: '2222222222222222', passed: true, evidence: [{ source: 'fixture', observedAt: '2026-08-28T00:00:00.000Z' }] },
+      residualClosures: [],
+      integrationMergeLeaseReleased: true,
+      delivery: { planId: 'plan-1', headSha: '2222222222222222', evidence: [{ source: 'fixture', observedAt: '2026-08-28T00:00:00.000Z' }] },
+    };
+    const result = await createWorkflowFacade(store).completePlan({
+      ...envelope,
+      planId: 'plan-1',
+      expectedRevision: 2,
+      operationId: 'op-stale-completion',
+      idempotencyKey: 'key-stale-completion',
+      inputDigest: 'digest-stale-completion',
+      completion,
+    });
+    expect(result.kind).toBe('blocked');
+    expect(result.violations.map((item) => item.code)).toContain('completion.plan-revision.stale');
   });
 });
