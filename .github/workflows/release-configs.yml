@@ -4,7 +4,7 @@ name: Release configs CLI
 # resolve the official refs shown here and must be updated deliberately.
 # actions/checkout@v7 -> 3d3c42e5aac5ba805825da76410c181273ba90b1
 # oven-sh/setup-bun@v2 -> 0c5077e51419868618aeaa5fe8019c62421857d6
-# actions/attest-build-provenance@v2 -> 96b4a1ef7235a096b17240c259729fdd70c83d45
+# actions/attest-build-provenance@v2 tag object 96b4a1ef7235a096b17240c259729fdd70c83d45 -> peeled commit e8998f949152b193b063cb0ec769d69d929409be
 on:
   push:
     tags:
@@ -147,7 +147,7 @@ jobs:
           cat SHA256SUMS.txt
 
       - name: Generate build provenance attestations
-        uses: actions/attest-build-provenance@96b4a1ef7235a096b17240c259729fdd70c83d45
+        uses: actions/attest-build-provenance@e8998f949152b193b063cb0ec769d69d929409be
         with:
           subject-path: packages/control-plane/dist/*
 

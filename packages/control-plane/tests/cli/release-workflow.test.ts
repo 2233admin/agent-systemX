@@ -17,7 +17,7 @@ test('release workflow is registered, pinned, deterministic, and attested', asyn
   expect(workflow).toContain("if: github.event_name == 'push'\n    permissions:\n      attestations: write\n      contents: write\n      id-token: write");
   expect(workflow).toContain('tag version $VERSION does not match package.json $PACKAGE_VERSION');
   expect(workflow).toContain('git merge-base --is-ancestor "$GITHUB_SHA" origin/main');
-  expect(workflow).toContain('actions/attest-build-provenance@96b4a1ef7235a096b17240c259729fdd70c83d45');
+  expect(workflow).toContain('actions/attest-build-provenance@e8998f949152b193b063cb0ec769d69d929409be');
   expect(workflow).toContain('actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1');
   expect(workflow).toContain('oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6');
   expect(workflow).not.toMatch(/uses:\s+\S+@(?![0-9a-f]{40}\b)\S+/);
