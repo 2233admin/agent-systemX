@@ -17,20 +17,20 @@ const correlation: AdapterCorrelationEnvelope = {
 };
 const evidence = { source: 'fixture', observedAt: '2026-08-28T00:00:00.000Z', locator: 'controlled' };
 
-function orcaFixture(crossRun = false): ControlledTransport<any, unknown> {
+function orcaFixture(crossRun = false, workerStatus = 'done'): ControlledTransport<any, unknown> {
   return {
     source: 'fixture', version: '1', request: async ({ kind, id, correlation: requestCorrelation }) => ({
       kind: 'known',
       evidence,
       value: kind === 'run'
-        ? { runId: id, status: 'running', source: 'fixture', version: '1', observedAt: requestCorrelation.observedAt }
+        ? { runId: id, status: 'running', source: 'fixture', version: '1', observedAt: requestCorrelation.observedAt, correlation: requestCorrelation }
         : kind === 'task'
-          ? { taskId: id, runId: crossRun ? 'run-other' : 'run-1', planId: 'plan-1', status: 'done', source: 'fixture', version: '1', observedAt: requestCorrelation.observedAt }
+          ? { taskId: id, runId: crossRun ? 'run-other' : 'run-1', planId: 'plan-1', status: 'done', source: 'fixture', version: '1', observedAt: requestCorrelation.observedAt, correlation: requestCorrelation }
           : kind === 'dispatch'
-            ? { dispatchId: id, runId: 'run-1', taskId: 'task-1', status: 'accepted', source: 'fixture', version: '1', observedAt: requestCorrelation.observedAt }
+            ? { dispatchId: id, runId: 'run-1', taskId: 'task-1', status: 'accepted', source: 'fixture', version: '1', observedAt: requestCorrelation.observedAt, correlation: requestCorrelation }
             : kind === 'worker'
-              ? { workerId: id, runId: 'run-1', taskId: 'task-1', status: 'done', source: 'fixture', version: '1', observedAt: requestCorrelation.observedAt }
-              : { deliveryId: id, dispatchId: 'dispatch-1', runId: 'run-1', taskId: 'task-1', status: 'delivered', source: 'fixture', version: '1', observedAt: requestCorrelation.observedAt },
+              ? { workerId: id, runId: 'run-1', taskId: 'task-1', status: workerStatus, source: 'fixture', version: '1', observedAt: requestCorrelation.observedAt, correlation: requestCorrelation }
+              : { deliveryId: id, dispatchId: 'dispatch-1', runId: 'run-1', taskId: 'task-1', status: 'delivered', source: 'fixture', version: '1', observedAt: requestCorrelation.observedAt, correlation: requestCorrelation },
     }),
   };
 }
@@ -40,6 +40,24 @@ describe('controlled Orca adapter', () => {
     const adapter = new ControlledOrcaAdapter(orcaFixture(), correlation);
     const result = await adapter.observe({ runId: 'run-1', taskId: 'task-1', dispatchId: 'dispatch-1', workerId: 'worker-1', deliveryId: 'delivery-1' });
     expect(result.kind).toBe('known');
+  });
+
+  test('does not accept duplicate delivery or out-of-order events twice', async () => {
+    const adapter = new ControlledOrcaAdapter(orcaFixture(), correlation);
+    const input = { runId: 'run-1', taskId: 'task-1', dispatchId: 'dispatch-1', workerId: 'worker-1', deliveryId: 'delivery-1' };
+    expect((await adapter.observe(input)).kind).toBe('known');
+    const duplicate = await adapter.observe(input);
+    expect(duplicate).toMatchObject({ kind: 'unknown', reasonCode: 'orca.delivery.duplicate' });
+    const late = await adapter.observe({ ...input, deliveryId: 'delivery-2', previousEvent: { ...correlation, eventId: 'event-2', sequence: 2 }, event: { ...correlation, eventId: 'event-1', sequence: 1 } });
+    expect(late).toMatchObject({ kind: 'unknown', reasonCode: 'adapter.event.out-of-order' });
+  });
+
+  test('keeps accepted-but-not-executed and disconnected observations unknown', async () => {
+    const pending = new ControlledOrcaAdapter(orcaFixture(false, 'pending'), correlation);
+    const input = { runId: 'run-1', taskId: 'task-1', dispatchId: 'dispatch-1', workerId: 'worker-1', deliveryId: 'delivery-1' };
+    expect(await pending.observe(input)).toMatchObject({ kind: 'unknown', reasonCode: 'orca.dispatch.accepted-not-executed' });
+    const disconnected = new ControlledOrcaAdapter({ source: 'fixture', version: '1', request: async () => ({ kind: 'unknown', reasonCode: 'orca.disconnected', observedAt: correlation.observedAt, recovery: 'retry' }) }, correlation);
+    expect(await disconnected.observe(input)).toMatchObject({ kind: 'unknown', reasonCode: 'orca.observation.incomplete' });
   });
   test('returns unknown for cross-run identity mismatch and malformed response', async () => {
     const adapter = new ControlledOrcaAdapter(orcaFixture(true), correlation);
@@ -54,18 +72,17 @@ describe('controlled GitHub adapter', () => {
   test('reads allowlisted pull request and blocks head drift', async () => {
     const transport: ControlledTransport<any, unknown> = {
       source: 'fixture', version: '1', request: async (request) => ({ kind: 'known', evidence, value: request.kind === 'pull-request'
-        ? { owner: request.owner, repository: request.repository, number: request.number, state: 'open', baseSha: '1111111111111111', headSha: '2222222222222222', source: 'fixture', version: '1', observedAt: correlation.observedAt }
-        : { owner: request.owner, repository: request.repository, number: request.number, expectedHead: '2222222222222222', conclusion: 'success', source: 'fixture', version: '1', observedAt: correlation.observedAt } }),
+        ? { owner: request.owner, repository: request.repository, number: request.number, state: 'open', baseSha: '1111111111111111', headSha: '2222222222222222', source: 'fixture', version: '1', observedAt: correlation.observedAt, correlation }
+        : { owner: request.owner, repository: request.repository, number: request.number, expectedHead: '2222222222222222', conclusion: 'success', source: 'fixture', version: '1', observedAt: correlation.observedAt, correlation } }),
     };
-    const adapter = new ControlledGithubAdapter(transport);
+    const adapter = new ControlledGithubAdapter(transport, correlation);
     const ref = { owner: 'owner', repository: 'repo', number: 1 };
     expect((await adapter.getPullRequest(ref)).kind).toBe('known');
     expect((await adapter.getChecks(ref, '3333333333333333')).kind).toBe('unknown');
   });
   test('maps unavailable transport and malformed response to unknown', async () => {
     const unavailable: ControlledTransport<any, unknown> = { source: 'fixture', version: '1', request: async () => { throw new Error('offline'); } };
-    const adapter = new ControlledGithubAdapter(unavailable);
-    expect((await adapter.getIssue({ owner: 'owner', repository: 'repo', number: 1 })).kind).toBe('unknown');
+    const adapter = new ControlledGithubAdapter(unavailable, correlation);
   });
 });
 

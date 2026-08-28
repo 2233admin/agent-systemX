@@ -18,7 +18,8 @@ import {
   type IssueRef,
   type PullRequestRef,
 } from '../../ports/delivery.ts';
-import type { ControlledTransport } from '../contracts.ts';
+import { validatePortResult } from '../../ports/coordination.ts';
+import { reconcileCorrelation, type AdapterCorrelationEnvelope, type ControlledTransport } from '../contracts.ts';
 
 export interface GithubReadbackContext {
   readonly owner: string;
@@ -29,37 +30,40 @@ export interface GithubReadbackContext {
 
 type GithubRequest = GithubReadbackContext & {
   readonly kind: 'issue' | 'pull-request' | 'checks' | 'reviews' | 'merge-ready' | 'after-merge';
+  readonly correlation: AdapterCorrelationEnvelope;
 };
 
 function unknown(reasonCode: string): Unknown {
   return { kind: 'unknown', reasonCode, observedAt: new Date().toISOString(), recovery: 're-read the current GitHub object before retrying' };
 }
-
 export class ControlledGithubAdapter implements DeliveryAdapter {
-  public constructor(private readonly transport: ControlledTransport<GithubRequest, unknown>) {}
+  public constructor(
+    private readonly transport: ControlledTransport<GithubRequest, unknown>,
+    private readonly correlation: AdapterCorrelationEnvelope,
+  ) {}
 
   public async getIssue(ref: IssueRef): Promise<PortResult<DeliveryIssueDto>> {
-    return this.read({ ...ref, expectedHead: '', kind: 'issue' }, validateDeliveryIssue);
+    return this.read({ ...ref, expectedHead: '', kind: 'issue', correlation: this.correlation }, validateDeliveryIssue);
   }
 
   public async getPullRequest(ref: PullRequestRef): Promise<PortResult<DeliveryPullRequestDto>> {
-    return this.read({ ...ref, expectedHead: '', kind: 'pull-request' }, validateDeliveryPullRequest);
+    return this.read({ ...ref, expectedHead: '', kind: 'pull-request', correlation: this.correlation }, validateDeliveryPullRequest);
   }
 
   public async getChecks(ref: PullRequestRef, expectedHead: string): Promise<PortResult<DeliveryChecksDto>> {
-    return this.read({ ...ref, expectedHead, kind: 'checks' }, validateDeliveryChecks, expectedHead);
+    return this.read({ ...ref, expectedHead, kind: 'checks', correlation: this.correlation }, validateDeliveryChecks, expectedHead);
   }
 
   public async getReviews(ref: PullRequestRef, expectedHead: string): Promise<PortResult<DeliveryReviewsDto>> {
-    return this.read({ ...ref, expectedHead, kind: 'reviews' }, validateDeliveryReviews, expectedHead);
+    return this.read({ ...ref, expectedHead, kind: 'reviews', correlation: this.correlation }, validateDeliveryReviews, expectedHead);
   }
 
   public async prepareMergeReady(ref: PullRequestRef, expectedHead: string): Promise<PortResult<DeliveryMergeReadyDto>> {
-    return this.read({ ...ref, expectedHead, kind: 'merge-ready' }, validateDeliveryMergeReady, expectedHead);
+    return this.read({ ...ref, expectedHead, kind: 'merge-ready', correlation: this.correlation }, validateDeliveryMergeReady, expectedHead);
   }
 
   public async readAfterMerge(ref: PullRequestRef, expectedHead: string): Promise<PortResult<DeliveryAfterMergeDto>> {
-    return this.read({ ...ref, expectedHead, kind: 'after-merge' }, validateDeliveryAfterMerge, expectedHead);
+    return this.read({ ...ref, expectedHead, kind: 'after-merge', correlation: this.correlation }, validateDeliveryAfterMerge, expectedHead);
   }
 
   private async read<T extends object>(
@@ -74,9 +78,12 @@ export class ControlledGithubAdapter implements DeliveryAdapter {
       return unknown('github.transport.unavailable');
     }
     try {
-      const result = response as PortResult<T>;
+      const result = validatePortResult<T>(response, validate);
       if (result.kind === 'unknown') return result;
-      if (result.kind !== 'known' || !validate(result.value)) return unknown('github.response.shape-invalid');
+      const observedCorrelation = (result.value as T & { correlation?: unknown }).correlation;
+      if (observedCorrelation === undefined) return unknown('github.correlation.missing');
+      const mismatch = reconcileCorrelation(this.correlation, observedCorrelation);
+      if (mismatch !== null) return unknown(mismatch.code);
       const observedHead = 'headSha' in result.value ? result.value.headSha : 'expectedHead' in result.value ? result.value.expectedHead : undefined;
       if (expectedHead !== undefined && observedHead !== undefined && observedHead !== expectedHead) return unknown('github.head.stale');
       return result;

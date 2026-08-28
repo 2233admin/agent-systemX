@@ -75,9 +75,11 @@ export function unknownAdapterResult(error: AdapterError, observedAt: string, re
 }
 
 export function reconcileCorrelation(expected: AdapterCorrelationEnvelope, observed: unknown): AdapterError | null {
-  if (!validateAdapterCorrelation(expected) || !record(observed)) return { kind: 'shape-invalid', code: 'adapter.correlation.shape-invalid', retryable: false };
-  for (const key of ['workflowId', 'planId', 'operationId', 'snapshotId'] as const) {
-    if (observed[key] !== undefined && observed[key] !== expected[key]) {
+  if (!validateAdapterCorrelation(expected) || !validateAdapterCorrelation(observed)) {
+    return { kind: 'shape-invalid', code: 'adapter.correlation.shape-invalid', retryable: false };
+  }
+  for (const key of ['workflowId', 'planId', 'operationId', 'snapshotId', 'attemptId', 'source', 'sourceVersion'] as const) {
+    if (observed[key] !== expected[key]) {
       return { kind: 'identity-mismatch', code: `adapter.correlation.${key}.mismatch`, retryable: false };
     }
   }

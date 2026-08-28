@@ -2,7 +2,9 @@ import type { Unknown } from '../../core/result.ts';
 import {
   evidenceForCorrelation,
   reconcileCorrelation,
+  reconcileEventSequence,
   type AdapterCorrelationEnvelope,
+  type AdapterEventCorrelation,
   type ControlledTransport,
 } from '../contracts.ts';
 import {
@@ -26,9 +28,12 @@ export interface OrcaObservationInput {
   readonly dispatchId: string;
   readonly workerId: string;
   readonly deliveryId: string;
+  readonly previousEvent?: AdapterEventCorrelation;
+  readonly event?: AdapterEventCorrelation;
 }
 
 type OrcaRequest = {
+  readonly requestId: string;
   readonly kind: 'run' | 'task' | 'dispatch' | 'worker' | 'delivery';
   readonly id: string;
   readonly correlation: AdapterCorrelationEnvelope;
@@ -39,6 +44,8 @@ function unknown(reasonCode: string, observedAt: string, recovery: string): Unkn
 }
 
 export class ControlledOrcaAdapter {
+  private readonly seenDeliveries = new Set<string>();
+
   public constructor(
     private readonly transport: ControlledTransport<OrcaRequest, unknown>,
     private readonly correlation: AdapterCorrelationEnvelope,
@@ -72,6 +79,10 @@ export class ControlledOrcaAdapter {
       this.getWorker(input.workerId),
       this.getDelivery(input.deliveryId),
     ]);
+    if (input.event !== undefined) {
+      const eventError = reconcileEventSequence(input.previousEvent, input.event);
+      if (eventError !== null) return unknown(eventError.code, this.correlation.observedAt, 'ignore duplicate or late event and re-read current delivery');
+    }
     if (results.some((result) => result.kind !== 'known')) return unknown('orca.observation.incomplete', this.correlation.observedAt, 're-read all correlated Orca objects');
     const values = results.map((result) => result.kind === 'known' ? result.value : undefined);
     if (values.some((value) => value === undefined)) return unknown('orca.observation.incomplete', this.correlation.observedAt, 're-read all correlated Orca objects');
@@ -83,13 +94,20 @@ export class ControlledOrcaAdapter {
       || delivery.dispatchId !== dispatch.dispatchId) {
       return unknown('orca.identity.cross-run-or-object-mismatch', this.correlation.observedAt, 'reconcile stable Orca IDs before accepting delivery');
     }
+    if (dispatch.status === 'accepted' && worker.status !== 'running' && worker.status !== 'done' && worker.status !== 'completed') {
+      return unknown('orca.dispatch.accepted-not-executed', this.correlation.observedAt, 'wait for a correlated worker completion observation');
+    }
+    if (this.seenDeliveries.has(delivery.deliveryId)) {
+      return unknown('orca.delivery.duplicate', this.correlation.observedAt, 'ignore duplicate delivery and preserve the first evidence');
+    }
+    this.seenDeliveries.add(delivery.deliveryId);
     return { kind: 'known', value: [run, task, dispatch, worker, delivery], evidence: evidenceForCorrelation(this.correlation, 'orca.controlled-observation') };
   }
 
   private async read<T>(kind: OrcaRequest['kind'], id: string, validate: (value: unknown) => value is T): Promise<PortResult<T>> {
     let response: unknown;
     try {
-      response = await this.transport.request({ kind, id, correlation: this.correlation });
+      response = await this.transport.request({ kind, id, requestId: `${this.correlation.operationId}:${kind}:${id}:${this.correlation.attemptId}`, correlation: this.correlation });
     } catch {
       return unknown('orca.transport.unavailable', this.correlation.observedAt, 'retry only after capability is re-probed');
     }
@@ -97,7 +115,8 @@ export class ControlledOrcaAdapter {
       const result = validatePortResult<T>(response, validate);
       if (result.kind === 'unknown') return result;
       const observedCorrelation = (result.value as T & { correlation?: unknown }).correlation;
-      const mismatch = observedCorrelation === undefined ? null : reconcileCorrelation(this.correlation, observedCorrelation);
+      if (observedCorrelation === undefined) return unknown('orca.correlation.missing', this.correlation.observedAt, 'discard response without correlation and re-read');
+      const mismatch = reconcileCorrelation(this.correlation, observedCorrelation);
       if (mismatch !== null) return unknown(mismatch.code, this.correlation.observedAt, 'discard response and re-read the correlated object');
       return result;
     } catch {
