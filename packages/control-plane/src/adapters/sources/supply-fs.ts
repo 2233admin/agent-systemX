@@ -7,7 +7,7 @@ import { validateSupplyRelativeRef } from '../../cli/supply-root';
 import { SupplyDuplicateGroupError, SupplyDuplicateSkillNameError, SupplyGroupEmptyError, SupplyGroupNotFoundError, SupplyRootNotFoundError } from '../../application/establish';
 
 export interface SupplyScanResult { readonly groupRefs: readonly string[]; readonly capabilities: readonly CapabilityReference[]; }
-export interface SupplyCandidate { readonly configName: string; readonly defaultMarker: DefaultMarker; readonly scopeBoundary: ScopeBoundary; readonly availability: Availability; readonly capabilities: readonly CapabilityReference[]; }
+export interface SupplyCandidate { readonly configName: string; readonly defaultMarker: DefaultMarker; readonly scopeBoundary: ScopeBoundary; readonly availability: Availability; readonly capabilities: readonly CapabilityReference[]; readonly skills: readonly CapabilityReference[]; }
 
 async function fingerprintDirectory(directory: string): Promise<string> {
   const hash = createHash('sha256');
@@ -34,16 +34,17 @@ export async function loadSupplyGroups(supplyRoot: string, groupNames: readonly 
     if (seenGroups.has(group)) throw new SupplyDuplicateGroupError(group, seenGroups.get(group)!, declared);
     seenGroups.set(group, declared);
     const groupPath = path.join(supplyRoot, group);
+    const skillsRoot = path.join(groupPath, 'skills');
     let entries;
-    try { entries = await readdir(groupPath, { withFileTypes: true }); } catch { throw new SupplyGroupNotFoundError(group, supplyRoot); }
+    try { entries = await readdir(skillsRoot, { withFileTypes: true }); } catch { throw new SupplyGroupNotFoundError(group, supplyRoot); }
     const skills = entries.filter((entry) => entry.isDirectory()).sort((a, b) => a.name.localeCompare(b.name));
     if (skills.length === 0) throw new SupplyGroupEmptyError(group, supplyRoot);
     for (const skill of skills) {
-      const skillPath = path.join(groupPath, skill.name);
+      const skillPath = path.join(skillsRoot, skill.name);
       try { await lstat(path.join(skillPath, 'SKILL.md')); } catch { continue; }
       if (seenSkills.has(skill.name)) throw new SupplyDuplicateSkillNameError(skill.name, seenSkills.get(skill.name)!, group);
       seenSkills.set(skill.name, group);
-      const relative = `${group}/${skill.name}`;
+      const relative = `${group}/skills/${skill.name}`;
       const checked = validateSupplyRelativeRef(relative, supplyRoot);
       if (!checked.ok) throw new SupplyGroupNotFoundError(relative, supplyRoot);
       capabilities.push({ kind: 'skill', name: skill.name, source: 'project-capability', summary: `skill reference: ${skill.name}`, sourceRef: checked.ref, contentFingerprint: `sha256:${await fingerprintDirectory(skillPath)}` });
@@ -54,5 +55,5 @@ export async function loadSupplyGroups(supplyRoot: string, groupNames: readonly 
 }
 
 export function buildSupplyCandidate(configName: string, scan: SupplyScanResult): SupplyCandidate {
-  return { configName, defaultMarker: { kind: 'unknown', reason: 'not-decided-by-configs-supply', observedAt: new Date().toISOString() }, scopeBoundary: { kind: 'known', value: `configs supply: groups ${scan.groupRefs.join(', ')}` }, availability: { kind: 'known', value: 'resolved' }, capabilities: scan.capabilities };
+  return { configName, defaultMarker: { kind: 'unknown', reason: 'not-decided-by-configs-supply', observedAt: new Date().toISOString() }, scopeBoundary: { kind: 'known', value: `configs supply: groups ${scan.groupRefs.join(', ')}` }, availability: { kind: 'known', value: 'resolved' }, capabilities: scan.capabilities, skills: scan.capabilities };
 }
