@@ -351,19 +351,32 @@ erDiagram
 
 不部署远程服务、队列、共享数据库或产品遥测。真实客户端配置只生成在 invocation/profile 隔离边界内；不清空、改写或恢复真实用户全局配置。OMP bridge 不假设完全隔离；它只报告实际观察。in-session 配置切换返回 `requires-restart`，由外部 CLI 创建新 operation 并以新 manifest 启动/恢复。
 
+## 2026-08-29 控制面 Domain 与 SQLite 重构落地
+
+本节 supersede 本脊柱中与 control-plane 旧 Domain/API 形状冲突的实现性表述；产品边界与 MVP 延期裁决保持不变。
+
+- `packages/control-plane/src/domain/` 以 `configuration.ts`、`capability.ts`、`activation-operation.ts`、`launch-observation.ts`、`client.ts`、`errors.ts` 为唯一当前模型入口。`Fact<T>`、旧 `config.ts`、旧 `facts.ts`、旧 `activation.ts` 与旧 `LaunchPlan` 模型不再存在。
+- `ConfigurationRevision` 只保存有序 `CapabilityReference[]`；五类能力在 Domain 中不再分列。`ComparisonResult`、FTS 结果和 UI 文本留在 application/query 或 CLI 层。
+- `ActivationOperation` 只表达 prepared、awaiting-confirmation、applying、succeeded、degraded、failed、cancelled、requires-restart；`LaunchObservation` 追加 process/context/exited/outcome 阶段。操作状态与启动观察不得互相推断或覆盖。
+- `packages/control-plane/src/application/ports/` 只保留窄 repository、`ClientAdapter`、系统与公开边界合同；OMP 与 Claude Code 均通过同一 `ClientAdapter` 合同进入 application，客户端差异收口在 `adapters/clients/client-adapters.ts`。
+- SQLite 由单一 `SqliteStore` 管理连接、WAL、迁移历史、legacy inventory、legacy launch-plan 副本、canonical data 和 search projection。迁移版本为 `0001_canonical.sql`、`0002_legacy_preservation.sql`、`0003_search.sql`，每版记录 SHA-256 checksum；CAS 更新失败返回 `ConcurrencyConflictError`。
+- 迁移只在副本上执行。旧能力五组按原顺序合并，无法关联的旧计划保留完整 JSON 并标记 `unresolved legacy operation`；未知表只进入 `legacy_schema_inventory(owner-unknown)`。原默认数据库不得被测试或迁移代码直接写入。
+- CLI `use`/`switch` 和 TUI 都先创建待确认 operation；TUI 的列表 Enter 进入详情，详情 Enter 进入确认摘要，只有 y/Enter 才执行。`switch` 没有当前 operation 时失败并给出 `configs use` 恢复命令，禁止静默 fallback。`status` 同时暴露 operation phase、observation stage 和 next step。
+- 当前实现验证门为 `packages/control-plane/tests/domain`、`tests/contracts`、`tests/integration`，加上 typecheck、默认数据库副本迁移 smoke 和 OMP/Claude `--version` capability smoke。真实交互式客户端启动仍需在受控终端中单独验收，不以 fake adapter 替代该事实。
+
 ## 能力 → 架构映射
 
 | Capability / Area | Lives in | Governed by |
 | --- | --- | --- |
-| WF-1 配置建立与修订；FR-1~4 | domain/config、application commands、CLI、OMP bridge request | AD-3、AD-5、AD-6、AD-16 |
-| WF-2 高频激活；FR-5~10 | domain/activation、application、OMP client adapter、process runner | AD-7~10、AD-18、AD-19 |
+| WF-1 配置建立与修订；FR-1~4 | domain/configuration、application commands、CLI、OMP bridge request | AD-3、AD-5、AD-6、AD-16 |
+| WF-2 高频激活；FR-5~10 | domain/activation-operation、domain/launch-observation、application、generic client adapter、process runner | AD-7~10、AD-18、AD-19 |
 | 三层验证与首轮样本；FR-11~12 | domain/validation、application queries、integration/smoke | AD-8、AD-11、AD-17 |
 | WF-3 样本与 Bad Case；FR-13~14 | domain/evolution、application commands、CLI/bridge request | AD-5、AD-12、AD-17 |
 | 跨 Session 追溯 | SQLite adapter、queries、projection、opaque locator | AD-4、AD-7、AD-13 |
 | 隐私与授权；NFR-4~6 | reference policy、projection、client adapter/bridge | AD-6、AD-10、AD-14 |
 | 机械检查与低激活负担；NFR-7~9 | application、CLI、capability probe、测试门 | AD-11、AD-15、AD-19 |
-| 客户端接入边界（Claude Code 已激活；Codex CLI 仍 Deferred） | client adapter port、manifest/plan/receipt schemas | AD-1、AD-3、AD-19 |
-| Epic 4：Claude Code 装配（Instructions/Skills/MCP 硬控制、内容物化、CLI 入口）| domain/activation（复用）、application、Claude client adapter | AD-1、AD-19、AD-20、AD-21 |
+| 客户端接入边界（Claude Code 已激活；Codex CLI 仍 Deferred） | generic ClientAdapter、manifest/plan/receipt schemas | AD-1、AD-3、AD-19 |
+| Epic 4：Claude Code 装配（Instructions/Skills/MCP 硬控制、内容物化、CLI 入口）| domain/activation-operation（复用）、domain/launch-observation、application、generic ClientAdapter | AD-1、AD-19、AD-20、AD-21 |
 | 本仓自我开发装配（Skill 资产存放、组织与进入会话的路径） | `plugins/`、`_bmad/` pin、`configs` 修订与 Claude/OMP client adapter | AD-4、AD-8、AD-19、AD-21、AD-22 |
 
 > **范围提示：** OMP 核心 MVP（Epic 1）只落地与 MVP-FR1～MVP-FR10 对应的部分；Epic 2/3 是已激活的 OMP 侧后续能力域，Epic 4 是独立的 Claude Code 能力域。"WF-1 配置建立与修订"行中的候选/推荐（AD-16）与"跨 Session 追溯"行中的 opaque locator 持久化（AD-7/AD-13/AD-19 对应条款）仍按各自 MVP 边界延后；"三层验证与首轮样本"行（AD-8、AD-11、AD-17）在 OMP 核心 MVP 期间是 OMP 侧外部开发验收门，AD-8 的事实层级/Known-Unknown 表达本身仍在 MVP 内用于状态视图。Epic 4 的 adapter/parity 验收走独立 gate，不由 OMP 合同自动覆盖。

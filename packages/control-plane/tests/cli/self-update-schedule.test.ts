@@ -6,7 +6,7 @@ import { join } from 'node:path';
 import { SELF_UPDATE_WORKER_ARG, runSelfUpdateWorker, scheduleSelfUpdateCheck } from '../../src/cli/index';
 import { SELF_UPDATE_CHECK_COOLDOWN_MS, readSelfUpdateState } from '../../src/adapters/self-update/check-state';
 import { defaultSelfUpdateStatePath } from '../../src/cli/self-update-state-path';
-import type { SelfUpdatePort } from '../../src/application/ports';
+import type { SelfUpdatePort } from '../../src/application/ports/self-update';
 
 /**
  * Issue #153: the foreground command must never pay for the GitHub round

@@ -1,136 +1,58 @@
-import { buildSupersedesChain, compareRevisions } from '../domain/config';
-import type { ComparisonResult, StableConfigRevision, SupersedesChain } from '../domain/config';
-import type { ConfigRevisionRepository, ConfigSearchPort, ConfigSearchResult } from './ports';
+import type { ConfigurationRepository, ConfigurationSearchRepository, ConfigurationSearchResult } from './ports/configuration-repository';
+import { buildSupersedesChain, type ConfigurationRevision, type SupersedesChain } from '../domain/configuration';
+import { CAPABILITY_KINDS, type CapabilityKind } from '../domain/capability';
 
-/** The requested configuration revision id does not exist in storage. */
 export class ConfigNotFoundError extends Error {
   readonly kind = 'config-not-found' as const;
-
-  constructor(readonly revisionId: string) {
-    super(`configuration revision not found: ${revisionId}`);
-    this.name = 'ConfigNotFoundError';
-  }
+  constructor(readonly revisionId: string) { super(`configuration revision not found: ${revisionId}`); this.name = 'ConfigNotFoundError'; }
 }
-
-/**
- * The requested configuration revision exists but could not be resolved
- * into a complete detail view -- unsupported schema version, an
- * unreachable reference, or a parse failure on stored data.
- */
 export class ConfigUnsupportedError extends Error {
   readonly kind = 'config-unsupported' as const;
-
-  constructor(
-    readonly revisionId: string,
-    readonly reason: string,
-  ) {
-    super(`configuration revision unsupported: ${revisionId} (${reason})`);
-    this.name = 'ConfigUnsupportedError';
-  }
+  constructor(readonly revisionId: string, readonly reason: string) { super(`configuration revision unsupported: ${revisionId} (${reason})`); this.name = 'ConfigUnsupportedError'; }
 }
-
 export type ConfigQueryError = ConfigNotFoundError | ConfigUnsupportedError;
 
-/** MVP-FR1: list every saved configuration revision, unfiltered. */
-export async function listConfigRevisions(
-  repository: ConfigRevisionRepository,
-): Promise<readonly StableConfigRevision[]> {
-  return repository.listAll();
-}
-
-export async function searchConfigRevisions(
-  repository: ConfigSearchPort,
-  query: string,
-  limit: number,
-): Promise<readonly ConfigSearchResult[]> {
-  return repository.search(query, limit);
-}
-
-export async function rebuildConfigSearch(repository: ConfigSearchPort): Promise<void> {
-  await repository.rebuild();
-}
-
-/**
- * MVP-FR2: full detail view for one revision. Throws a typed
- * `ConfigNotFoundError`/`ConfigUnsupportedError` on failure -- never
- * silently falls back to a default configuration.
- */
-export async function getConfigRevisionDetail(
-  repository: ConfigRevisionRepository,
-  revisionId: string,
-): Promise<StableConfigRevision> {
+export async function listConfigRevisions(repository: ConfigurationRepository): Promise<readonly ConfigurationRevision[]> { return repository.listAll(); }
+export async function searchConfigRevisions(repository: ConfigurationSearchRepository, query: string, limit: number): Promise<readonly ConfigurationSearchResult[]> { return repository.search(query, limit); }
+export async function rebuildConfigSearch(repository: ConfigurationSearchRepository): Promise<void> { await repository.rebuild(); }
+export async function getConfigRevisionDetail(repository: ConfigurationRepository, revisionId: string): Promise<ConfigurationRevision> {
   const revision = await repository.findById(revisionId);
-  if (revision === null) {
-    throw new ConfigNotFoundError(revisionId);
-  }
+  if (revision === null) throw new ConfigNotFoundError(revisionId);
   return revision;
 }
+export async function getSupersedesChain(repository: ConfigurationRepository, revisionId: string): Promise<SupersedesChain> {
+  const revision = await getConfigRevisionDetail(repository, revisionId);
+  return buildSupersedesChain(await repository.listAll(), revision.revisionId);
+}
 
-/**
- * `[Story 3.3]` MVP-FR2 extension ("查看装配来源与替代链"): the bidirectional
- * supersede chain for one revision. Throws the same typed
- * `ConfigNotFoundError` as `getConfigRevisionDetail` when `revisionId`
- * itself does not exist -- `show`'s existing `isConfigQueryError`/
- * `renderQueryFailure` failure path handles it without change. The chain
- * traversal itself (`buildSupersedesChain`) never throws; a dangling
- * pointer within the chain is represented in the result, not as a thrown
- * error.
- */
-export async function getSupersedesChain(repository: ConfigRevisionRepository, revisionId: string): Promise<SupersedesChain> {
-  const revision = await repository.findById(revisionId);
-  if (revision === null) {
-    throw new ConfigNotFoundError(revisionId);
+export interface ComparisonResult {
+  readonly revisionIds: readonly string[];
+  readonly capabilities: Readonly<Record<CapabilityKind, readonly { readonly name: string; readonly presentIn: readonly string[]; readonly missingIn: readonly string[] }[]>>;
+}
+
+function compare(revisions: readonly ConfigurationRevision[]): ComparisonResult {
+  const capabilities = {} as Record<CapabilityKind, readonly { readonly name: string; readonly presentIn: readonly string[]; readonly missingIn: readonly string[] }[]>;
+  for (const kind of CAPABILITY_KINDS) {
+    const names = new Set(revisions.flatMap((revision) => revision.capabilities.filter((item) => item.kind === kind).map((item) => item.name)));
+    capabilities[kind] = [...names].sort().map((name) => ({ name, presentIn: revisions.filter((revision) => revision.capabilities.some((item) => item.kind === kind && item.name === name)).map((revision) => revision.revisionId), missingIn: revisions.filter((revision) => !revision.capabilities.some((item) => item.kind === kind && item.name === name)).map((revision) => revision.revisionId) }));
   }
-  const allRevisions = await repository.listAll();
-  return buildSupersedesChain(allRevisions, revisionId);
+  return { revisionIds: revisions.map((revision) => revision.revisionId), capabilities };
 }
 
-export interface CompareFailure {
-  readonly revisionId: string;
-  readonly error: ConfigQueryError;
-}
-
-export interface CompareConfigRevisionsResult {
-  readonly resolved: readonly StableConfigRevision[];
-  readonly failed: readonly CompareFailure[];
-  /** `null` when fewer than one revision resolved -- nothing to lay out. */
-  readonly comparison: ComparisonResult | null;
-}
-
-/**
- * MVP-FR3: mechanical side-by-side comparison of the requested ids.
- * Invalid/unresolvable ids never abort the whole comparison -- they are
- * collected into `failed` and reported alongside the resolved revisions.
- */
-export async function compareConfigRevisions(
-  repository: ConfigRevisionRepository,
-  revisionIds: readonly string[],
-): Promise<CompareConfigRevisionsResult> {
-  const resolved: StableConfigRevision[] = [];
+export interface CompareFailure { readonly revisionId: string; readonly error: ConfigQueryError; }
+export interface CompareConfigRevisionsResult { readonly resolved: readonly ConfigurationRevision[]; readonly failed: readonly CompareFailure[]; readonly comparison: ComparisonResult | null; }
+export async function compareConfigRevisions(repository: ConfigurationRepository, revisionIds: readonly string[]): Promise<CompareConfigRevisionsResult> {
+  const resolved: ConfigurationRevision[] = [];
   const failed: CompareFailure[] = [];
-
-  // Repeated ids are de-duplicated (first occurrence wins) before resolving
-  // -- otherwise a repeated id would appear twice in the comparison output,
-  // which is not a meaningful mechanical comparison of distinct revisions.
-  const uniqueIds = [...new Set(revisionIds)];
-
-  for (const revisionId of uniqueIds) {
+  for (const revisionId of [...new Set(revisionIds)]) {
     try {
       const revision = await repository.findById(revisionId);
-      if (revision === null) {
-        failed.push({ revisionId, error: new ConfigNotFoundError(revisionId) });
-      } else {
-        resolved.push(revision);
-      }
+      if (revision === null) failed.push({ revisionId, error: new ConfigNotFoundError(revisionId) });
+      else resolved.push(revision);
     } catch (error) {
-      if (error instanceof ConfigUnsupportedError) {
-        failed.push({ revisionId, error });
-      } else {
-        throw error;
-      }
+      if (error instanceof ConfigUnsupportedError) failed.push({ revisionId, error });
+      else throw error;
     }
   }
-
-  const comparison = resolved.length > 0 ? compareRevisions(resolved) : null;
-  return { resolved, failed, comparison };
+  return { resolved, failed, comparison: resolved.length === 0 ? null : compare(resolved) };
 }

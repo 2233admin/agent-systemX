@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'bun:test';
 import { createHarnessControlPlaneFacade } from '../../src/application/public-entry';
-import type { ExistingPublicApplicationPorts } from '../../src/application/ports';
+import type { ExistingPublicApplicationPorts } from '../../src/application/ports/harness';
 
 const now = '2026-08-28T00:00:00.000Z';
 
