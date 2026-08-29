@@ -229,7 +229,6 @@ export interface ValidationDecision {
 - [ ] Before Stage 7 acceptance, validate exactly six `HardGateRecord` entries, same head/hash, typed evidence, no pass with failureRefs, and no `Verified` with any `not-available`.
 
 These four checks are cross-cutting prerequisites, not a new implementation stage; they amend the existing Stage 0–7 tasks and preserve their commit boundaries.
-
 ## Current Facts Inventory
 
 - `SPEC.md`、`validation-contract.md`、`ARCHITECTURE-SPINE.md` 已定义最小事实、边界、证据等级、六硬门和 non-goals；它们是范围依据而非实现证据。
