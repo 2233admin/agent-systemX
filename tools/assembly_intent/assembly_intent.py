@@ -321,7 +321,9 @@ def derive_intent(repository_root: Path) -> AssemblyIntent:
 
 
 def _fact_value(fact: Any) -> str | None:
-    """取一个 `Fact` 的 known 值；Unknown 或形状不对时返回 None。"""
+    """取一个 known Fact 或直接字符串值；Unknown 或形状不对时返回 None。"""
+    if isinstance(fact, str):
+        return fact
     if isinstance(fact, dict) and fact.get("kind") == "known":
         value = fact.get("value")
         if isinstance(value, str):

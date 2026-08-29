@@ -1,0 +1,15 @@
+{
+  "schemaVersion": 1,
+  "owners": [
+    { "gate": "assignment", "owner": "src/domain/assignment.ts", "tests": ["tests/domain/assignment.test.ts"], "status": "existing" },
+    { "gate": "workflow-status", "owner": "src/domain/workflow.ts", "tests": ["tests/domain/workflow.test.ts"], "status": "existing" },
+    { "gate": "dispatch", "owner": "src/gates/dispatch.ts", "tests": ["tests/gates/dispatch.test.ts"], "status": "existing" },
+    { "gate": "lease", "owner": "src/domain/lease.ts", "tests": ["tests/domain/lease.test.ts"], "status": "existing" },
+    { "gate": "worktree-alignment", "owner": "src/gates/worktree.ts", "tests": ["tests/gates/worktree.test.ts"], "status": "existing" },
+    { "gate": "sdd-review", "owner": "src/gates/sdd.ts", "tests": ["tests/gates/sdd.test.ts"], "status": "existing" },
+    { "gate": "iteration", "owner": "src/gates/iteration.ts", "tests": ["tests/gates/iteration.test.ts"], "status": "existing" },
+    { "gate": "pr-review", "owner": "src/gates/pr-review.ts", "tests": ["tests/gates/pr-review.test.ts"], "status": "existing" },
+    { "gate": "plan-completion", "owner": "src/gates/completion.ts", "tests": ["tests/gates/p0-samples.test.ts"], "status": "stage2" },
+    { "gate": "ownership-inventory", "owner": "src/gates/completion.ts", "tests": ["tests/gates/p0-samples.test.ts"], "status": "stage2-reuses-worktree" }
+  ]
+}

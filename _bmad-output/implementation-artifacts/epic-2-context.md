@@ -14,7 +14,7 @@
 ## Requirements & Constraints
 
 - 自更新是"日常激活绝不允许安装依赖、更改插件或联网更新"这一通用规则的一个窄范围、明确授权的例外。该例外**仅**覆盖 `configs` 自身的二进制文件，不延伸到 OMP 或薄 OMP 扩展。
-- OMP 自身的版本升级仍是独立的、低频的、显式操作，门槛是 capability probe、adapter fixtures 以及 fresh→locator→explicit-resume smoke 测试后才更新兼容性快照。自更新不得触碰或影响该路径。
+- OMP 自身的版本升级仍是独立的、低频的、显式操作。当前 MVP 更新兼容 snapshot 的门槛是 capability probe、adapter fixtures 以及当前实际支持的 native/configuration/start observation 证据；`fresh → locator → explicit-resume` 仅保留为未来目标态 smoke，当前为 `N/A / Deferred`，只有新证据与负责人明确裁决后才可重开为升级门。自更新不得触碰或影响该路径。
 - 更新检查必须对单一固定的、带版本号的发布端点使用只读 GET 请求——绝不能是用户可控或运行时派生的 URL。
 - 下载的资产必须先通过完整性校验（签名或已知哈希）才允许替换本地二进制。
 - 替换前必须以可恢复的形式（如 `.bak` 文件）保留旧二进制，以便坏更新可以回滚。Windows 需要"先重命名旧文件、再写入新文件"的策略，因为正在运行的可执行文件不能被直接覆盖。

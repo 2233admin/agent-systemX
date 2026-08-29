@@ -3,6 +3,9 @@
   "private": true,
   "version": "0.1.0",
   "type": "module",
+  "exports": {
+    "./application/public-entry": "./src/application/public-entry.ts"
+  },
   "bin": {
     "configs": "src/cli/index.ts"
   },

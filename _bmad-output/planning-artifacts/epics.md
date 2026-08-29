@@ -18,7 +18,7 @@ inputDocuments:
 1. 用户可以查看某个配置包含什么，并按需机械比较多个配置；
 2. 用户可以亲自选择某个配置，然后用该配置启动 OMP。
 
-MVP 只实现 OMP。Claude Code 与 Codex CLI 只保留未来 client adapter 合同边界。产品不分析任务目标/验收/约束/权限/风险，不观察任务内容或结果，不由 Agent 选择配置、生成候选或推荐装配。OMP Session 恢复使用 OMP 原生能力；Agent System 不拥有 native Session locator。
+核心 OMP MVP 仍以 Epic 1 的查看/选择/使用能力为产品化核心，Epic 2（控制面发布与自更新）和 Epic 3（配置供应与装配）已作为 OMP 侧后续已激活能力域排入并完成交付；Epic 4（Claude Code adapter）是已激活但独立的第二客户端能力域，Codex CLI 仍为 Deferred。产品不分析任务目标/验收/约束/权限/风险，不观察任务内容或结果，不由 Agent 选择配置、生成候选或推荐装配；这些边界不因 Epic 3/4 激活而放宽。OMP Session 恢复使用 OMP 原生能力；Agent System 不拥有 native Session locator。
 
 ## Requirements Inventory
 
@@ -67,7 +67,7 @@ NFR9：用户拥有配置选择权；Agent、默认标记、显示顺序和历�
 ### Additional Requirements
 
 - AR1：采用外部 TypeScript/Bun CLI 与六边形模块化单体；领域状态变更只经应用命令，OMP adapter/薄扩展不得自行做产品决定或直接写 SQLite。
-- AR2：MVP 只实现 OMP。Claude Code/Codex CLI 仅保留未来 adapter port 和版本化 DTO/schema 边界，不实现配置等价、Session 翻译或兼容 shim。
+- AR2：OMP 核心 MVP 只实现 OMP；Claude Code adapter 已作为 Epic 4 的独立能力域激活并按自身 Story/独立 parity gate 验收，Codex CLI 仍只保留未来 adapter port 和版本化 DTO/schema 边界，不实现配置等价、Session 翻译或兼容 shim。
 - AR3：SQLite 保存配置修订、用户选择和启动 operation 的持久事实；JSON/Markdown 仅为 allowlist 可重建投影。OMP transcript、凭据、缓存和原生 Session 始终由 OMP 拥有。
 - AR4：配置修订不可变；查看、比较和启动始终绑定具体修订。历史修订不得因新状态被原位改写。
 - AR5：一次启动确认绑定当前 operation、具体配置和当前计划；计划或配置变化后旧确认失效。SQLite 提交不伪装覆盖文件生成和进程启动，副作用必须可协调且不得重复启动。
@@ -125,11 +125,11 @@ MVP-FR10：Epic 1 / Story 1.2 — OMP-only 与未来 adapter 边界。
 
 （2026-08-23 新增，见 `sprint-change-proposal-2026-08-23-configs-supply-assembly.md`）
 
-### Epic 4：装配并激活 Claude Code/Codex 客户端（Agent System 第二客户端）
+### Epic 4：装配并激活 Claude Code 客户端（Agent System 第二客户端）
 
-`configs` 新增对 Claude Code 与 Codex CLI 的类型化 client adapter（复用 Architecture Spine AD-19 已定义的窄端口：probe → plan → launch/resume → interpret，capability 状态固定为 `supported | degraded | unsupported | unknown` 并绑定证据），以硬控制（native 权限/工具/MCP 层面可强制执行的边界）交付 Instructions/Skills/MCP 装配，取代现有 `.cap/`（`.cap/manifest.toml`、`profiles/*.toml`、`runtime/claude.toml`、`skill-imports.toml`）当前依赖 TOML 允许清单与未经证据绑定的软约束的装配方式。这条能力域此前被 PRD §4.4"已确认 MVP 客户端范围"与 §7"明确非目标"、Architecture Spine AD-1 与 Deferred 小节明确列为"第二客户端"，需等待"产品合同明确激活"才重新评估；本次由负责人在 correct-course 会话中依据 epic-1-retro-2026-08-22.md 的 open action item（CAP 长期独立兜底、缺乏 epic 覆盖、以软约束方式维护）与本仓持续的 ad hoc CAP 维护证据（如 `b9e95cd` 等散点提交），明确裁决触发该重开条件、正式激活第二客户端。装配（Claude Code/Codex adapter、硬控制能力合同）与迁移退役 `.cap/` 保持在同一能力域内处理，不与 Epic 3（OMP 配置供应与装配）合并——两者服务不同客户端、不追求跨客户端配置或 Session 等价（AD-1、AD-19）。具体 adapter 边界、Claude Code 特有的"通常已是交互中会话而非 fresh spawn"执行模型如何纳入 launch-scoped operation 状态机、`.cap/` 到新 adapter 的迁移与退役顺序、PRD Non-goals 与 Architecture AD-1/Deferred 的正式改写，均留给后续 bmad-prd（addendum）、bmad-architecture、bmad-create-epics-and-stories 产出。
+`configs` 新增 Claude Code 的类型化 client adapter（复用 Architecture Spine AD-19 已定义的窄端口：probe → plan → launch/resume → interpret，capability 状态固定为 `supported | degraded | unsupported | unknown` 并绑定证据），以硬控制（native 权限/工具/MCP 层面可强制执行的边界）交付 Instructions/Skills/MCP 装配，取代现有 `.cap/`（`.cap/manifest.toml`、`profiles/*.toml`、`runtime/claude.toml`、`skill-imports.toml`）当前依赖 TOML 允许清单与未经证据绑定的软约束的装配方式。Codex CLI 因缺乏真实装配证据（`.cap/runtime/` 无 `codex.toml`）不在本 Epic 范围内，继续按 Architecture Spine AD-1 的 2026-08-23 澄清保持非目标。这条能力域此前被 PRD §4.4"已确认 MVP 客户端范围"与 §7"明确非目标"、Architecture Spine AD-1 与 Deferred 小节明确列为"第二客户端"，需等待"产品合同明确激活"才重新评估；本次由负责人在 correct-course 会话中依据 epic-1-retro-2026-08-22.md 的 open action item（CAP 长期独立兜底、缺乏 epic 覆盖、以软约束方式维护）与本仓持续的 ad hoc CAP 维护证据（如 `b9e95cd` 等散点提交），明确裁决触发该重开条件、正式激活第二客户端。装配（Claude Code adapter、硬控制能力合同）与迁移退役 `.cap/` 保持在同一能力域内处理，不与 Epic 3（OMP 配置供应与装配）合并——两者服务不同客户端，不追求跨客户端配置或 Session 等价。
 
-**覆盖：** PRD §4.4、§7 对应裁决的重新表态（第二客户端激活触发条件已满足）；Architecture Spine AD-1、AD-19、Deferred 小节"Claude Code/Codex adapter"条目的重新表态；覆盖 epic-1-retro-2026-08-22.md open action item `epic-1-retro-item-7`。
+**覆盖：** PRD §4.4、§7 对应裁决的重新表态（Claude Code 第二客户端激活触发条件已满足，Codex 仍未激活）；Architecture Spine AD-1、AD-19、AD-20、Deferred 小节中 Claude Code adapter 条目的重新表态；覆盖 epic-1-retro-2026-08-22.md open action item `epic-1-retro-item-7`。
 
 （2026-08-23 新增，见 `sprint-change-proposal-2026-08-23-cap-claude-codex-adapter.md`）
 
@@ -330,7 +330,7 @@ MVP-FR10：Epic 1 / Story 1.2 — OMP-only 与未来 adapter 边界。
 
 **覆盖：** Epic 3 正文「选择数据源导入原始资产」的供应半边；`#1`（原 `Eridanus117/agent-system#173`，随仓重建后编号变更） 记录的供给能力缺口，AD-22 退役第 (1) 步的其余部分
 
-**验收标准来源：** 待 `bmad-build` 产出（当前记于 `_bmad-output/implementation-artifacts/deferred-work.md`）
+**验收标准来源：** `_bmad-output/implementation-artifacts/spec-3-5-configs-supply.md`（status: done）。该 spec 的验收标准与验证记录是本 Story 的当前权威细化来源；`deferred-work.md` 仅保留后续边界与非阻塞项，不再代表本 Story 尚未产出。
 
 ### Story 3.6：本仓装配意图从既有权威推导，并建立一致性门
 
@@ -346,7 +346,7 @@ MVP-FR10：Epic 1 / Story 1.2 — OMP-only 与未来 adapter 边界。
 
 ## Epic 4：装配并激活 Claude Code 客户端
 
-用户可以让本产品把已存在的装配意图（Instructions/Skills/MCP 引用）交付给 Claude Code，边界是宿主原生可强制执行的权限/工具/MCP 硬控制，不是 prompt 文字软约束；交付方式复用 Architecture Spine AD-19 的窄端口（probe → plan → launch/resume → interpret）与 AD-20 的会话模型（fresh target 复用 OMP 同款单次确认生命周期，already-running session target 诚实返回 `requires-restart`），最终按固定三步顺序取代现有 `.cap/`。Codex CLI 因缺乏真实装配证据（`.cap/runtime/` 无 `codex.toml`）不在本 Epic 范围内，继续按 Architecture Spine AD-1 的 2026-08-23 澄清保持非目标。
+用户可以让本产品把已存在的装配意图（Instructions/Skills/MCP 引用）交付给 Claude Code，边界是宿主原生可强制执行的权限/工具/MCP 硬控制，不是 prompt 文字软约束；交付方式复用 Architecture Spine AD-19 的窄端口（probe → plan → launch/resume → interpret）与 AD-20 的会话模型（fresh target 复用 OMP 同款单次确认生命周期，already-running session target 诚实返回 `requires-restart`），最终按固定三步顺序取代现有 `.cap/`。Codex CLI 因缺乏真实装配证据（退役前 `.cap/runtime/` 快照只有 `claude.toml`、没有 `codex.toml`）不在本 Epic 范围内，继续按 Architecture Spine AD-1 的 2026-08-23 澄清保持非目标。
 
 **覆盖：** Architecture Spine AD-1（2026-08-23 澄清）、AD-19（MVP 边界更新）、AD-20（新增，2026-08-24 修订）、AD-21（2026-08-24 新增，内容物化）；SPEC.md CAP-2/CAP-3/CAP-4 的 2026-08-23 MVP 归属更新；不覆盖 CAP-1（候选/推荐）、CAP-2 的建立/修订部分、CAP-4 的 ChangeAssessment、CAP-7（Bad Case 产品化）——这些对 Claude Code 同样不在 MVP，与 OMP 侧收窄口径一致。
 
@@ -369,9 +369,9 @@ MVP-FR10：Epic 1 / Story 1.2 — OMP-only 与未来 adapter 边界。
 **Then** probe 对每个候选硬控制能力（如 settings.json 权限字段、hook 拒绝返回值、MCP 配置项）返回 `supported | degraded | unsupported | unknown`，并绑定可回读证据
 **And** 不接受 prompt 文字承诺、文档声称或未核实的假设作为 `supported` 的证据；无法验证时返回 `unknown`，不得默认为 `supported`。
 
-**Given** probe 在本仓当前环境（Windows，Claude Code 2.1.236，见 `.cap/runtime/claude.toml` 已核实的版本证据）执行
-**When** 结果与 `.cap/runtime/claude.toml` 中已核实的字段（`permission_mode`、`enable_project_mcp`、`enable_user_assets`）比对
-**Then** probe 得到的能力集合与 `.cap/` 现有已核实字段一致或明确记录差异
+**Given** probe 在本仓当前环境（Windows，Claude Code 版本以本次真实 probe 输出为准；`.cap/runtime/claude.toml` 的 2.1.236 仅作为退役前历史基线）
+**When** 结果与退役前 `.cap/runtime/claude.toml` 中已核实的字段（`permission_mode`、`enable_project_mcp`、`enable_user_assets`）比对
+**Then** probe 得到的能力集合与退役前已核实字段一致或明确记录差异
 **And** 差异不得被静默丢弃，需记录为 Unknown 或已知不一致供后续 Story 处理。
 
 ### Story 4.2：装配 Claude Code 的确定性 AdapterPlan

@@ -206,14 +206,16 @@ deferred: []
 - `packages/control-plane/src/adapters/sqlite/repository.ts` -- 更新 `seed()` 方法文档注释，零行为改动。
 - `openspec/specs/{cap-default-interactive-entry,claude-runtime,claude-surface-closure,digest-materialization-evidence,general-profile,layered-agent-profile,omp-cross-profile-resume,omp-shared-preferences,portable-assembly-host,private-capability-overlay,project-skill-imports,v3-assembly-executor,workspace-context-bridge}/spec.md` -- `git mv` 至 `_archive/openspec/specs/<同名>/spec.md`（13 项，历史完整保留）。
 - `.cap/` -- 整体删除（23 个文件）。
-- `_bmad-output/implementation-artifacts/sprint-status.yaml` -- 标记 `4-7-退役-cap-本体: done`；把已被 2026-08-24 架构澄清取代前提的 action item（`epic-4-story-4-5-ac2-blocked-story-4-6-not-executable`）状态更新为 `done` 并记录理由与 `resolved_ref`；`last_updated` 刷新。`epic-4` 本身保留 `in-progress`（见下方"关于 epic-4 状态"）。
+- `_bmad-output/implementation-artifacts/sprint-status.yaml` -- 标记 `4-7-退役-cap-本体: done`；把已被 2026-08-24 架构澄清取代前提的 action item（`epic-4-story-4-5-ac2-blocked-story-4-6-not-executable`）状态更新为 `done` 并记录理由与 `resolved_ref`；`last_updated` 刷新。**截至本文件首次编写时，`epic-4` 仍保留 `in-progress`，见下方历史状态记录。**
 
-### 关于 epic-4 状态：保留 `in-progress`，未标记 `done`
+### 关于 epic-4 状态：历史时点曾保留 `in-progress`，当前已标记 `done`
 
-Spec 原文允许"若全部 Story 均已完成（含 optional 的回顾）则一并评估是否可标 done（不强制）"。核实后决定**不**标记 `epic-4: done`，理由：
+**历史状态（2026-08-24 首次编写）：** Spec 原文允许"若全部 Story 均已完成（含 optional 的回顾）则一并评估是否可标 done（不强制）"。当时核实后决定不标记 `epic-4: done`，理由如下，作为当时的决策记录保留：
 
 1. `sprint_status.py update --set-epic-status` 的工具自身文档明确写道它是"唯一能把一个 epic 移到 done 的写入路径"，暗示直接手工编辑 YAML 把 epic 状态改成 done 不是本仓已确立的合规操作方式；该脚本主要服务于 retrospective 流程（`--set-retro-done`、`--set-epic-status` 均在 `update` 子命令下，围绕 retro 上下文设计）。
-2. 本仓已有的同类先例是 `epic-3`：全部 3 个 Story 均 `done`、`epic-3-retrospective: optional`，但 `epic-3` 本身仍保留 `in-progress`——说明"全部 Story 完成 + retro optional"在本仓惯例下不会自动触发 epic 级 done，这是一个需要人工/retro 流程确认的独立决定，不是本 Story（一个 Story 级 chore）的授权范围。
-3. `epic-4-retrospective` 仍是 `optional`（未运行、未标 `done`），而 `epic-1`/`epic-2` 被标为 `done` 时其对应 retrospective 字段本身也是 `done`（不是 `optional`）——进一步印证"epic done"在本仓惯例下与"retrospective 已完成"绑定，而非仅仅"全部 Story done"。
+2. 本仓已有的同类先例是 `epic-3`：当时全部 3 个 Story 均 `done`、`epic-3-retrospective: optional`，但 `epic-3` 本身仍保留 `in-progress`；这说明在当时的状态口径下，"全部 Story 完成 + retro optional"不会自动触发 epic 级 done，这是一个需要人工/retro 流程确认的独立决定。
+3. 当时 `epic-4-retrospective` 仍是 `optional`（未运行、未标 `done`），而 `epic-1`/`epic-2` 被标为 `done` 时其对应 retrospective 字段本身也是 `done`（不是 `optional`），进一步印证当时的 epic 状态口径与 retrospective 完成状态有关。
 
-`detect-epic` 已确认 `epic: 4`、`story_count: 8`、`pending_stories: []`——epic-4 已具备可以运行 retrospective 或由负责人显式确认 done 的全部前提条件；本 Story 把这一状态如实留给负责人下一步决定，不越权代为拍板。
+`detect-epic` 在当时已确认 `epic: 4`、`story_count: 8`、`pending_stories: []`，因此本 Story 当时把状态留给负责人下一步决定，并未越权代为拍板。
+
+**当前状态（2026-08-27）：** 后续回顾已完成，`epic-4-retrospective: done`；8 个列出 Story 仍全部为 `done`。`sprint-status.yaml` 与 `epic-4-context.md` 已同步为 `epic-4: done`。本节保留上述历史决策，不再把历史时点的 `in-progress` 或 `retro optional` 描述当作当前状态。

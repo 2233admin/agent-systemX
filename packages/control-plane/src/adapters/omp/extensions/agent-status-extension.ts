@@ -1,21 +1,3 @@
-/**
- * Thin OMP extension, loaded via `-e <this file>` when Agent System starts
- * OMP. This file is NOT imported by the rest of this package -- OMP loads
- * it directly as a standalone module at runtime (see `process-port.ts`'s
- * `defaultExtensionPath`).
- *
- * Deliberately subscribes to `session_start` only, plus registers two
- * commands (`registerCommand`). Never subscribes to `tool_call`/
- * `tool_result`/`turn_start`/`turn_end`/`message_*`/`agent_start`/
- * `agent_end`/`before_provider_request` or any other event that would
- * observe task execution -- see Boundaries & Constraints (AR12).
- *
- * Types are inlined rather than imported from `@oh-my-pi/pi-coding-agent`
- * (Design Notes: that package's real shape was verified on a local OMP
- * 17.4.1 install, but importing it as a dependency would tie this
- * package's toolchain to OMP's moving `main`, and it is not guaranteed to
- * be installed on every dev/CI machine).
- */
 
 interface MinimalExtensionUi {
   notify(message: string, type?: string): void;
@@ -46,25 +28,16 @@ interface MinimalExtensionAPI {
   ): void;
 }
 
-/** Mirrors `application/ports.ts`'s `LaunchContext` -- kept as a local, minimal shape (see file header). */
+/** 对应 control-plane 写入的启动上下文，仅保留扩展展示所需字段。 */
 interface LaunchContextFile {
   readonly version: 1;
-  readonly planId: string;
+  readonly operationId: string;
   readonly configName: string;
   readonly revisionId: string;
   readonly client: string;
-  readonly launchedAt: string;
-  readonly applyResult: 'applied' | 'degraded';
-  readonly knownDifferences: readonly string[];
-  readonly switchEntryPointHint: string;
 }
 
-/**
- * Reads the version-1 launch context file once. Never polls, watches or
- * re-reads on any event other than the caller explicitly invoking it (on
- * `session_start`, or when the user runs `/agent-config`/
- * `/agent-switch-config`) -- no background observation.
- */
+/** 读取一次启动上下文；不轮询、不监听，也不在事件之间重复读取。 */
 async function readLaunchContext(): Promise<LaunchContextFile | null> {
   const contextPath = process.env.AGENT_SYSTEM_LAUNCH_CONTEXT;
   if (contextPath === undefined || contextPath.length === 0) {
@@ -82,7 +55,7 @@ function formatStatusLine(context: LaunchContextFile | null): string {
   if (context === null) {
     return 'Agent System: launch context unavailable';
   }
-  return `Agent System: ${context.configName}@${context.revisionId} [${context.applyResult}]`;
+  return `Agent System: ${context.configName}@${context.revisionId} [${context.client}]`;
 }
 
 function formatDetail(context: LaunchContextFile | null): string {
@@ -93,8 +66,7 @@ function formatDetail(context: LaunchContextFile | null): string {
     `configName: ${context.configName}`,
     `revisionId: ${context.revisionId}`,
     `client: ${context.client}`,
-    `applyResult: ${context.applyResult}`,
-    `knownDifferences: ${context.knownDifferences.length > 0 ? context.knownDifferences.join(', ') : '(none)'}`,
+    `operationId: ${context.operationId}`,
   ].join('\n');
 }
 
@@ -116,7 +88,7 @@ export default function registerAgentStatusExtension(pi: MinimalExtensionAPI): v
     description: 'Switch the Agent System configuration (forwards to the external Agent System CLI)',
     handler: async (_args, ctx) => {
       const context = await readLaunchContext();
-      const hint = context?.switchEntryPointHint ?? 'run `configs switch <id>` in the Agent System CLI';
+      const hint = 'run `configs switch <revision-id> --client omp` in the Agent System CLI';
       ctx.ui.notify(`To switch configuration: ${hint}`);
     },
   });

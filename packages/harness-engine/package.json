@@ -1,0 +1,16 @@
+{
+  "name": "@agent-system/harness-engine",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "bin": {
+    "harness": "src/cli/index.ts"
+  },
+  "scripts": {
+    "test": "bun test tests",
+    "typecheck": "tsc --noEmit -p tsconfig.json"
+  },
+  "dependencies": {
+    "@agent-system/control-plane": "workspace:*"
+  }
+}

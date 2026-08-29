@@ -1,7 +1,7 @@
 import { createHash } from 'node:crypto';
 import { rename } from 'node:fs/promises';
 
-import type { SelfUpdatePort } from '../../application/ports';
+import type { SelfUpdatePort } from '../../application/ports/self-update';
 import { resolveAssetName } from './asset-target';
 import { parseSha256Sums } from './checksum';
 import { isNewerVersion } from './version-compare';
