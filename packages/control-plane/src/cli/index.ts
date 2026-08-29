@@ -7,12 +7,13 @@ import { CONFIGS_VERSION } from './version';
 import { readYesNo } from './confirm-prompt';
 import { t } from './i18n';
 import { readCandidateFile, readStdinText, isStdinTTY } from './candidate-source';
-import { renderConfirmationSummary, renderDetail, renderFailure, renderHandoffLine, renderList, renderQueryFailure, renderSearchResults, renderStatus } from './render';
+import { renderConfirmationSummary, renderCompare, renderDetail, renderFailure, renderHandoffLine, renderList, renderQueryFailure, renderSearchResults, renderStatus } from './render';
 import { SqliteStore } from '../adapters/sqlite/store';
 import { SqliteConfigRevisionRepository } from '../adapters/sqlite/repository';
 import { SqliteConfigRevisionWriter } from '../adapters/sqlite/config-revision-writer';
 import { SqliteActivationOperationRepository } from '../adapters/sqlite/activation-operation-repository';
 import { SqliteLaunchObservationRepository } from '../adapters/sqlite/launch-observation-repository';
+import { findDenylistedForwardedArg } from '../adapters/omp/process-port';
 import { InMemoryClientAdapterRegistry, OmpClientAdapter, ClaudeClientAdapter } from '../adapters/clients/client-adapters';
 import { clientId as toClientId } from '../domain/client';
 import { prepareActivation, confirmActivation, rejectActivation, executeActivation, recoverActivation, getActivationStatus, requestConfigurationSwitch, type ActivationDependencies } from '../application/activation';
@@ -84,8 +85,43 @@ function parseClient(args: string[]): { readonly clientId: string; readonly args
 }
 function hasYes(args: string[]): boolean { return args.includes('--yes'); }
 function stripYes(args: string[]): string[] { return args.filter((arg) => arg !== '--yes'); }
+function splitForwarded(args: string[]): { readonly commandArgs: string[]; readonly forwardedArgs: string[] } {
+  const separator = args.indexOf('--');
+  return separator === -1 ? { commandArgs: args, forwardedArgs: [] } : { commandArgs: args.slice(0, separator), forwardedArgs: args.slice(separator + 1) };
+}
+function validateCommandBeforeStore(command: string | undefined, args: readonly string[]): void {
+  if (command === 'search') {
+    const searchArgs = [...args];
+    if (searchArgs.includes('--rebuild')) {
+      if (searchArgs.length !== 1) throw new Error('search --rebuild does not accept other options');
+      return;
+    }
+    let queryCount = 0;
+    let jsonCount = 0;
+    for (let index = 0; index < searchArgs.length; index += 1) {
+      const value = searchArgs[index] ?? '';
+      if (value === '--json') jsonCount += 1;
+      else if (value === '--limit') {
+        if (index + 1 >= searchArgs.length) throw new Error('search --limit requires a positive integer');
+        const limit = Number(searchArgs[++index]);
+        if (!Number.isInteger(limit) || limit < 1) throw new Error('search limit must be a positive integer');
+      } else if (value.startsWith('--')) throw new Error(`unknown search option: ${value}`);
+      else queryCount += 1;
+    }
+    if (jsonCount > 1) throw new Error('search --json may only be specified once');
+    if (queryCount !== 1) throw new Error(queryCount === 0 ? 'search requires a query' : 'search accepts exactly one query');
+  }
+  if (command === 'use' || command === 'switch') {
+    const split = splitForwarded([...args]);
+    const commandArgs = stripYes(split.commandArgs);
+    const parsed = parseClient(commandArgs);
+    if (parsed.args.length !== 1 || parsed.args[0]?.startsWith('--')) throw new Error(`${command} requires exactly one revision id`);
+    const denied = findDenylistedForwardedArg(split.forwardedArgs);
+    if (denied !== null) throw new Error(`forwarded argument is reserved by Agent System: ${denied}`);
+  }
+}
 
-async function runActivationCommand(deps: FullDeps, mode: 'use' | 'switch', revisionId: string, clientId: string, yes: boolean): Promise<number> {
+async function runActivationCommand(deps: FullDeps, mode: 'use' | 'switch', revisionId: string, clientId: string, yes: boolean, forwardedArgs: readonly string[]): Promise<number> {
   const latest = await deps.operations.findLatestForClient(toClientId(clientId));
   if (mode === 'use' && latest !== null && ['prepared', 'awaiting-confirmation', 'applying'].includes(latest.phase)) {
     throw new Error(`activation ${latest.operationId} is still ${latest.phase}; run configs recover ${latest.operationId} before starting another client`);
@@ -102,7 +138,7 @@ async function runActivationCommand(deps: FullDeps, mode: 'use' | 'switch', revi
   if (!yes && !(await readYesNo(t('confirmation.prompt')))) { const cancelled = await rejectActivation(deps, operation.operationId); console.log(renderFailure(cancelled)); return 1; }
   await confirmActivation(deps, operation.operationId);
   console.log(renderHandoffLine());
-  const finalOperation = await executeActivation(deps, operation.operationId);
+  const finalOperation = await executeActivation(deps, operation.operationId, forwardedArgs);
   if (finalOperation.phase === 'succeeded' || finalOperation.phase === 'degraded') { console.log(renderStatus(await getActivationStatus(deps, finalOperation.operationId))); return 0; }
   console.log(renderFailure(finalOperation));
   return 1;
@@ -148,16 +184,78 @@ export async function main(argv: readonly string[] = process.argv.slice(2), over
     return 0;
   }
   if (command === '--version') { console.log(CONFIGS_VERSION); return 0; }
+  validateCommandBeforeStore(command, argv.slice(1));
   const deps = openDeps(overrides);
   try {
-    if (command === 'list') { console.log(renderList(await listConfigRevisions(deps.configurations))); return 0; }
-    if (command === 'status') { const operation = argv[1] ?? (await deps.operations.findLatest())?.operationId; if (operation === undefined) throw new Error('no activation operation found'); console.log(renderStatus(await getActivationStatus(deps, operation))); return 0; }
-    if (command === 'recover') { const operationId = argv[1]; if (operationId === undefined || operationId.startsWith('--')) throw new Error('recover requires an operation id'); const recovered = await recoverActivation(deps, operationId); console.log(renderStatus(await getActivationStatus(deps, recovered.operationId))); return 0; }
+    if (command === 'list') {
+      console.log(renderList(await listConfigRevisions(deps.configurations)));
+      return 0;
+    }
+    if (command === 'show') {
+      const revisionId = argv[1];
+      if (revisionId === undefined) throw new Error('show requires a revision id');
+      console.log(renderDetail(await getConfigRevisionDetail(deps.configurations, revisionId)));
+      return 0;
+    }
+    if (command === 'compare') {
+      const revisionIds = argv.slice(1).filter((value) => value.length > 0);
+      if (revisionIds.length < 2) throw new Error('compare requires at least two revision ids');
+      const result = await compareConfigRevisions(deps.configurations, revisionIds);
+      console.log(renderCompare(result));
+      return result.resolved.length > 0 ? 0 : 1;
+    }
+    if (command === 'search') {
+      const searchArgs = argv.slice(1);
+      if (searchArgs.includes('--rebuild')) {
+        if (searchArgs.length !== 1) throw new Error('search --rebuild does not accept other options');
+        await rebuildConfigSearch(deps.configurations);
+        return 0;
+      }
+      let query: string | undefined;
+      let limit = 20;
+      let json = false;
+      for (let index = 0; index < searchArgs.length; index += 1) {
+        const value = searchArgs[index] ?? '';
+        if (value === '--json') {
+          if (json) throw new Error('search --json may only be specified once');
+          json = true;
+        } else if (value === '--limit') {
+          if (index + 1 >= searchArgs.length) throw new Error('search --limit requires a positive integer');
+          limit = Number(searchArgs[++index]);
+          if (!Number.isInteger(limit) || limit < 1) throw new Error('search limit must be a positive integer');
+        } else if (value.startsWith('--')) {
+          throw new Error(`unknown search option: ${value}`);
+        } else if (query === undefined) {
+          query = value;
+        } else {
+          throw new Error('search accepts exactly one query');
+        }
+      }
+      if (query === undefined || query.length === 0) throw new Error('search requires a query');
+      const results = await searchConfigRevisions(deps.configurations, query, limit);
+      console.log(json ? JSON.stringify(results) : renderSearchResults(results));
+      return 0;
+    }
+    if (command === 'status') {
+      const operation = argv[1] ?? (await deps.operations.findLatest())?.operationId;
+      if (operation === undefined) throw new Error('no activation operation found');
+      console.log(renderStatus(await getActivationStatus(deps, operation)));
+      return 0;
+    }
+    if (command === 'recover') {
+      const operationId = argv[1];
+      if (operationId === undefined || operationId.startsWith('--')) throw new Error('recover requires an operation id');
+      const recovered = await recoverActivation(deps, operationId);
+      console.log(renderStatus(await getActivationStatus(deps, recovered.operationId)));
+      return 0;
+    }
     if (command === 'use' || command === 'switch') {
-      const parsed = parseClient(stripYes([...argv.slice(1)]));
+      const split = splitForwarded([...argv.slice(1)]);
+      const commandArgs = stripYes(split.commandArgs);
+      const parsed = parseClient(commandArgs);
       const revisionId = parsed.args.length === 1 ? parsed.args[0] : undefined;
       if (revisionId === undefined || revisionId.startsWith('--')) throw new Error(`${command} requires exactly one revision id`);
-      return await runActivationCommand(deps, command, revisionId, parsed.clientId, hasYes(argv.slice(1)));
+      return await runActivationCommand(deps, command, revisionId, parsed.clientId, hasYes(split.commandArgs), split.forwardedArgs);
     }
     throw new Error(`unknown command: ${command}`);
   } catch (error) { console.error(renderQueryFailure(error)); return 1; } finally { closeDeps(deps); }

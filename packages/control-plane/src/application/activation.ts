@@ -3,7 +3,7 @@ import { createActivationOperation, transitionActivationOperation } from '../dom
 import type { ConfigurationRepository } from './ports/configuration-repository';
 import type { ActivationOperationRepository } from './ports/activation-operation-repository';
 import type { LaunchObservationRepository } from './ports/launch-observation-repository';
-import type { ClientAdapter, ClientAdapterRegistry } from './ports/client-adapter';
+import type { ClientAdapter, ClientAdapterRegistry, PreparedActivation, StartedProcess } from './ports/client-adapter';
 import { configurationName, type ConfigurationRevision } from '../domain/configuration';
 import { clientId } from '../domain/client';
 import { createLaunchObservation, type LaunchObservation } from '../domain/launch-observation';
@@ -70,7 +70,7 @@ async function appendStage(deps: ActivationDependencies, operation: ActivationOp
   await deps.observations.append(createLaunchObservation({ operationId: operation.operationId, clientId: adapter.clientId, stage, outcome, reason, processReference, observedAt: new Date().toISOString() }));
 }
 
-export async function executeActivation(deps: ActivationDependencies, operationId: string): Promise<ActivationOperation> {
+export async function executeActivation(deps: ActivationDependencies, operationId: string, forwardedArgs: readonly string[] = []): Promise<ActivationOperation> {
   const operation = await deps.operations.findById(operationId);
   if (operation === null) throw new ActivationNotFoundError(operationId);
   if (operation.phase !== 'applying') throw new Error(`activation operation ${operationId} is not applying`);
@@ -86,32 +86,36 @@ export async function executeActivation(deps: ActivationDependencies, operationI
   }
   let capability;
   try {
-    capability = await adapter.probe?.();
-  } catch (error) {
-    const failed = operationFailure(operation, `client-probe-failed:${(error as Error).message}`);
+    capability = await adapter.probe({ revision });
+  } catch {
+    const failed = operationFailure(operation, 'client-probe-failed');
     return updateOperation(deps, operation, failed);
   }
-  if (capability !== undefined && capability.level !== 'supported' && capability.level !== 'degraded') {
-    const failed = operationFailure(operation, `client-capability-${capability.level}:${capability.reason ?? 'no reason'}`);
+  if (capability.level !== 'supported' && capability.level !== 'degraded') {
+    const failed = operationFailure(operation, `client-capability-${capability.level}`);
     return updateOperation(deps, operation, failed);
   }
   const claimed = await deps.operations.claimApplying(operationId, operation.version, new Date().toISOString());
+  let prepared: PreparedActivation | undefined;
+  let started: StartedProcess | undefined;
   try {
-    const prepared = await adapter.prepare({ operationId, revision });
+    prepared = await adapter.prepare({ operationId, revision, forwardedArgs });
     await appendStage(deps, claimed, adapter, 'context-written', 'unknown');
-    const started = await adapter.start({ operationId, revision, prepared });
+    started = await adapter.start({ operationId, revision, forwardedArgs, prepared });
     await appendStage(deps, claimed, adapter, 'process-started', 'unknown', undefined, started.processReference);
     const observed = await adapter.observe({ operationId, revision, started });
     await appendStage(deps, claimed, adapter, 'process-exited', observed.outcome, observed.reason, started.processReference);
     await appendStage(deps, claimed, adapter, 'outcome-observed', observed.outcome, observed.reason, started.processReference);
-    const transition = transitionActivationOperation(claimed, observed.outcome === 'succeeded' ? { type: 'succeeded' } : observed.outcome === 'degraded' ? { type: 'degraded', reason: observed.reason } : { type: 'failed', reason: observed.reason ?? `launch-outcome:${observed.outcome}` });
+    if (observed.outcome === 'unknown' || observed.outcome === 'incomplete' || observed.outcome === 'not-available') return claimed;
+    const transition = transitionActivationOperation(claimed, observed.outcome === 'succeeded' ? { type: 'succeeded' } : observed.outcome === 'degraded' ? { type: 'degraded', reason: observed.reason } : { type: 'failed', reason: observed.reason ?? 'launch-failed' });
     if (!transition.ok) throw new Error(transition.reason);
     return updateOperation(deps, claimed, transition.operation);
-  } catch (error) {
-    const reason = `activation-failed:${(error as Error).message}`;
-    await appendStage(deps, claimed, adapter, 'outcome-observed', 'unknown', reason);
-    const failed = operationFailure(claimed, reason);
-    return updateOperation(deps, claimed, failed);
+  } catch {
+    if (prepared !== undefined) {
+      try { await adapter.abort?.({ operationId, revision, prepared, started }); } catch { }
+    }
+    try { await appendStage(deps, claimed, adapter, 'outcome-observed', 'unknown', 'activation-outcome-unavailable'); } catch { }
+    return claimed;
   }
 }
 export async function recoverActivation(deps: ActivationDependencies, operationId: string, reason = 'manual recovery: client outcome is unknown'): Promise<ActivationOperation> {

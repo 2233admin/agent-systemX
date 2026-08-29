@@ -1,6 +1,6 @@
 import type { ActivationOperationRepository } from '../../application/ports/activation-operation-repository';
-import { ConcurrencyConflictError } from '../../domain/errors';
-import type { ActivationOperation } from '../../domain/activation-operation';
+import { ConcurrencyConflictError, InvalidActivationTransitionError, InvalidActivationVersionError } from '../../domain/errors';
+import { transitionActivationOperation, type ActivationOperation, type ActivationOperationEvent } from '../../domain/activation-operation';
 import { clientId } from '../../domain/client';
 import { configurationName, configurationRevisionId } from '../../domain/configuration';
 import { SqliteStore } from './store';
@@ -30,6 +30,30 @@ export class SqliteActivationOperationRepository implements ActivationOperationR
   }
 
   async updateIfVersion(operationId: string, expectedVersion: number, nextState: ActivationOperation): Promise<void> {
+    if (nextState.operationId !== operationId || !Number.isInteger(expectedVersion) || expectedVersion < 0) {
+      throw new InvalidActivationVersionError(operationId, expectedVersion, nextState.version);
+    }
+    const currentRow = this.store.db.query<Record<string, unknown>, [string]>(`SELECT ${COLUMNS} FROM activation_operation WHERE operation_id = ?`).get(operationId);
+    if (currentRow === null) throw new ConcurrencyConflictError(operationId, expectedVersion);
+    const current = fromRow(currentRow);
+    if (current.version !== expectedVersion) throw new ConcurrencyConflictError(operationId, expectedVersion);
+    if (nextState.configName !== current.configName || nextState.clientId !== current.clientId || nextState.revisionId !== current.revisionId || nextState.planHash !== current.planHash || nextState.createdAt !== current.createdAt) {
+      throw new InvalidActivationTransitionError(current.phase, 'aggregate-mutation');
+    }
+    const events: readonly ActivationOperationEvent[] = [
+      { type: 'awaiting-confirmation' },
+      { type: 'confirmed' },
+      { type: 'succeeded' },
+      { type: 'degraded', reason: nextState.terminalReason },
+      { type: 'failed', reason: nextState.terminalReason ?? 'activation-failed' },
+      { type: 'cancelled', reason: nextState.terminalReason },
+      { type: 'requires-restart', reason: nextState.terminalReason ?? 'restart-required' },
+    ];
+    if (!events.some((event) => {
+      const transition = transitionActivationOperation(current, event);
+      return transition.ok && transition.operation.phase === nextState.phase;
+    })) throw new InvalidActivationTransitionError(current.phase, nextState.phase);
+    if (nextState.version !== expectedVersion + 1) throw new InvalidActivationVersionError(operationId, expectedVersion, nextState.version);
     const result = this.store.db.query(`UPDATE activation_operation SET revision_id = ?, config_name = ?, client_id = ?, phase = ?, version = ?, plan_hash = ?, updated_at = ?, terminal_reason = ? WHERE operation_id = ? AND version = ?`).run(nextState.revisionId, nextState.configName, nextState.clientId, nextState.phase, nextState.version, nextState.planHash, nextState.updatedAt, nextState.terminalReason ?? null, operationId, expectedVersion);
     if (result.changes !== 1) throw new ConcurrencyConflictError(operationId, expectedVersion);
   }

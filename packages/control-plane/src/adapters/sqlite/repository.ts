@@ -1,32 +1,34 @@
 import { Database } from 'bun:sqlite';
 import type { ConfigurationRepository, ConfigurationRevisionWriter, ConfigurationSearchRepository, ConfigurationSearchResult } from '../../application/ports/configuration-repository';
-import type { CapabilityReference } from '../../domain/capability';
-import { configurationName, configurationRevisionId, type ConfigurationRevision, type UnknownValue } from '../../domain/configuration';
+import { normalizeCapabilityReference, type CapabilityReference } from '../../domain/capability';
+import { configurationName, configurationRevisionId, validateConfigurationRevision, type ConfigurationRevision, type UnknownValue } from '../../domain/configuration';
 import { SqliteStore } from './store';
 
-function parseUnknown(value: string): UnknownValue | { readonly kind: 'known'; readonly value: boolean } | { readonly kind: 'known'; readonly value: string } | { readonly kind: 'known'; readonly value: 'resolved' } {
-  const parsed = JSON.parse(value) as { kind?: string; value?: unknown; reason?: string; observedAt?: string };
-  if (parsed.kind === 'unknown' && typeof parsed.reason === 'string' && typeof parsed.observedAt === 'string') return { kind: 'unknown', reason: parsed.reason, observedAt: parsed.observedAt };
-  if (parsed.kind === 'known') return { kind: 'known', value: parsed.value as never };
-  throw new Error('invalid persisted observation');
+function parseFact<T>(value: string, label: string, isValid: (value: unknown) => value is T): UnknownValue | { readonly kind: 'known'; readonly value: T } {
+  const parsed = JSON.parse(value) as { kind?: unknown; value?: unknown; reason?: unknown; observedAt?: unknown };
+  if (parsed.kind === 'unknown' && typeof parsed.reason === 'string' && typeof parsed.observedAt === 'string' && parsed.reason.trim().length > 0 && parsed.observedAt.trim().length > 0) return { kind: 'unknown', reason: parsed.reason, observedAt: parsed.observedAt };
+  if (parsed.kind === 'known' && isValid(parsed.value)) return { kind: 'known', value: parsed.value };
+  throw new Error(`invalid persisted ${label}`);
 }
 
 function parseRevision(row: Record<string, unknown>): ConfigurationRevision {
-  const capabilities = JSON.parse(String(row.capabilities_json)) as CapabilityReference[];
-  if (!Array.isArray(capabilities)) throw new Error(`invalid capabilities for revision ${String(row.revision_id)}`);
-  return {
+  const parsedCapabilities = JSON.parse(String(row.capabilities_json));
+  if (!Array.isArray(parsedCapabilities)) throw new Error(`invalid capabilities for revision ${String(row.revision_id)}`);
+  const revision: ConfigurationRevision = {
     configName: configurationName(String(row.config_name)),
     revisionId: configurationRevisionId(String(row.revision_id)),
     schemaVersion: Number(row.schema_version),
-    defaultMarker: parseUnknown(String(row.default_marker_json)) as ConfigurationRevision['defaultMarker'],
-    scopeBoundary: parseUnknown(String(row.scope_boundary_json)) as ConfigurationRevision['scopeBoundary'],
-    availability: parseUnknown(String(row.availability_json)) as ConfigurationRevision['availability'],
-    capabilities,
+    defaultMarker: parseFact(String(row.default_marker_json), 'default marker', (value): value is boolean => typeof value === 'boolean'),
+    scopeBoundary: parseFact(String(row.scope_boundary_json), 'scope boundary', (value): value is string => typeof value === 'string' && value.trim().length > 0),
+    availability: parseFact(String(row.availability_json), 'availability', (value): value is 'resolved' => value === 'resolved'),
+    capabilities: parsedCapabilities.map(normalizeCapabilityReference),
     createdAt: String(row.created_at),
     triggerCategory: String(row.trigger_category) as ConfigurationRevision['triggerCategory'],
     evidenceRef: String(row.evidence_ref),
     supersedesRevisionId: row.supersedes_revision_id === null ? null : configurationRevisionId(String(row.supersedes_revision_id)),
   };
+  validateConfigurationRevision(revision);
+  return revision;
 }
 
 const REVISION_COLUMNS = 'revision_id, config_name, schema_version, default_marker_json, scope_boundary_json, availability_json, capabilities_json, trigger_category, evidence_ref, supersedes_revision_id, created_at';

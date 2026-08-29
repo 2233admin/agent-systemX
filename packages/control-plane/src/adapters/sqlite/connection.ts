@@ -44,7 +44,7 @@ export function enableWalMode(
 }
 
 export function openSqliteDatabase(dbPath: string): Database {
-  if (dbPath !== ':memory:') mkdirSync(path.dirname(dbPath), { recursive: true });
+  if (dbPath !== ':memory:') mkdirSync(path.dirname(path.resolve(dbPath)), { recursive: true });
   const db = new Database(dbPath, { create: true });
   db.exec(`PRAGMA busy_timeout = ${BUSY_TIMEOUT_MS};`);
   enableWalMode(db);

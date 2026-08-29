@@ -15,3 +15,11 @@ export class ConcurrencyConflictError extends Error {
     this.name = 'ConcurrencyConflictError';
   }
 }
+export class InvalidActivationVersionError extends Error {
+  readonly kind = 'invalid-activation-version' as const;
+
+  constructor(readonly aggregateId: string, readonly expectedVersion: number, readonly receivedVersion: number) {
+    super(`activation operation ${aggregateId} must advance from version ${expectedVersion} to ${expectedVersion + 1}, received ${receivedVersion}`);
+    this.name = 'InvalidActivationVersionError';
+  }
+}

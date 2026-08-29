@@ -31,6 +31,8 @@ export interface StartedProcess {
   readonly processReference: ProcessReference;
   readonly exitCode: number | null;
   readonly signal: string | null;
+  readonly context?: Record<string, unknown>;
+  readonly terminate?: () => Promise<void>;
   readonly waitForExit?: Promise<{ readonly exitCode: number; readonly signal: string | null }>;
 }
 
@@ -38,10 +40,10 @@ export interface ObservedLaunch {
   readonly outcome: 'succeeded' | 'degraded' | 'failed' | 'incomplete' | 'unknown' | 'not-available';
   readonly reason: string | undefined;
 }
-
 export interface ClientAdapterInput {
   readonly operationId: string;
   readonly revision: ConfigurationRevision;
+  readonly forwardedArgs?: readonly string[];
 }
 
 export interface ClientAdapter {
@@ -50,6 +52,7 @@ export interface ClientAdapter {
   prepare(input: ClientAdapterInput): Promise<PreparedActivation>;
   start(input: ClientAdapterInput & { readonly prepared: PreparedActivation }): Promise<StartedProcess>;
   observe(input: ClientAdapterInput & { readonly started: StartedProcess }): Promise<ObservedLaunch>;
+  abort?(input: ClientAdapterInput & { readonly prepared: PreparedActivation; readonly started?: StartedProcess }): Promise<void>;
 }
 
 export interface ClientAdapterRegistry {
