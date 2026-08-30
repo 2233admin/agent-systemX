@@ -1,0 +1,1 @@
+../../.delivery-spec-runtime/openspec/tools/runtime-entry.ts

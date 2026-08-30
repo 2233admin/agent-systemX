@@ -10,7 +10,14 @@
 
 ## Agent 系统任务路由
 
-> **权威变更（2026-08-22，负责人确认；2026-08-23 物理归档）：** 下一句"读取 `authority/00-map.md`"已不再产生产品政策——`authority/`、`src/agent_system/`、`docs/`、`knowledge/` 全部降级为历史资产，并已于 2026-08-23 物理搬迁到 `_archive/` 同名子路径（如 `_archive/authority/00-map.md`）。当前产品政策、需求、架构与范围的唯一权威来源改为 BMad 工作流产出（`_bmad-output/specs/spec-agent-system/SPEC.md`、`_bmad-output/planning-artifacts/epics.md`、`_bmad-output/planning-artifacts/architecture/**/ARCHITECTURE-SPINE.md`、`_bmad-output/implementation-artifacts/sprint-status.yaml`），详见 [`AGENTS.md` 的同名章节](../AGENTS.md#当前权威声明2026-08-22负责人确认)。以下 GitHub Issue 授权边界、迁移标签处理等流程规则本身不受影响，仍然适用。
+> **权威迁移方向（2026-08-30，负责人确认）：** BMad 产出是迁移完成前的临时现状来源，后期废弃；后续产品权威收敛到仓内 OpenSpec 与版本化文档。迁移验收前，`_bmad-output/` 继续约束尚未迁出的现有范围；不得因为目标方向已确定就提前删除 BMad 资产或丢失现有决定。
+
+目标权威结构固定为：
+
+1. `openspec/specs/`：已生效的产品需求与 capability 规范；
+2. 仓内版本化文档、入口和合同：架构、操作边界、失败语义与维护规则；
+3. `openspec/changes/`：待审、实施和交付证据；只有按生命周期同步或归档后才改变长期规范；
+4. `_bmad-output/`：迁移输入和历史证据，完成覆盖核验后退役，不再新增长期权威。
 
 当任务落在本仓时，先读取仓库根 `README.md` 与（现仅作历史索引的）`_archive/authority/00-map.md`，再按模式继续：
 
