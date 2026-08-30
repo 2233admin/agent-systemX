@@ -49,7 +49,7 @@ test('accepts transcript-only worker-read when exact dispatch was already valida
     { exitCode: 0, stdout: JSON.stringify({ result: { runId: 'run-1', tasks: [{ id: 'task-1', spec: request.objective }] } }), stderr: '' },
     { exitCode: 0, stdout: JSON.stringify({ result: { runId: 'run-1', taskId: 'task-1', dispatchId: 'dispatch-1', status: 'accepted' } }), stderr: '' },
     completedWorkerResponse(),
-    { exitCode: 0, stdout: JSON.stringify({ result: { source: 'transcript', status: { worker: 'succeeded' } } }), stderr: '' },
+    { exitCode: 0, stdout: JSON.stringify({ result: { dispatchId: 'dispatch-1', source: 'transcript', status: { worker: 'succeeded' } } }), stderr: '' },
   ];
   const adapter = new OrcaCliExecutionAdapter('orca', async () => responses.shift()!, 0, 100);
   await expect(adapter.runWorker(request)).resolves.toMatchObject({ kind: 'known' });

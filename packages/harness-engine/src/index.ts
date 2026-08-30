@@ -103,6 +103,11 @@ export type {
 } from './gates/pr-review';
 export { calculateReviewTally, evaluatePrReview, evaluatePushCadence, validateMergeReady } from './gates/pr-review';
 export type { ArtifactStore, WorkflowWriteRequest, WorkflowWriteResult } from './ports/artifacts';
+export type { OrcaExecutionPort, OrcaExecutionResult, OrcaWorkerRequest, OrcaWorkerResult } from './ports/orca-execution';
+export { OrcaCliExecutionAdapter } from './adapters/orca/orca-cli-execution-adapter';
+export type { OrcaCommandResult, OrcaCommandRunner } from './adapters/orca/orca-cli-execution-adapter';
+export type { ProcessPort, ProcessResult } from './ports/process';
+export { BunProcessPort } from './adapters/process/bun-process-port';
 export type {
   AdapterMetadata,
   CoordinationAdapter,
@@ -226,6 +231,8 @@ export type {
 } from './application/commands';
 export type { ReadWorkflowQuery, StatusQuery, StatusView, ValidateQuery, ValidationView } from './application/queries';
 export { createWorkflowFacade, WorkflowFacade } from './application/harness-application';
+export type { RunAssignment, RunAssignmentDependencies, RunAssignmentResult } from './application/run-assignment';
+export { digestAssignment, parseRunAssignment, runAssignment } from './application/run-assignment';
 export type { ReadOnlyProcessResult, RealSmokeEvidence, RealSmokeInput } from './smoke/evidence';
 export { collectRealSmokeEvidence, evidenceRefForSmoke, normalizeWindowsPath, runReadOnlyProcess, validateRealSmokeEvidence } from './smoke/evidence';
 export type { HostSmokeInput, HostSmokeResult } from './cli/host-smoke';

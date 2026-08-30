@@ -11,6 +11,74 @@ import type { WorkflowSnapshot } from '../domain/workflow.ts';
 import { runArtifactCommand, formatArtifactCommandResult } from './commands/artifact-commands.ts';
 import { parseArtifactCommand } from './parsers/artifact-commands.ts';
 import { collectRealSmokeEvidence } from '../smoke/evidence.ts';
+import { createProductionHarnessControlPlaneFacade } from '@agent-system/control-plane/application/public-entry';
+import type { ControlPlaneFacade } from '../application/control-plane-port.ts';
+import { parseRunAssignment, runAssignment } from '../application/run-assignment.ts';
+import type { RunAssignment, RunAssignmentDependencies, RunAssignmentResult } from '../application/run-assignment.ts';
+import type { OrcaExecutionPort } from '../ports/orca-execution.ts';
+import type { ProcessPort } from '../ports/process.ts';
+import { OrcaCliExecutionAdapter } from '../adapters/orca/orca-cli-execution-adapter.ts';
+import { BunProcessPort } from '../adapters/process/bun-process-port.ts';
+
+export interface RunCliDependencies {
+  readonly controlPlane: ControlPlaneFacade;
+  readonly orca: OrcaExecutionPort;
+  readonly process: ProcessPort;
+}
+
+type RunCliOptions = RunCliDependencies;
+
+function runResultCode(result: RunAssignmentResult): 0 | 1 {
+  return result.status === 'pass' ? 0 : 1;
+}
+
+function renderRun(result: RunAssignmentResult, json: boolean): CliResult {
+  if (json) return { exitCode: runResultCode(result), stdout: `${JSON.stringify(result)}\n`, stderr: '' };
+  return {
+    exitCode: runResultCode(result),
+    stdout: `${result.summary}\nstatus: ${result.status}\nworkflow: ${result.identity.workflowId ?? 'unknown'}\nplan: ${result.identity.planId ?? 'unknown'}\ntask: ${result.identity.taskId ?? 'unknown'}\nrun: ${result.identity.runId ?? 'unknown'}\n`,
+    stderr: '',
+  };
+}
+
+async function runAssignmentCli(filePath: string, json: boolean, options?: RunCliOptions): Promise<CliResult> {
+  let raw: string;
+  try {
+    raw = await readFile(filePath, 'utf8');
+  } catch {
+    return renderRun({
+      status: 'not-available',
+      summary: 'Harness run is not available: assignment file could not be read',
+      identity: {} as RunAssignmentResult['identity'],
+      evidence: [],
+      violations: [{ code: 'assignment.file.unreadable' }],
+      recovery: ['provide a readable assignment JSON file'],
+      code: 'assignment.file.unreadable',
+    }, json);
+  }
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(raw) as unknown;
+  } catch {
+    return renderRun({
+      status: 'fail',
+      summary: 'Harness run is rejected: assignment JSON is malformed',
+      identity: {},
+      evidence: [],
+      violations: [{ code: 'assignment.json.invalid' }],
+      recovery: ['repair the assignment JSON'],
+      code: 'assignment.json.invalid',
+    }, json);
+  }
+  const assignment = parseRunAssignment(parsed);
+  if (!('schemaVersion' in assignment)) return renderRun(assignment, json);
+  const dependencies: RunAssignmentDependencies = {
+    controlPlane: options?.controlPlane ?? await createProductionHarnessControlPlaneFacade(),
+    orca: options?.orca ?? new OrcaCliExecutionAdapter(),
+    process: options?.process ?? new BunProcessPort(),
+  };
+  return renderRun(await runAssignment(assignment as RunAssignment, dependencies), json);
+}
 
 export interface CliResult {
   readonly exitCode: 0 | 1 | 2;
@@ -19,7 +87,7 @@ export interface CliResult {
 }
 
 function usage(): string {
-  return 'usage: harness validate <assignment-file> | harness status <workflow-file>';
+  return 'usage: harness run <assignment.json> [--json] | harness validate <assignment-file> | harness status <workflow-file>';
 }
 
 function failureBlock(
@@ -189,12 +257,21 @@ async function smokeEvidence(args: readonly string[]): Promise<CliResult> {
 }
 
 
-export async function runCli(args: readonly string[]): Promise<CliResult> {
+export async function runCli(args: readonly string[], options?: RunCliOptions): Promise<CliResult> {
   if (args[0] === 'smoke' && args[1] === 'evidence') return smokeEvidence(args);
   if (args[0] === 'artifact') {
     try { parseArtifactCommand(args); } catch { return { exitCode: 2, stdout: '', stderr: 'usage: harness artifact <path|status|project register|migrate> ... --json\n' }; }
     const result = await runArtifactCommand(args);
     return { exitCode: result.result === 'invalid' ? 1 : 0, stdout: formatArtifactCommandResult(result), stderr: '' };
+  }
+  if (args[0] === 'run') {
+    if (args[1] === '--help' || args[1] === '-h') return { exitCode: 0, stdout: `${usage()}\n`, stderr: '' };
+    const filePath = args[1];
+    const json = args[2] === '--json';
+    if (filePath === undefined || filePath.trim().length === 0 || args.length !== (json ? 3 : 2)) {
+      return { exitCode: 2, stdout: '', stderr: `${usage()}\n` };
+    }
+    return runAssignmentCli(filePath, json, options);
   }
   const command = args[0];
   const filePath = args[1];
