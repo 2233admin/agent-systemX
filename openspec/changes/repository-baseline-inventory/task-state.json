@@ -1,0 +1,85 @@
+{
+  "schemaVersion": 1,
+  "tasks": [
+    {
+      "id": "1.1",
+      "state": "verified",
+      "deliverables": [
+        "01-原始需求/原始需求索引.md",
+        "change-sources.json"
+      ],
+      "verification": [
+        "npx openspec validate repository-baseline-inventory --strict",
+        "来源字段与公开路径可回读"
+      ],
+      "evidence": [
+        "runs/20260830-baseline-001/validate-change.txt"
+      ],
+      "blocker": null
+    },
+    {
+      "id": "2.1",
+      "state": "verified",
+      "deliverables": [
+        "03-业务现状/业务现状.md",
+        "04-技术现状/技术现状.md"
+      ],
+      "verification": [
+        "人工核对事实/推断/运行态分层",
+        "Mermaid 流程与源码路径可回读"
+      ],
+      "evidence": [
+        "runs/20260830-baseline-001/validate-change.txt"
+      ],
+      "blocker": null
+    },
+    {
+      "id": "3.1",
+      "state": "verified",
+      "deliverables": [
+        "05-改造方案/改造方案.md"
+      ],
+      "verification": [
+        "核对目标、非目标、迁移、回滚和停止条件",
+        "确认不产生产品 Requirement delta"
+      ],
+      "evidence": [
+        "runs/20260830-baseline-001/validate-change.txt"
+      ],
+      "blocker": null
+    },
+    {
+      "id": "4.1",
+      "state": "verified",
+      "deliverables": [
+        "06-测试方案/测试方案.md"
+      ],
+      "verification": [
+        "核对 BASE-001 至 BASE-006 覆盖和失败停止条件",
+        "确认不创建用户运行态资源"
+      ],
+      "evidence": [
+        "runs/20260830-baseline-001/validate-change.txt"
+      ],
+      "blocker": null
+    },
+    {
+      "id": "5.1",
+      "state": "verified",
+      "deliverables": [
+        ".delivery-spec-runtime",
+        "runs/<run-id>/"
+      ],
+      "verification": [
+        "npx openspec doctor",
+        "npx openspec schemas",
+        "npx openspec validate --specs --strict",
+        "记录 control-plane CLI 实际运行结果"
+      ],
+      "evidence": [
+        "runs/20260830-baseline-001/runtime-check.txt"
+      ],
+      "blocker": null
+    }
+  ]
+}
