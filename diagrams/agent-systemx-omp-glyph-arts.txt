@@ -1,0 +1,8 @@
+Agent System X control-plane -> OMP adapter: probe / plan / launch / interpret
+OMP adapter -> OMP native runtime: direct spawn; argv + env + launch context
+OMP native runtime -> OMP thin extension: loads explicit TypeScript extension
+OMP thin extension -> Agent System X control-plane: lifecycle events + low-frequency requests
+Agent System X control-plane -> SQLite product authority: config / revision / launch / observation facts
+Operator / this task -> Glyph Arts (independent Chat Arts tool): python -m cli_charts chat diagram flowchart
+Glyph Arts (independent Chat Arts tool) -> HTML / SVG / PNG preview: renders this architecture artifact
+Boundary: Glyph Arts is not an Agent System X or OMP runtime dependency

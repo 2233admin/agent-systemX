@@ -177,9 +177,19 @@ export class WorkflowFacade {
     const planIndex = current.plans.findIndex((plan) => plan.id === input.planId);
     const plan = current.plans[planIndex];
     if (plan === undefined) return failed('completePlan', input.operationId, current.revision, 'rejected', [{ code: 'plan.missing' }], [{ code: 'plan.register' }]);
+    const completionValidation = validatePlanCompletion(input.completion);
+    if (completionValidation.kind !== 'pass') {
+      const resultKind = completionValidation.kind === 'fail' ? 'rejected' : completionValidation.kind;
+      return failed('completePlan', input.operationId, current.revision, resultKind, completionValidation.violations, completionValidation.recovery);
+    }
     let completedPlan;
     try {
-      completedPlan = transitionPlanStatus(plan, 'Done', { leaseRemaining: false, reviewComplete: true, qaComplete: true });
+      completedPlan = transitionPlanStatus(plan, 'Done', {
+        leaseRemaining: completionValidation.value.executionLease !== undefined,
+        integrationMergeLeaseRemaining: !completionValidation.value.integrationMergeLeaseReleased,
+        reviewComplete: completionValidation.value.reviewPackage !== undefined && completionValidation.value.qc.passed,
+        qaComplete: completionValidation.value.qa.passed,
+      });
     } catch {
       return failed('completePlan', input.operationId, current.revision, 'rejected', [{ code: 'plan.transition.invalid' }], [{ code: 'plan.reconcile' }]);
     }

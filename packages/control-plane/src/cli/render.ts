@@ -246,12 +246,12 @@ function assertNeverErrorKind(kind: never): never {
   throw new Error(`unhandled QueryOrEstablishError kind: ${String(kind)}`);
 }
 
-function formatErrorReason(error: QueryOrEstablishError): string {
+export function formatPublicFailureReason(error: QueryOrEstablishError): string {
   switch (error.kind) {
     case 'config-not-found':
       return t('queryFailure.notFound');
     case 'config-unsupported':
-      return t('queryFailure.unsupported', { reason: error.reason });
+      return t('queryFailure.unsupported');
     case 'invalid-trigger-category':
       return t('establish.missingTriggerCategory');
     case 'missing-evidence':
@@ -259,7 +259,7 @@ function formatErrorReason(error: QueryOrEstablishError): string {
     case 'no-candidate-source':
       return t('establish.noCandidateSource');
     case 'invalid-candidate':
-      return t('establish.invalidCandidate', { reason: error.reason });
+      return t('establish.invalidCandidate');
     case 'missing-supersedes':
       return t('revise.missingSupersedes');
     case 'supersedes-not-found':
@@ -293,7 +293,7 @@ function formatErrorReason(error: QueryOrEstablishError): string {
         second: error.secondSourceRef,
       });
     case 'supply-source-unreadable':
-      return t('supply.sourceUnreadable', { where: error.where, supplyRoot: error.supplyRoot, reason: error.reason });
+      return t('supply.sourceUnreadable');
     case 'supply-unsupported-entry':
       return t('supply.unsupportedEntry', {
         sourceRef: error.sourceRef,
@@ -320,7 +320,7 @@ function formatErrorReason(error: QueryOrEstablishError): string {
  *   …… 不存在」这种误报主体的句子。
  */
 export function renderQueryFailure(label: string, error: QueryOrEstablishError): string {
-  return t('queryFailure.prefix', { revisionId: label, reason: formatErrorReason(error) });
+  return t('queryFailure.prefix', { revisionId: label, reason: formatPublicFailureReason(error) });
 }
 
 /**
@@ -513,7 +513,10 @@ export function renderLaunchStatus(status: LaunchStatus): string {
 
 /** MVP-FR10: immediate, typed "not supported yet" response -- no placeholder, translation or shim. */
 export function renderUnsupportedClient(clientId: string, reason: string): string {
-  return t('unsupportedClient', { clientId, reason });
+  void reason;
+  return clientId === 'codex-cli'
+    ? t('unsupportedClient.codexCli')
+    : t('unsupportedClient', { clientId });
 }
 
 /**

@@ -1,0 +1,20 @@
+┌──────────────────────────────────────────────────────────────────────────────────────────────┐
+│                                          Flowchart                                           │
+├──────────────────────────────────────────────────────────────────────────────────────────────┤
+│ [Agent System X control-plane]                                                               │
+│   ├─ probe / plan / launch / interpret → [OMP adapter]                                       │
+│   └─ config / revision / launch / observation facts → [SQLite product authority]             │
+│ [OMP adapter]                                                                                │
+│   └─ direct spawn; argv + env + launch context → [OMP native runtime]                        │
+│ [OMP native runtime]                                                                         │
+│   └─ loads explicit TypeScript extension → [OMP thin extension]                              │
+│ [OMP thin extension]                                                                         │
+│   └─ lifecycle events + low-frequency requests → [Agent System X control-plane]              │
+│ [SQLite product authority]                                                                   │
+│ [Operator / this task]                                                                       │
+│   └─ python -m cli_charts chat diagram flowchart → [Glyph Arts (independent Chat Arts tool)] │
+│ [Glyph Arts (independent Chat Arts tool)]                                                    │
+│   └─ renders this architecture artifact → [HTML / SVG / PNG preview]                         │
+│ [HTML / SVG / PNG preview]                                                                   │
+│ [Boundary: Glyph Arts is not an Agent System X or OMP runtime dependency]                    │
+└──────────────────────────────────────────────────────────────────────────────────────────────┘

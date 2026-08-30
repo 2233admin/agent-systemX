@@ -61,7 +61,7 @@ const zh: Dict = {
   'detail.chainUnresolvable': '无法解析（{revisionId}）',
 
   'queryFailure.notFound': '未找到。恢复：运行 `configs list` 查看可用的修订版本 id。',
-  'queryFailure.unsupported': '不受支持（{reason}）。恢复：重新导入该修订版本，或检查其存储数据；其他配置不受影响。',
+  'queryFailure.unsupported': '不受支持（该修订的版本、引用或存储数据无法解析）。恢复：重新建立该修订版本，或检查配置来源；其他配置不受影响。',
   'queryFailure.prefix': '配置 "{revisionId}"：{reason}',
 
   'comparison.header': '正在比较 {count} 个修订版本：{ids}',
@@ -84,7 +84,8 @@ const zh: Dict = {
   'launchStatus.knownDifferencesTitle': '已知差异：',
   'launchStatus.knownDifferencesNone': '已知差异：（无）',
 
-  'unsupportedClient': '客户端 "{clientId}" 暂不支持：{reason}',
+  'unsupportedClient': '客户端 "{clientId}" 当前不支持。恢复：请选择已支持的客户端。',
+  'unsupportedClient.codexCli': '客户端 "codex-cli" 当前不支持。恢复：请选择 OMP 或 Claude Code。',
 
   'failure.cancelled': '启动计划 {planId} 已取消：{reason}。',
   'failure.notStarted': 'OMP 未启动。',
@@ -113,6 +114,26 @@ const zh: Dict = {
   'tui.detailFooter': 'enter 启动 · esc 返回 · q 退出',
 
   'usage.prefix': '用法：',
+  'help.title': 'Agent System 控制面',
+  'help.inspect.title': '查看与比较',
+  'help.inspect.body': '  configs list | show <id> | compare <id> <id> [...ids] | search <query> | status [<planId>]',
+  'help.activate.title': '选择与启动',
+  'help.activate.body': '  configs use <id> --client omp|claude-code [--yes]',
+  'help.activate.omp': '  configs use <id> --client omp [--yes] [-- ...args]',
+  'help.activate.claude': '  configs use <id> --client claude-code [--yes]',
+  'help.assemble.title': '供给与修订',
+  'help.assemble.body': '  configs supply --config-name <name> --group <group> [--group <group>...]',
+  'help.activate.example': '示例：configs use <id> --client omp --yes',
+  'help.assemble.example': '  configs supply --config-name general --group vendor/bmad > candidate.json',
+  'help.assemble.pipe': '  configs establish --trigger-category new-scenario --evidence <ref> --from candidate.json',
+  'help.environment.title': '环境与首跑',
+  'help.environment.body': '  CONTROL_PLANE_DB_PATH=<path>；CONTROL_PLANE_SUPPLY_ROOT=<path>',
+  'help.next': '首跑顺序：supply → establish → list/show → use；没有配置时不会伪造默认配置。',
+  'help.command.list': 'configs list：列出已保存的配置修订。',
+  'help.command.use': 'configs use <id>：确认一次后启动选定客户端；OMP 参数可放在 -- 之后。',
+  'help.command.supply': 'configs supply：扫描 <root>/<group>/skills/<skill>/SKILL.md 并输出候选 JSON。',
+  'help.unknownCommand': '未知命令 "{command}"；以下是可用命令：',
+  'help.command.example': '示例：',
   'parseError.missingId': 'configs {command} <id>：缺少 <id>',
   'parseError.compareMinIds': 'configs compare <id> <id> [...ids]：至少需要 2 个 id',
   'parseError.clientRequiresValue': '--client 需要一个值',
@@ -134,8 +155,8 @@ const zh: Dict = {
   // dropped.
   'parseError.forwardedArgsUnsupportedForClaude':
     'configs {command}：`--client claude-code` 尚不支持在 `--` 之后转发参数',
-  'openDeps.failed': 'configs：无法打开配置存储：{message}',
-  'unexpectedFailure': 'configs：意外失败：{message}',
+  'openDeps.failed': 'configs：无法打开配置存储。恢复：检查配置存储路径与权限。',
+  'unexpectedFailure': 'configs：发生意外失败。恢复：重新运行命令；若问题持续，请检查配置存储。',
   'launchPlan.notFound': '未找到启动计划 {target}。请先运行 `configs use <id>`。',
   'launchPlan.notFoundTargetForId': '（id 为 "{planId}"）',
   'launchPlan.notFoundTargetNoActive': '（客户端 "omp" 没有活跃的启动计划）',
@@ -154,38 +175,38 @@ const zh: Dict = {
 
   'establish.successPrefix': '已建立新配置修订：',
   'establish.missingTriggerCategory':
-    'configs establish：缺少或不合法的触发类别——必须通过 --trigger-category 传入 new-scenario / known-insufficiency / bad-case 之一；未写入任何内容。',
-  'establish.missingEvidence': 'configs establish：缺少证据引用——必须通过 --evidence <ref> 传入非空值；未写入任何内容。',
+    '缺少或不合法的触发类别——必须通过 --trigger-category 传入 new-scenario / known-insufficiency / bad-case 之一；未写入任何内容。',
+  'establish.missingEvidence': '缺少证据引用——必须通过 --evidence <ref> 传入非空值；未写入任何内容。',
   'establish.noCandidateSource':
-    'configs establish：未提供候选内容——请传入 --from <path>，或通过 stdin 管道输入候选 JSON（当前 stdin 是交互式终端）；未写入任何内容。',
-  'establish.invalidCandidate': 'configs establish：候选内容不合法（以下为英文字段路径/类型提示，非待翻译文案）：`{reason}`；未写入任何内容。',
+    '未提供候选内容——请传入 --from <path>，或通过 stdin 管道输入候选 JSON（当前 stdin 是交互式终端）；未写入任何内容。',
+  'establish.invalidCandidate': '候选内容不合法。恢复：重新运行 `configs supply`，或检查候选 JSON 示例；未写入任何内容。',
 
   'revise.successPrefix': '已建立替代修订：',
-  'revise.missingSupersedes': 'configs revise：缺少 --supersedes 目标修订 id——必须通过 --supersedes <revisionId> 传入非空值；未写入任何内容。',
-  'revise.supersedesNotFound': 'configs revise：--supersedes 指向的修订 "{revisionId}" 不存在；未写入任何内容。',
+  'revise.missingSupersedes': '缺少 --supersedes 目标修订 id——必须通过 --supersedes <revisionId> 传入非空值；未写入任何内容。',
+  'revise.supersedesNotFound': '--supersedes 指向的修订 "{revisionId}" 不存在；未写入任何内容。',
   'revise.supersedesConfigMismatch':
-    'configs revise：--supersedes 指向的修订 "{revisionId}" 属于配置 "{actual}"，与候选内容的配置 "{expected}" 不一致；未写入任何内容。',
-  'revise.supersedesConflict': 'configs revise：--supersedes 指向的修订 "{revisionId}" 已被另一条修订替代；未写入任何内容。',
+    '--supersedes 指向的修订 "{revisionId}" 属于配置 "{actual}"，与候选内容的配置 "{expected}" 不一致；未写入任何内容。',
+  'revise.supersedesConflict': '--supersedes 指向的修订 "{revisionId}" 已被另一条修订替代；未写入任何内容。',
 
   // `[Story 3.5]` `configs supply` 的四个 fail-closed 拒绝（AD-10）。四条文案
   // 都以「未产出任何候选」收尾：`supply` 的正常产出会被管道喂给
   // `configs establish`，所以「什么都没产出」这件事必须说死，用户才不会以为
   // 管道那头拿到了一份不完整的候选。
-  'supply.rootNotFound': 'configs supply：供给库根 `{supplyRoot}` 不存在或不是目录——请检查 CONTROL_PLANE_SUPPLY_ROOT；未产出任何候选。',
+  'supply.rootNotFound': '供给库根 `{supplyRoot}` 不存在或不是目录——请检查 CONTROL_PLANE_SUPPLY_ROOT；未产出任何候选。',
   // `[P10]` 与同表邻居一致，两条都补上恢复指引——此前只有 rootNotFound 有。
   'supply.groupNotFound':
-    'configs supply：供给库根 `{supplyRoot}` 下没有组 "{group}"。恢复：确认组目录 `{supplyRoot}/{group}` 存在，或检查 CONTROL_PLANE_SUPPLY_ROOT 是否指向了预期的库根；未产出任何候选。',
+    '供给库根 `{supplyRoot}` 下没有组 "{group}"。恢复：确认组目录 `{supplyRoot}/{group}` 存在，或检查 CONTROL_PLANE_SUPPLY_ROOT 是否指向了预期的库根；未产出任何候选。',
   'supply.groupEmpty':
-    'configs supply：组 "{group}"（供给库根 `{supplyRoot}`）下没有任何含 SKILL.md 的 skill 目录——声明了却拿不到内容视为错误，不是空集。恢复：供给库的目录约定是 `<组>/skills/<skill>/SKILL.md`，请确认 `{group}/skills/` 之下至少有一个含 SKILL.md 的目录；未产出任何候选。',
-  'supply.refInvalid': 'configs supply：产出自检失败——{reason}；未产出任何候选。',
+    '组 "{group}"（供给库根 `{supplyRoot}`）下没有任何含 SKILL.md 的 skill 目录——声明了却拿不到内容视为错误，不是空集。恢复：供给库的目录约定是 `<组>/skills/<skill>/SKILL.md`，请确认 `{group}/skills/` 之下至少有一个含 SKILL.md 的目录；未产出任何候选。',
+  'supply.refInvalid': '产出自检失败——{reason}；未产出任何候选。',
   'supply.duplicateGroup':
-    'configs supply：组 "{group}" 被声明了不止一次（`{first}` 与 `{second}` 规范化后是同一个组）。恢复：每个组只传一次 --group；未产出任何候选。',
+    '组 "{group}" 被声明了不止一次（`{first}` 与 `{second}` 规范化后是同一个组）。恢复：每个组只传一次 --group；未产出任何候选。',
   'supply.duplicateSkillName':
-    'configs supply：skill 名 "{skill}" 同时来自两个组（`{first}` 与 `{second}`）——物化时两者会落在同一个目标目录、后者静默覆盖前者，因此拒绝产出。恢复：本次装配只选其中一个组，或先在供给库里消除同名；未产出任何候选。',
+    'skill 名 "{skill}" 同时来自两个组（`{first}` 与 `{second}`）——物化时两者会落在同一个目标目录、后者静默覆盖前者，因此拒绝产出。恢复：本次装配只选其中一个组，或先在供给库里消除同名；未产出任何候选。',
   'supply.sourceUnreadable':
-    'configs supply：读取 `{where}`（供给库根 `{supplyRoot}`）失败：{reason}。恢复：这是 I/O 失败而不是「没有这个东西」，请检查权限以及该路径是否正被并发改动；未产出任何候选。',
+    '供给库内容无法读取。恢复：请检查当前生效的供给根、权限以及来源是否正在被并发修改；未产出任何候选。',
   'supply.unsupportedEntry':
-    'configs supply：`{sourceRef}` 下的 `{entryPath}` 是{entryKind}，无法可复现地计入内容指纹——指纹覆盖不到的内容仍会被物化侧照样复制，指纹便不再能作为 parity 取证依据。恢复：把它换成普通文件或普通目录；未产出任何候选。',
+    '供给库中包含不支持的条目类型（{entryKind}），无法安全计入指纹。恢复：把它换成普通文件或普通目录；未产出任何候选。',
 
   // `[P9]` sourceRef 合同拒绝的成句模板。zh 侧与 `cli/supply-root.ts` 的
   // `describeSupplyRefRejection` **逐字相同**（有测试做等值断言），en 侧是同结构
@@ -238,7 +259,7 @@ const en: Dict = {
   'detail.chainUnresolvable': 'unresolvable ({revisionId})',
 
   'queryFailure.notFound': 'not found. Recovery: run `configs list` to see available revision ids.',
-  'queryFailure.unsupported': 'unsupported ({reason}). Recovery: re-seed this revision or inspect its stored data; other configurations are unaffected.',
+  'queryFailure.unsupported': 'unsupported (the revision could not be resolved from its version, references, or stored data). Recovery: establish the revision again or inspect its sources; other configurations are unaffected.',
   'queryFailure.prefix': 'Configuration "{revisionId}": {reason}',
 
   'comparison.header': 'Comparing {count} revision(s): {ids}',
@@ -261,7 +282,8 @@ const en: Dict = {
   'launchStatus.knownDifferencesTitle': 'Known differences:',
   'launchStatus.knownDifferencesNone': 'Known differences: (none)',
 
-  'unsupportedClient': 'Client "{clientId}" is not supported yet: {reason}',
+  'unsupportedClient': 'Client "{clientId}" is not supported yet. Recovery: choose a supported client.',
+  'unsupportedClient.codexCli': 'Client "codex-cli" is not supported yet. Recovery: choose OMP or Claude Code.',
 
   'failure.cancelled': 'Launch plan {planId} was cancelled: {reason}.',
   'failure.notStarted': 'OMP was not started.',
@@ -292,6 +314,26 @@ const en: Dict = {
   'parseError.searchRequiresQuery': 'configs search: a query is required',
   'parseError.searchOneQuery': 'configs search: exactly one query is accepted',
   'usage.prefix': 'usage:',
+  'help.title': 'Agent System control plane',
+  'help.inspect.title': 'Inspect and compare',
+  'help.inspect.body': '  configs list | show <id> | compare <id> <id> [...ids] | search <query> | status [<planId>]',
+  'help.activate.title': 'Select and launch',
+  'help.activate.body': '  configs use <id> --client omp|claude-code [--yes]',
+  'help.activate.omp': '  configs use <id> --client omp [--yes] [-- ...args]',
+  'help.activate.claude': '  configs use <id> --client claude-code [--yes]',
+  'help.assemble.title': 'Supply and revise',
+  'help.assemble.body': '  configs supply --config-name <name> --group <group> [--group <group>...]',
+  'help.assemble.example': '  configs supply --config-name general --group vendor/bmad > candidate.json',
+  'help.activate.example': 'Example: configs use <id> --client omp --yes',
+  'help.assemble.pipe': '  configs establish --trigger-category new-scenario --evidence <ref> --from candidate.json',
+  'help.environment.title': 'Environment and first run',
+  'help.environment.body': '  CONTROL_PLANE_DB_PATH=<path>; CONTROL_PLANE_SUPPLY_ROOT=<path>',
+  'help.next': 'First-run order: supply → establish → list/show → use; an empty store never invents a default configuration.',
+  'help.command.list': 'configs list: list saved configuration revisions.',
+  'help.command.use': 'configs use <id>: confirm once, then launch the selected client; OMP arguments follow --.',
+  'help.command.supply': 'configs supply: scan <root>/<group>/skills/<skill>/SKILL.md and print candidate JSON.',
+  'help.unknownCommand': 'Unknown command "{command}"; available commands:',
+  'help.command.example': 'Example:',
   'parseError.missingId': 'configs {command} <id>: missing <id>',
   'parseError.compareMinIds': 'configs compare <id> <id> [...ids]: requires at least 2 ids',
   'parseError.clientRequiresValue': '--client requires a value',
@@ -302,8 +344,8 @@ const en: Dict = {
     "configs {command}: forwarded argument \"{arg}\" is not allowed -- it would defeat this Story's single-extension-source/default-profile/no-auto-resume guarantees when passed through to the real `omp` binary",
   'parseError.forwardedArgsUnsupportedForClaude':
     'configs {command}: forwarded arguments after `--` are not supported yet with `--client claude-code`',
-  'openDeps.failed': 'configs: could not open configuration storage: {message}',
-  'unexpectedFailure': 'configs: unexpected failure: {message}',
+  'openDeps.failed': 'configs: could not open configuration storage. Recovery: check the storage path and permissions.',
+  'unexpectedFailure': 'configs: an unexpected failure occurred. Recovery: run the command again and inspect the configuration store if it continues.',
   'launchPlan.notFound': 'No launch plan found {target}. Run `configs use <id>` first.',
   'launchPlan.notFoundTargetForId': 'for id "{planId}"',
   'launchPlan.notFoundTargetNoActive': '(no active plan for client "omp")',
@@ -317,34 +359,33 @@ const en: Dict = {
 
   'establish.successPrefix': 'Established new configuration revision:',
   'establish.missingTriggerCategory':
-    'configs establish: trigger category is missing or invalid -- pass one of new-scenario / known-insufficiency / bad-case via --trigger-category; nothing was written.',
-  'establish.missingEvidence': 'configs establish: evidence reference is missing -- pass a non-empty value via --evidence <ref>; nothing was written.',
+    'trigger category is missing or invalid -- pass one of new-scenario / known-insufficiency / bad-case via --trigger-category; nothing was written.',
+  'establish.missingEvidence': 'evidence reference is missing -- pass a non-empty value via --evidence <ref>; nothing was written.',
   'establish.noCandidateSource':
-    'configs establish: no candidate source was provided -- pass --from <path>, or pipe candidate JSON via stdin (stdin is currently an interactive terminal); nothing was written.',
-  'establish.invalidCandidate': 'configs establish: candidate is invalid: `{reason}`; nothing was written.',
+    'no candidate source was provided -- pass --from <path>, or pipe candidate JSON via stdin (stdin is currently an interactive terminal); nothing was written.',
+  'establish.invalidCandidate': 'the candidate is invalid. Recovery: run `configs supply` again or check the candidate JSON example; nothing was written.',
 
   'revise.successPrefix': 'Established superseding revision:',
-  'revise.missingSupersedes': 'configs revise: missing --supersedes target revision id -- pass a non-empty value via --supersedes <revisionId>; nothing was written.',
-  'revise.supersedesNotFound': 'configs revise: supersedes target revision "{revisionId}" was not found; nothing was written.',
+  'revise.missingSupersedes': 'missing --supersedes target revision id -- pass a non-empty value via --supersedes <revisionId>; nothing was written.',
+  'revise.supersedesNotFound': '--supersedes target revision "{revisionId}" was not found; nothing was written.',
   'revise.supersedesConfigMismatch':
-    'configs revise: supersedes target revision "{revisionId}" belongs to configuration "{actual}", which does not match the candidate\'s configuration "{expected}"; nothing was written.',
-  'revise.supersedesConflict': 'configs revise: supersedes target revision "{revisionId}" has already been superseded by another revision; nothing was written.',
+    '--supersedes target revision "{revisionId}" belongs to configuration "{actual}", which does not match the candidate\'s configuration "{expected}"; nothing was written.',
+  'revise.supersedesConflict': '--supersedes target revision "{revisionId}" has already been superseded by another revision; nothing was written.',
 
   'supply.rootNotFound':
-    'configs supply: supply library root `{supplyRoot}` does not exist or is not a directory -- check CONTROL_PLANE_SUPPLY_ROOT; nothing was produced.',
+    'supply library root `{supplyRoot}` does not exist or is not a directory -- check CONTROL_PLANE_SUPPLY_ROOT; nothing was produced.',
   'supply.groupNotFound':
-    'configs supply: no group "{group}" under supply library root `{supplyRoot}`. Recovery: check that the group directory `{supplyRoot}/{group}` exists, or that CONTROL_PLANE_SUPPLY_ROOT points at the library root you meant; nothing was produced.',
+    'no group "{group}" under supply library root `{supplyRoot}`. Recovery: check that the group directory `{supplyRoot}/{group}` exists, or that CONTROL_PLANE_SUPPLY_ROOT points at the library root you meant; nothing was produced.',
   'supply.groupEmpty':
-    'configs supply: group "{group}" (supply library root `{supplyRoot}`) contains no skill directory with a SKILL.md -- a declared group that yields nothing is an error, not an empty set. Recovery: the supply library convention is `<group>/skills/<skill>/SKILL.md`; check that `{group}/skills/` holds at least one directory with a SKILL.md; nothing was produced.',
-  'supply.refInvalid': 'configs supply: produced-side self-check failed -- {reason}; nothing was produced.',
+    'group "{group}" (supply library root `{supplyRoot}`) contains no skill directory with a SKILL.md -- a declared group that yields nothing is an error, not an empty set. Recovery: the supply library convention is `<group>/skills/<skill>/SKILL.md`; check that `{group}/skills/` holds at least one directory with a SKILL.md; nothing was produced.',
+  'supply.refInvalid': 'produced-side self-check failed -- {reason}; nothing was produced.',
   'supply.duplicateGroup':
-    'configs supply: group "{group}" was declared more than once (`{first}` and `{second}` normalize to the same group). Recovery: pass --group once per group; nothing was produced.',
+    'group "{group}" was declared more than once (`{first}` and `{second}` normalize to the same group). Recovery: pass --group once per group; nothing was produced.',
   'supply.duplicateSkillName':
-    'configs supply: skill name "{skill}" is supplied by two different groups (`{first}` and `{second}`) -- materialization would copy both into the same target directory, silently overwriting one with the other, so this is refused. Recovery: pick one of the two groups for this assembly, or de-duplicate the name in the supply library; nothing was produced.',
-  'supply.sourceUnreadable':
-    'configs supply: could not read `{where}` (supply library root `{supplyRoot}`): {reason}. Recovery: this is an I/O failure, not a "no such thing" -- check permissions and whether that path is being modified concurrently; nothing was produced.',
+    'skill name "{skill}" is supplied by two different groups (`{first}` and `{second}`) -- this would overwrite one source with another, so it is refused. Recovery: pick one group or de-duplicate the name; nothing was produced.',
+  'supply.sourceUnreadable': 'supply content could not be read. Recovery: check the effective supply root, permissions, and whether the source is being modified; nothing was produced.',
   'supply.unsupportedEntry':
-    'configs supply: `{entryPath}` under `{sourceRef}` is a {entryKind}, which cannot be fingerprinted reproducibly -- content the fingerprint cannot cover is still copied by the materializing side, which would void the fingerprint as parity evidence. Recovery: replace it with a regular file or directory; nothing was produced.',
+    'the supply library contains an unsupported entry type ({entryKind}); it cannot be fingerprinted reproducibly. Recovery: replace it with a regular file or directory; nothing was produced.',
 
   'supplyRef.rejection':
     'sourceRef violates the cross-machine portability contract ({why}): only a supply-library-relative POSIX path is accepted; actual value `{value}`, effective supply root `{supplyRoot}`',

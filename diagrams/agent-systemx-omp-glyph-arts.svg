@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1316" height="714" viewBox="0 0 1316 714"><rect width="100%" height="100%" fill="#0b1020"/><text x="34" y="34" fill="#8bd5ff" font-family="Segoe UI,Arial,sans-serif" font-size="28" font-weight="700">Agent System X ↔ OMP ↔ Glyph Arts</text><g fill="#d9e8ff" font-family="Consolas,Menlo,monospace" font-size="20"><text x="34" y="70">┌──────────────────────────────────────────────────────────────────────────────────────────────┐</text>
+<text x="34" y="101">│                                          Flowchart                                           │</text>
+<text x="34" y="132">├──────────────────────────────────────────────────────────────────────────────────────────────┤</text>
+<text x="34" y="163">│ [Agent System X control-plane]                                                               │</text>
+<text x="34" y="194">│   ├─ probe / plan / launch / interpret → [OMP adapter]                                       │</text>
+<text x="34" y="225">│   └─ config / revision / launch / observation facts → [SQLite product authority]             │</text>
+<text x="34" y="256">│ [OMP adapter]                                                                                │</text>
+<text x="34" y="287">│   └─ direct spawn; argv + env + launch context → [OMP native runtime]                        │</text>
+<text x="34" y="318">│ [OMP native runtime]                                                                         │</text>
+<text x="34" y="349">│   └─ loads explicit TypeScript extension → [OMP thin extension]                              │</text>
+<text x="34" y="380">│ [OMP thin extension]                                                                         │</text>
+<text x="34" y="411">│   └─ lifecycle events + low-frequency requests → [Agent System X control-plane]              │</text>
+<text x="34" y="442">│ [SQLite product authority]                                                                   │</text>
+<text x="34" y="473">│ [Operator / this task]                                                                       │</text>
+<text x="34" y="504">│   └─ python -m cli_charts chat diagram flowchart → [Glyph Arts (independent Chat Arts tool)] │</text>
+<text x="34" y="535">│ [Glyph Arts (independent Chat Arts tool)]                                                    │</text>
+<text x="34" y="566">│   └─ renders this architecture artifact → [HTML / SVG / PNG preview]                         │</text>
+<text x="34" y="597">│ [HTML / SVG / PNG preview]                                                                   │</text>
+<text x="34" y="628">│ [Boundary: Glyph Arts is not an Agent System X or OMP runtime dependency]                    │</text>
+<text x="34" y="659">└──────────────────────────────────────────────────────────────────────────────────────────────┘</text></g></svg>

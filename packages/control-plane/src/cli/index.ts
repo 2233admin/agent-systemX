@@ -145,6 +145,64 @@ function usageLine(): string {
   return `${t('usage.prefix')} ${USAGE_SYNTAX}`;
 }
 
+type HelpTopic = 'root' | 'inspect' | 'activate' | 'assemble';
+
+export function isHelpArg(value: string): boolean {
+  return value === '--help' || value === '-h';
+}
+
+export function renderHelp(topic: HelpTopic = 'root'): string {
+  const lines = [t('help.title'), usageLine()];
+  if (topic === 'root' || topic === 'inspect') {
+    lines.push('', t('help.inspect.title'), t('help.inspect.body'), t('help.command.list'));
+  }
+  if (topic === 'root' || topic === 'activate') {
+    lines.push(
+      '',
+      t('help.activate.title'),
+      t('help.activate.body'),
+      t('help.activate.omp'),
+      t('help.activate.claude'),
+      t('help.activate.example'),
+      t('help.command.use'),
+    );
+  }
+  if (topic === 'root' || topic === 'assemble') {
+    lines.push(
+      '',
+      t('help.assemble.title'),
+      t('help.assemble.body'),
+      t('help.command.example'),
+      t('help.assemble.example'),
+      t('help.assemble.pipe'),
+      t('help.command.supply'),
+    );
+  }
+  if (topic === 'root') {
+    lines.push('', t('help.environment.title'), t('help.environment.body'), t('help.next'));
+  }
+  return lines.join('\n');
+}
+function helpTopicForCommand(command: string): HelpTopic | null {
+  switch (command) {
+    case 'list':
+    case 'show':
+    case 'compare':
+    case 'search':
+    case 'status':
+      return 'inspect';
+    case 'use':
+    case 'switch':
+      return 'activate';
+    case 'supply':
+    case 'establish':
+    case 'revise':
+      return 'assemble';
+    default:
+      return null;
+  }
+}
+
 const KNOWN_CLIENT_IDS: readonly ClientId[] = ['omp', 'claude-code', 'codex-cli'];
 
 /**
@@ -1257,6 +1315,21 @@ export async function main(argv: readonly string[], overrides: CliOverrides = {}
   // database.
   if (argv.length === 0) {
     console.log(usageLine());
+    return 0;
+  }
+
+  if (isHelpArg(argv[0]!)) {
+    console.log(renderHelp());
+    return 0;
+  }
+
+  if (argv.length === 2 && isHelpArg(argv[1]!)) {
+    const topic = helpTopicForCommand(argv[0]!);
+    if (topic !== null) {
+      console.log(renderHelp(topic));
+      return 0;
+    }
+    console.log(`${t('help.unknownCommand', { command: argv[0]! })}\n${renderHelp()}`);
     return 0;
   }
 

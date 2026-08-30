@@ -167,4 +167,47 @@ describe('WorkflowFacade', () => {
       'completion.plan-id.mismatch',
     ]));
   });
+  test('rejects incomplete completion evidence before conditional write', async () => {
+    let writeCalls = 0;
+    const store: ArtifactStore = {
+      readWorkflow: async () => ({
+        schemaVersion: 1,
+        revision: 2,
+        workflowId: 'workflow-1',
+        plans: [{ id: 'plan-1', title: 'Plan', status: 'InReview', metadata: {} }],
+        updatedAt: '2026-08-28T00:00:00.000Z',
+      }),
+      writeWorkflowConditional: async () => {
+        writeCalls += 1;
+        throw new Error('must not write');
+      },
+    };
+    const facade = createWorkflowFacade(store);
+
+    const missing = await facade.completePlan({
+      ...envelope,
+      planId: 'plan-1',
+      expectedRevision: 2,
+      operationId: 'op-missing-completion',
+      idempotencyKey: 'key-missing-completion',
+      inputDigest: 'digest-missing-completion',
+      completion: { workflowId: 'workflow-1', planId: 'plan-1', planRevision: 2 } as unknown as PlanCompletionInput,
+    });
+    expect(missing.kind).toBe('rejected');
+    expect(missing.violations.map((item) => item.code)).toContain('completion.tasks.incomplete');
+
+    const forged = await facade.completePlan({
+      ...envelope,
+      planId: 'plan-1',
+      expectedRevision: 2,
+      operationId: 'op-forged-completion',
+      idempotencyKey: 'key-forged-completion',
+      inputDigest: 'digest-forged-completion',
+      completion: { workflowId: 'workflow-1', planId: 'plan-1', planRevision: 2, workerDone: true, tasksRecovered: true } as unknown as PlanCompletionInput,
+    });
+    expect(forged.kind).toBe('rejected');
+    expect(forged.violations.map((item) => item.code)).toContain('completion.review-package.invalid');
+    expect(writeCalls).toBe(0);
+  });
 });
+

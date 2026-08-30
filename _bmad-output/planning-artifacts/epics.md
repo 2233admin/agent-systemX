@@ -543,3 +543,126 @@ MVP-FR10：Epic 1 / Story 1.2 — OMP-only 与未来 adapter 边界。
 **When** 核实退役范围
 **Then** 确认 `configs` CLI（`packages/control-plane/src/cli/index.ts`）与产品运行时代码路径不依赖 `.cap/` 目录内容（已知现状：`resolveClientSupport` 之外没有任何 `claude` 相关引用，`.cap/` 只被开发期 `scripts/seed-from-cap.ts` 与其测试读取，不在产品运行时路径上）；`scripts/seed-from-cap.ts` 及依赖 `src/adapters/sources/cap-fs.ts` 读取真实 `.cap/` 文件的测试（`cap-fs.test.ts`、`claude-cap-parity-verification.test.ts`、`claude-assembly-manifest.test.ts` 等）随 `.cap/` 一并退役或改写为不依赖真实 `.cap/` 文件
 **And** 若发现未预期的产品运行时依赖，先记录为阻塞项并停止退役，不强行删除。
+## Epic 5：Harness Engine 工作流控制面
+
+技术寨可以用一套确定性工作流事实与门禁，把 Plan、Assignment、Dispatch、Lease、Worktree、SDD、QC/QA、Iteration 和 PR 交付串成可回读闭环；该 Epic 不替换 `packages/control-plane`，不复制 Orca 实时状态，也不把所有 Agent host 一次性纳入真实支持。
+
+**范围合同：** `_bmad-output/specs/spec-harness-engine/SPEC.md` 与 `architecture-harness-engine/ARCHITECTURE-SPINE.md`。`control-plane` 继续负责配置修订、客户端装配和安全启动；Harness Engine 负责工程交付生命周期。
+
+**首轮原则：**
+
+- 新建独立 `packages/harness-engine`，领域内核不依赖 Bun、SQLite、Orca、GitHub 或 control-plane 内部实现；
+- Orca 是 Run/Task/Dispatch/Worker/Delivery 的实时后端，GitHub 是 Issue/PR/check/review/merge 的远端后端；
+- 首轮真实适配 Orca 与 GitHub；
+- OMP/Claude 通过 control-plane facade 接入；Codex/OpenCode 先建立 contract、fixture 和诚实的 `unsupported | unknown` 状态；
+- 不引入 daemon、常驻轮询、自动重派或第三套实时协调状态。
+
+### Story 5.1：Harness Engine 核心事实与确定性门禁
+
+作为技术寨维护者，
+我希望把 Workflow、Plan、Assignment、Gate、Residual 和 Unknown 变成独立可测试的 TypeScript 领域内核，
+以便派发和交付规则不再只依赖 Skill 文本或散落脚本。
+
+**验收重点：**
+
+- Assignment 字段、branch form、default branch、Plan 状态和 GateResult 有稳定合同；
+- 状态转换、Unknown、violation code 和恢复建议可通过纯函数重算；
+- control-plane 不被反向导入；
+- 缺少必要事实时返回 `fail | blocked | unknown`，不得返回空成功。
+
+### Story 5.2：Lease、Worktree 与 SDD 交付门
+
+作为需要安全并行修改代码的负责人，
+我希望 execution lease、integration merge lease、worktree 对齐和 SDD review package 有统一门禁，
+以便重复 writer、错误分支和无审查交付在进入下一阶段前被阻断。
+
+**验收重点：**
+
+- lease 与 workflow/plan/worktree 唯一绑定；
+- 无法证明 stale lease 已失效时不允许强抢；
+- task 记录 BASE SHA，review package 绑定真实 `base..head`；
+- `sdd` 默认 QC tri，`inline` 才允许 single-seat；
+- Plan 不得从 worker_done 直接进入 Done。
+
+### Story 5.3：Orca 协调适配器
+
+作为使用 Orca 执行多 Agent 工作的负责人，
+我希望 Harness Engine 能读取并核对 Run、Task、Dispatch、Worker 和 Delivery 的稳定身份，
+以便 accepted-but-not-executed、失联、重复和跨 Run 结果不会被误判为完成。
+
+**验收重点：**
+
+- 真实只读 probe 可以关联 Orca 对象；
+- worker_done、failure、release 回执可追加为证据；
+- Orca 不可读时返回 Unknown/Blocked；
+- 适配器不自动重派、不自动唤醒、不复制实时队列。
+
+### Story 5.4：GitHub 交付与 PR Review 适配器
+
+作为需要可审计 PR 交付的负责人，
+我希望 merge-ready 结论绑定当前 head、checks、reviews 和 review package，
+以便 head 漂移或检查未完成时不会沿用旧结论。
+
+**验收重点：**
+
+- Issue/PR 当前 head、base、checks、review state 可回读；
+- head 变化会使旧 review package 和旧 merge-ready 结论失效；
+- checks/reviews 未满足时不能返回 merge-ready；
+- 写操作绑定 expected head，并在写后回读；
+- PR tally/score/verdict 可重算，但不重造 GitHub 权限语义。
+
+### Story 5.5：Iteration、Host Contract 与控制面接线
+
+作为需要在不同 Agent host 上复用同一工程门禁的负责人，
+我希望 iteration phase gate 和 HostAdapter contract 独立于具体宿主，
+以便首轮接入 OMP/Claude/Orca/GitHub 后，Codex/OpenCode 可以按证据逐个激活而不修改核心状态机。
+
+**验收重点：**
+
+- Phase 2 execute、Phase 3 close、Phase 4 PR delivery 的机械门禁可验证；
+- CI/AI review 运行中 push 被阻断；
+- OMP/Claude 既有 control-plane 行为无回归；
+- Codex/OpenCode 未有真实证据时保持 `unsupported | unknown`；
+- 新增 host 只新增 adapter、contract test 和 capability evidence。
+
+**当前非目标：** 该 Epic 不新增配置推荐、跨客户端 Session 翻译、任务内容持久化、daemon、自动派发、所有宿主的一次性接入，也不把 BMad 规划文档替换为运行时状态源。
+
+### Story 5.6：Harness 产物、路径与迁移兼容
+
+作为需要跨 Session 接手工作的负责人，
+我希望有统一的 harness 目录解析、status/schema、project register、residual 和旧产物迁移合同，
+以便不同工具和旧 BMad 产物不会各自维护一套状态格式。
+
+**吸收来源：** mstar `path`、`status`、`project`、`migrate`、`artifacts`、`conventions`。
+
+**边界：** 只统一本地工作流产物；不把 mstar `.mstar` 目录强制设为本仓最终路径，不覆盖 Orca/GitHub 权威状态。
+
+### Story 5.7：质量、审计、角色与 Plugin 资产门
+
+作为需要维护大量 Agent Skill 和多宿主资产的负责人，
+我希望 plan、Skill、角色映射、Plugin、secret/supply-chain 和审计产物有共享校验，
+以便质量门不再分散在多个脚本和文本规则中。
+
+**吸收来源：** mstar `lint`、`audit`、`roles`、`skill-authoring`、`agent-plugins`、`design-md`。
+
+**边界：** 机械校验进入 engine；需求、审美、模型选择和 Skill 是否值得使用仍由 Agent/负责人判断。
+
+### Story 5.8：宿主发现、发布与知识结晶接线
+
+作为需要逐步支持更多 Agent host 的维护者，
+我希望宿主检测、安装/doctor、发布验证、知识结晶和观察面遵循同一能力状态，
+以便新增 OMP、Claude、Codex、OpenCode 或其他 host 时有统一的激活门和退役路径。
+
+**吸收来源：** mstar `host`、`init/doctor`、release scripts、`compound`、`mstar-compound-refresh` 以及宿主 references。
+
+**验收重点：**
+
+- host capability 绑定版本和证据；
+- contract/fixture/real smoke/active 状态可回读；
+- 发布产物、安装状态和运行态不互相冒充；
+- 结晶知识经过重叠检查和可发现性检查；
+- 观察面不成为事实后端。
+
+**边界：** 不因支持 host 而复制一份 Skill 正文、配置数据库、Session 或 Orca 实时状态。
+
+**Epic 5 的全量吸收说明：** Story 5.1～5.5 建立核心工作流与真实后端闭环；Story 5.6～5.8 吸收 mstar 的产物、质量、宿主、发布和知识资产。后者不自动进入首轮实现，必须按真实使用价值和依赖顺序分批激活。

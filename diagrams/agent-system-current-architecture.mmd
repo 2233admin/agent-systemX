@@ -1,0 +1,48 @@
+%% Agent System current architecture, grounded in ARCHITECTURE-SPINE.md and epics.md
+%% Current boundary: external TypeScript/Bun CLI composes the modular monolith.
+graph LR
+  CLI["External TypeScript/Bun CLI<br/>composition root"]
+  APP["Application commands<br/>and queries"]
+  DOM["Domain kernel<br/>config + launch state"]
+  PORTS["Ports + versioned DTOs"]
+  SQL["SQLite repository<br/>product authority"]
+  PROJ["Allowlist projections<br/>JSON / Markdown"]
+  SYS["System adapters<br/>process · files · clock · fingerprint"]
+  OMPA["OMP adapter<br/>probe → plan → launch → interpret"]
+  OMPB["Thin OMP extension<br/>native-first status / switch bridge"]
+  OMPP["OMP client process<br/>native resume stays here"]
+  CLA["Claude Code adapter<br/>probe → plan → launch → interpret"]
+  MAT["Claude content materializer<br/>invocation-scoped only"]
+  CLAP["Claude Code process"]
+  CODEX["Codex CLI<br/>Deferred: no adapter"]
+  BOUND["Boundary: no Agent System<br/>explicit resume or opaque locator persistence"]
+
+  CLI -->|dispatches commands; owns composition| APP
+  APP -->|invokes rules and state transitions| DOM
+  APP -->|depends on narrow contracts| PORTS
+  PORTS -->|persists revisions, plans, evidence| SQL
+  PORTS -->|publishes rebuildable allowlist views| PROJ
+  PORTS -->|isolated invocation files and OS facts| SYS
+  PORTS -->|client-neutral future seam only| CODEX
+  PORTS -->|client contract| OMPA
+  PORTS -->|client contract| CLA
+  OMPA -->|direct argv spawn + lifecycle evidence| OMPP
+  OMPA -->|loads one controlled bridge| OMPB
+  OMPB -->|status / switch requests only| OMPP
+  OMPP -->|native resume; no locator handed back| BOUND
+  CLA -->|resolves refs; writes materialized/* only| MAT
+  MAT -->|plugins / mcp.json / prompt for this launch; cleanup at terminal| CLAP
+  CLA -->|direct argv spawn + lifecycle evidence| CLAP
+
+  classDef root fill:#17324d,stroke:#8dd6ff,color:#ffffff,stroke-width:2px;
+  classDef core fill:#e8f1f8,stroke:#2b5d7d,color:#102a43,stroke-width:1.5px;
+  classDef adapter fill:#fff0d6,stroke:#bc7a00,color:#4a2b00,stroke-width:1.5px;
+  classDef client fill:#e7f6ec,stroke:#2d7a4b,color:#123b22,stroke-width:1.5px;
+  classDef boundary fill:#f6f0f8,stroke:#8b5ca8,color:#3a204d,stroke-width:1.5px,stroke-dasharray: 5 4;
+  classDef deferred fill:#f1f1f1,stroke:#777777,color:#444444,stroke-width:1.5px,stroke-dasharray: 5 4;
+  class CLI root;
+  class APP,DOM,PORTS,SQL,PROJ,SYS core;
+  class OMPA,OMPB,CLA,MAT adapter;
+  class OMPP,CLAP client;
+  class BOUND boundary;
+  class CODEX deferred;

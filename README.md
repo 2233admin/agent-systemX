@@ -46,6 +46,8 @@ Session 的职责由负责人当前明确指令、公开自足的 Issue 合同�
 
 公共规则见 [`entrypoints/agent-system.md` 的同名章节](./entrypoints/agent-system.md#在线续接与负责人事项)。
 
+首次使用控制面时，请按 [`docs/control-plane-first-run.md`](./docs/control-plane-first-run.md) 完成 Bun、隔离状态目录、配置供给和 OMP 启动。
+
 ## 运行与观察
 
 - 本仓不提供仓内“当前运行状态”文件；当前工作、授权和验收存在于公开 Issue／PR，过程执行态存在于实际运行后端。
