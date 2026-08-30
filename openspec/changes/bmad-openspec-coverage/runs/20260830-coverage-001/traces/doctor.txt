@@ -1,0 +1,9 @@
+$ npx openspec doctor
+Doctor
+
+Root
+  Location: /Users/a123/work/worktrees/agent-system/clearify
+  OpenSpec root: ok
+
+References
+  (none declared)
