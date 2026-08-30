@@ -20,6 +20,7 @@ import { prepareActivation, confirmActivation, rejectActivation, executeActivati
 import { compareConfigRevisions, getConfigRevisionDetail, listConfigRevisions, rebuildConfigSearch, searchConfigRevisions } from '../application/queries';
 import { parseCandidateRevision, parseEvidenceRef, parseSupersedesRevisionId, parseTriggerCategory, InvalidCandidateError, InvalidTriggerCategoryError, MissingEvidenceError, MissingSupersedesError, NoCandidateSourceError } from '../application/establish';
 import { loadSupplyGroups, buildSupplyCandidate } from '../adapters/sources/supply-fs';
+import { buildRoleCandidate, loadRoleSource } from '../adapters/sources/role-fs';
 import { readSelfUpdateState, writeSelfUpdateState, isCheckDue } from '../adapters/self-update/check-state';
 import { GithubReleaseUpdater } from '../adapters/self-update/github-release-updater';
 import type { SelfUpdatePort } from '../application/ports/self-update';
@@ -179,7 +180,14 @@ export async function main(argv: readonly string[] = process.argv.slice(2), over
   if (command === 'supply') {
     const configName = argv[argv.indexOf('--config-name') + 1];
     const groups = argv.flatMap((arg, index) => arg === '--group' ? [argv[index + 1] ?? ''] : []);
-    if (configName === undefined || groups.some((group) => group.length === 0)) throw new Error('supply requires --config-name and --group');
+    const roleIndex = argv.indexOf('--role');
+    const roleRef = roleIndex === -1 ? undefined : argv[roleIndex + 1];
+    if (configName === undefined || (groups.length === 0 && roleRef === undefined) || (groups.length > 0 && roleRef !== undefined) || roleRef === '') throw new Error('supply requires exactly one of --role or --group');
+    if (roleRef !== undefined) {
+      const role = await loadRoleSource(defaultSupplyRoot(), roleRef);
+      console.log(JSON.stringify(buildRoleCandidate(configName, role)));
+      return 0;
+    }
     console.log(JSON.stringify(buildSupplyCandidate(configName, await loadSupplyGroups(defaultSupplyRoot(), groups))));
     return 0;
   }

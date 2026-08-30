@@ -1,0 +1,13 @@
+夹具：隔离临时目录 `/tmp/role-activation-smoke/roles/coder`，包含 `role.toml`、`memory.md`、`skills/minimal-change/SKILL.md`。
+
+命令链：
+`configs supply --config-name coder-session --role roles/coder > candidate.json`
+`configs establish --trigger-category new-scenario --evidence role:agentroles.coder --from candidate.json`
+`configs list`
+
+结果：
+- `establish` 成功创建 revision `8b23aa09-93d1-4abe-9fd1-f044135fc9b3`。
+- scope boundary 为 `role:agentroles.coder@0.1.0 sha256:d45876bd125dbf35702b7096dee40c465e2b016eeed3b0f99d5fcefe7b4e5b31`。
+- revision 保留 instruction `roles/coder/memory.md` 与 Skill `roles/coder/skills/minimal-change` 的 sourceRef 和 contentFingerprint。
+- `list` 成功列出 `coder-session` revision。
+- 临时数据库与 candidate 文件已删除。

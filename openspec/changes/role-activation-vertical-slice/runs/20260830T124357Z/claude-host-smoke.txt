@@ -1,0 +1,8 @@
+探测：`which claude`
+
+结果：宿主未安装 `claude` 可执行文件。
+
+失败关闭烟雾：
+`configs use <revision> --client claude --yes`
+
+观察：control-plane 完成确认展示后进入 client probe；因 `client-capability-unknown` 停止，退出码 1，未启动未知客户端、未生成成功启动记录。该环境无法提供真实 Claude 进程启动证据；Role 到 Claude invocation materialization 由 `packages/control-plane/tests/contracts/claude-materializer.test.ts` 覆盖。

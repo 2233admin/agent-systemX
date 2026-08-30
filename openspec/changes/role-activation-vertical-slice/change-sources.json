@@ -1,0 +1,59 @@
+{
+  "schemaVersion": 1,
+  "sources": [
+    {
+      "id": "RAW-001",
+      "kind": "负责人当前对话确认",
+      "capturedAt": "2026-08-30",
+      "location": "当前 Session：同意 Role 激活产品闭环方案",
+      "media": "conversation",
+      "integrity": "complete",
+      "notes": "授权推进推荐的两阶段方向。"
+    },
+    {
+      "id": "RAW-002",
+      "kind": "公开产品合同",
+      "capturedAt": "2026-08-30",
+      "location": "https://github.com/Eridanus117/agent-system/issues/18",
+      "media": "github-issue",
+      "integrity": "complete",
+      "notes": "Role 到 Claude Session 的最小闭环合同。"
+    },
+    {
+      "id": "RAW-003",
+      "kind": "Agent Roles 规范",
+      "capturedAt": "main current",
+      "location": "https://github.com/SeemSeam/agent-roles-spec/blob/main/specs/role-v1.md",
+      "media": "github-file",
+      "integrity": "complete",
+      "notes": "Role source 和 Host Adapter 边界。"
+    },
+    {
+      "id": "RAW-004",
+      "kind": "当前 Agent System 架构",
+      "capturedAt": "2026-08-22; implementation update 2026-08-29",
+      "location": "_bmad-output/planning-artifacts/architecture/architecture-agent-system-2026-08-22/ARCHITECTURE-SPINE.md",
+      "media": "repository-file",
+      "integrity": "complete",
+      "notes": "已确认架构证据。"
+    },
+    {
+      "id": "RAW-005",
+      "kind": "当前 control-plane 实现",
+      "capturedAt": "2026-08-29+",
+      "location": "packages/control-plane/src/domain/; packages/control-plane/src/adapters/clients/; packages/control-plane/src/cli/",
+      "media": "repository-files",
+      "integrity": "complete",
+      "notes": "实现现状与失败证据。"
+    },
+    {
+      "id": "RAW-006",
+      "kind": "Skill profile 原型",
+      "capturedAt": "2026-08-27",
+      "location": "https://github.com/Eridanus117/agent-system/pull/11",
+      "media": "github-pr",
+      "integrity": "complete",
+      "notes": "设计输入；不原样合入。"
+    }
+  ]
+}

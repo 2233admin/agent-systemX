@@ -1,0 +1,10 @@
+命令：
+`bun install --frozen-lockfile`
+`CONTROL_PLANE_DB_PATH=/tmp/role-activation-cli.sqlite3 bun packages/control-plane/src/cli/index.ts --version`
+`CONTROL_PLANE_DB_PATH=/tmp/role-activation-cli.sqlite3 bun packages/control-plane/src/cli/index.ts list`
+
+结果：
+- lockfile 检查通过，无依赖变更。
+- `--version` 输出 `dev`，退出码 0。
+- `list` 输出 `no configuration revisions`，退出码 0。
+- 临时数据库已删除。
