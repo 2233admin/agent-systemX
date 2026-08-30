@@ -1,0 +1,102 @@
+{
+  "schemaVersion": 1,
+  "capturedAt": "2026-08-27T18:18:03.9159733Z",
+  "head": "139b2e770dbe56c1530a1d7ae79cc03eda7091b7",
+  "branch": "2233admin/harness-stage0-baseline",
+  "worktreePath": "D:\\projects\\agent-systemX\\.orca\\worktrees\\harness-stage0-baseline",
+  "commands": [
+    {
+      "id": "typecheck-initial",
+      "command": "bunx tsc --noEmit -p packages/harness-engine/tsconfig.json 2>&1",
+      "exitCode": 1,
+      "observedAt": "2026-08-27T18:13:55.8838908Z",
+      "firstError": "error TS5058: The specified path does not exist: 'packages/harness-engine/tsconfig.json'."
+    },
+    {
+      "id": "acceptance-initial",
+      "command": "bun test packages/harness-engine/tests/validation/failure-ledger.test.ts packages/harness-engine/tests/cli.test.ts packages/harness-engine/tests/adapters/json-artifact-store.test.ts 2>&1",
+      "exitCode": 1,
+      "observedAt": "2026-08-27T18:13:55.8838870Z",
+      "firstError": "The requested test filters did not match any test files."
+    },
+    {
+      "id": "focused-validator",
+      "command": "bun test packages/harness-engine/tests/validation/failure-ledger.test.ts 2>&1",
+      "exitCode": 0,
+      "observedAt": "2026-08-27T18:17:32.5179463Z",
+      "firstError": null,
+      "summary": "7 pass, 0 fail, 10 expect() calls"
+    },
+    {
+      "id": "owned-files-typecheck",
+      "command": "bunx tsc --noEmit --strict --target ES2022 --module ESNext --moduleResolution bundler --types bun-types --skipLibCheck --allowImportingTsExtensions packages/harness-engine/src/validation/failure-ledger.ts packages/harness-engine/tests/validation/failure-ledger.test.ts 2>&1",
+      "exitCode": 0,
+      "observedAt": "2026-08-27T18:17:32.5003552Z",
+      "firstError": null,
+      "summary": "Direct strict check of the two owned TypeScript files passed"
+    },
+    {
+      "id": "typecheck-rerun",
+      "command": "bunx tsc --noEmit -p packages/harness-engine/tsconfig.json 2>&1",
+      "exitCode": 1,
+      "observedAt": "2026-08-27T18:17:32.5183901Z",
+      "firstError": "error TS5058: The specified path does not exist: 'packages/harness-engine/tsconfig.json'.",
+      "rerunOf": "typecheck-initial"
+    },
+    {
+      "id": "acceptance-rerun",
+      "command": "bun test packages/harness-engine/tests/validation/failure-ledger.test.ts packages/harness-engine/tests/cli.test.ts packages/harness-engine/tests/adapters/json-artifact-store.test.ts 2>&1",
+      "exitCode": 0,
+      "observedAt": "2026-08-27T18:17:32.5180049Z",
+      "firstError": null,
+      "summary": "7 pass, 0 fail, 10 expect() calls; existing requested validator path ran",
+      "rerunOf": "acceptance-initial"
+    },
+    {
+      "id": "typecheck-rerun-final",
+      "command": "bunx tsc --noEmit -p packages/harness-engine/tsconfig.json 2>&1",
+      "exitCode": 1,
+      "observedAt": "2026-08-27T18:19:58.3923223Z",
+      "firstError": "error TS5058: The specified path does not exist: 'packages/harness-engine/tsconfig.json'.",
+      "rerunOf": "typecheck-rerun"
+    },
+    {
+      "id": "acceptance-rerun-final",
+      "command": "bun test packages/harness-engine/tests/validation/failure-ledger.test.ts packages/harness-engine/tests/cli.test.ts packages/harness-engine/tests/adapters/json-artifact-store.test.ts 2>&1",
+      "exitCode": 0,
+      "observedAt": "2026-08-27T18:19:58.3755428Z",
+      "firstError": null,
+      "summary": "7 pass, 0 fail, 11 expect() calls; only the existing validator path produced test output",
+      "rerunOf": "acceptance-rerun"
+    },
+    {
+      "id": "focused-validator-final",
+      "command": "bun test packages/harness-engine/tests/validation/failure-ledger.test.ts 2>&1",
+      "exitCode": 0,
+      "observedAt": "2026-08-27T18:19:58.3916691Z",
+      "firstError": null,
+      "summary": "7 pass, 0 fail, 11 expect() calls",
+      "rerunOf": "focused-validator"
+    },
+    {
+      "id": "owned-files-typecheck-final",
+      "command": "bunx tsc --noEmit --strict --target ES2022 --module ESNext --moduleResolution bundler --types bun-types --skipLibCheck --allowImportingTsExtensions packages/harness-engine/src/validation/failure-ledger.ts packages/harness-engine/tests/validation/failure-ledger.test.ts 2>&1",
+      "exitCode": 0,
+      "observedAt": "2026-08-27T18:19:58.3746064Z",
+      "firstError": null,
+      "summary": "Direct strict check of the two owned TypeScript files passed",
+      "rerunOf": "owned-files-typecheck"
+    }
+  ],
+  "rerunEvidence": [
+    {
+      "failureId": "typecheck-missing-config",
+      "rerunCommand": "bunx tsc --noEmit -p packages/harness-engine/tsconfig.json 2>&1",
+      "initialCommandId": "typecheck-initial",
+      "rerunCommandId": "typecheck-rerun-final",
+      "rerunExitCode": 1,
+      "rerunObservedAt": "2026-08-27T18:19:58.3923223Z",
+      "resolved": false
+    }
+  ]
+}

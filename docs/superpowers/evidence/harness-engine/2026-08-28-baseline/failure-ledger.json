@@ -1,0 +1,25 @@
+[
+  {
+    "id": "typecheck-missing-config",
+    "status": "current",
+    "testPath": "packages/harness-engine/tsconfig.json",
+    "assertionName": "package typecheck configuration is available",
+    "firstError": "error TS5058: The specified path does not exist: 'packages/harness-engine/tsconfig.json'.",
+    "contractRef": "Stage 0 requested typecheck command",
+    "owningFile": "packages/harness-engine/tsconfig.json",
+    "owner": "repository-baseline",
+    "rerunCommand": "bunx tsc --noEmit -p packages/harness-engine/tsconfig.json 2>&1",
+    "rerunResult": {
+      "exitCode": 1,
+      "status": "unresolved",
+      "firstError": "error TS5058: The specified path does not exist: 'packages/harness-engine/tsconfig.json'.",
+      "observedAt": "2026-08-27T18:19:58.3923223Z"
+    },
+    "closureEvidence": {
+      "status": "blocked",
+      "observedAt": "2026-08-27T18:19:58.3923223Z",
+      "reason": "The missing tsconfig path is outside the owned path list; creating it would expand Stage 0 scope."
+    },
+    "notes": "The current failure was rerun with the recorded command and remains current; Stage 0 closure is blocked until an authorized owner supplies the package configuration."
+  }
+]

@@ -1,0 +1,80 @@
+{
+  "schemaVersion": 1,
+  "observedAt": "2026-08-27T18:19:58.3923223Z",
+  "head": "139b2e770dbe56c1530a1d7ae79cc03eda7091b7",
+  "branch": "2233admin/harness-stage0-baseline",
+  "worktreePath": "D:\\projects\\agent-systemX\\.orca\\worktrees\\harness-stage0-baseline",
+  "statusShortBranchBeforeChanges": "## 2233admin/harness-stage0-baseline",
+  "statusShortBranchAfterChanges": "## 2233admin/harness-stage0-baseline; untracked owned paths only",
+  "dirtyPathsBeforeChanges": [],
+  "ownedPaths": [
+    "docs/superpowers/evidence/harness-engine/2026-08-28-baseline/failure-ledger.json",
+    "docs/superpowers/evidence/harness-engine/2026-08-28-baseline/ownership.json",
+    "docs/superpowers/evidence/harness-engine/2026-08-28-baseline/commands.json",
+    "packages/harness-engine/src/validation/failure-ledger.ts",
+    "packages/harness-engine/tests/validation/failure-ledger.test.ts"
+  ],
+  "pathClassification": [
+    {
+      "path": "packages/harness-engine/src/validation/failure-ledger.ts",
+      "classification": "owned",
+      "state": "created"
+    },
+    {
+      "path": "packages/harness-engine/tests/validation/failure-ledger.test.ts",
+      "classification": "owned",
+      "state": "created"
+    },
+    {
+      "path": "docs/superpowers/evidence/harness-engine/2026-08-28-baseline/failure-ledger.json",
+      "classification": "owned",
+      "state": "created"
+    },
+    {
+      "path": "docs/superpowers/evidence/harness-engine/2026-08-28-baseline/ownership.json",
+      "classification": "owned",
+      "state": "created"
+    },
+    {
+      "path": "docs/superpowers/evidence/harness-engine/2026-08-28-baseline/commands.json",
+      "classification": "owned",
+      "state": "created"
+    },
+    {
+      "path": "packages/harness-engine/tsconfig.json",
+      "classification": "unowned",
+      "state": "missing",
+      "impact": "Requested package typecheck cannot execute"
+    },
+    {
+      "path": "packages/harness-engine/tests/cli.test.ts",
+      "classification": "unowned",
+      "state": "missing",
+      "impact": "Acceptance filter has no test at this path on current head"
+    },
+    {
+      "path": "packages/harness-engine/tests/adapters/json-artifact-store.test.ts",
+      "classification": "unowned",
+      "state": "missing",
+      "impact": "Acceptance filter has no test at this path on current head"
+    }
+  ],
+  "concurrentWorktrees": [
+    {
+      "worktreePath": "D:/projects/agent-systemX",
+      "branch": "main",
+      "head": "139b2e770dbe56c1530a1d7ae79cc03eda7091b7",
+      "overlapPaths": []
+    },
+    {
+      "worktreePath": "D:/projects/agent-systemX/.orca/worktrees/hammerhead",
+      "branch": "2233admin/the-request-appears-to",
+      "head": "9f957f173ae002f247f51c0df2cb853814e08c08",
+      "observedScope": "packages/harness-engine implementation files",
+      "overlapPaths": [],
+      "note": "No exact owned Stage 0 path is present in the concurrent worktree; its package-wide WIP remains protected and untouched."
+    }
+  ],
+  "concurrentWipOverlap": false,
+  "protectedPathsModified": false
+}
