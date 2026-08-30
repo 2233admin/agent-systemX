@@ -2,9 +2,12 @@ import { copyFile, mkdir, mkdtemp, readFile, rm } from 'node:fs/promises';
 import { basename, dirname, extname, isAbsolute, join, resolve } from 'node:path';
 import { tmpdir } from 'node:os';
 
-import { validateDispatch, type DispatchDecision, type DispatchInput } from '../gates/dispatch.ts';
-import { JsonArtifactStore } from '../adapters/json/json-artifact-store.ts';
+import { createFileHarnessApplication, ApplicationCommandError } from '../application/harness-application.ts';
+import type { FileInput } from '../application/identity.ts';
+import type { StatusView } from '../application/queries.ts';
+import type { DispatchInput } from '../gates/dispatch.ts';
 import type { GateResult } from '../core/result.ts';
+import type { DispatchDecision } from '../gates/dispatch.ts';
 import type { WorkflowSnapshot } from '../domain/workflow.ts';
 
 export interface CliResult {
@@ -13,18 +16,14 @@ export interface CliResult {
   readonly stderr: string;
 }
 
-const CLI_WORKFLOW_ID = 'harness-cli-workflow';
-const CLI_PLAN_ID = 'harness-cli-plan';
-const CLI_TASK_ID = 'harness-cli-task';
-const CLI_WORKTREE = '/harness-cli/worktree';
-const CLI_CLAIMED_AT = '2026-01-01T00:00:00.000Z';
+type JsonRecord = Record<string, unknown>;
 
 function usage(): string {
-  return 'usage: harness validate <assignment-file> | harness status <workflow-file>';
+  return 'usage: harness validate <assignment-file> | harness status <workflow-file> | harness <create|read|register-plan|register-assignment|transition-plan|claim-lease|release-lease|append-completion-evidence> <input-json>';
 }
 
 function failureBlock(
-  phase: 'validate' | 'status',
+  phase: string,
   code: string,
   recovery: string,
   kind = 'fail',
@@ -32,79 +31,60 @@ function failureBlock(
   return [
     'status: fail',
     `phase: ${phase}`,
-    `evidence: unknown`,
+    'evidence: unknown',
     `kind: ${kind}`,
     `code: ${code}`,
     `recovery: ${recovery}`,
   ].join('\n');
 }
 
-function dispatchDefaults(input: DispatchInput): DispatchInput {
-  const hasOwn = (key: string): boolean => Object.hasOwn(input as object, key);
-  const planId = hasOwn('planId') ? input.planId : CLI_PLAN_ID;
-  const taskId = hasOwn('taskId') ? input.taskId : CLI_TASK_ID;
-  const worktree = hasOwn('worktree')
-    ? input.worktree
-    : hasOwn('worktreePath')
-      ? input.worktreePath
-      : CLI_WORKTREE;
+function isJsonRecord(value: unknown): value is JsonRecord {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
 
+function unknownFileInput(sourcePath: string): FileInput {
   return {
-    ...input,
-    planId,
-    taskId,
-    worktree,
-    ...(hasOwn('branchProtection') ? {} : { branchProtection: { defaultBranch: 'main', protectedBranches: ['main', 'master'] } }),
-    ...(hasOwn('hostCapability') ? {} : {
-      hostCapability: {
-        status: 'supported' as const,
-        hostId: 'harness-cli',
-        hostVersion: 'local',
-        evidence: { source: 'harness-cli.local-host', observedAt: CLI_CLAIMED_AT, hostId: 'harness-cli', hostVersion: 'local' },
-      },
-    }),
-    ...(hasOwn('leaseState') ? {} : {
-      leaseState: {
-        kind: 'execution' as const,
-        workflowId: CLI_WORKFLOW_ID,
-        planId: planId as string,
-        holderId: 'harness-cli',
-        worktreePath: worktree as string,
-        fencingToken: 1,
-        claimedAt: CLI_CLAIMED_AT,
-      },
-    }),
+    artifactRoot: dirname(sourcePath),
+    workflowId: 'Unknown',
+    actorId: 'Unknown',
+    inputDigest: 'Unknown',
   };
 }
 
-function assignmentInput(raw: string, filePath: string): DispatchInput {
-  if (extname(filePath).toLowerCase() !== '.json') {
-    return dispatchDefaults({ assignment: raw });
-  }
+function fileInputFromWorkflowPath(absolute: string): FileInput {
+  const extension = extname(absolute);
+  return {
+    artifactRoot: dirname(dirname(absolute)),
+    workflowId: basename(absolute, extension),
+    actorId: 'Unknown',
+    inputDigest: `file:${absolute}`,
+  };
+}
+
+function assignmentInput(raw: string, _filePath: string): DispatchInput {
 
   let parsed: unknown;
   try {
     parsed = JSON.parse(raw) as unknown;
   } catch {
-    return dispatchDefaults({ assignment: raw });
+    return { assignment: raw };
   }
 
   if (typeof parsed === 'string') {
-    return dispatchDefaults({ assignment: parsed });
+    return { assignment: parsed };
   }
-  if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed)) {
-    return dispatchDefaults({ assignment: raw });
+  if (!isJsonRecord(parsed)) {
+    return { assignment: raw };
   }
-  const record = parsed as Record<string, unknown>;
-  const assignment = typeof record.assignment === 'string'
-    ? record.assignment
-    : typeof record.assignmentText === 'string'
-      ? record.assignmentText
+  const assignment = typeof parsed.assignment === 'string'
+    ? parsed.assignment
+    : typeof parsed.assignmentText === 'string'
+      ? parsed.assignmentText
       : undefined;
-  return dispatchDefaults({
-    ...record,
+  return {
+    ...parsed,
     ...(assignment === undefined ? {} : { assignment }),
-  } as DispatchInput);
+  } as DispatchInput;
 }
 
 function renderValidationResult(result: GateResult<DispatchDecision>): CliResult {
@@ -134,26 +114,60 @@ async function validateAssignment(filePath: string): Promise<CliResult> {
       stderr: '',
     };
   }
-  return renderValidationResult(validateDispatch(assignmentInput(raw, filePath)));
+  const absolute = isAbsolute(filePath) ? filePath : resolve(filePath);
+  const app = createFileHarnessApplication(unknownFileInput(absolute));
+  return renderValidationResult((await app.validate(assignmentInput(raw, filePath))).result);
 }
 
-async function readWorkflow(filePath: string): Promise<WorkflowSnapshot | null> {
+function renderStatus(view: StatusView): CliResult {
+  const lines = [
+    `workflow: ${view.workflowId}`,
+    `revision: ${view.revision}`,
+  ];
+  for (const plan of view.plans) {
+    lines.push(`plan: ${plan.id}`, `status: ${plan.status}`, `lease: ${plan.lease}`);
+  }
+  lines.push(`integration-merge-lease: ${view.integrationMergeLease}`);
+  return { exitCode: 0, stdout: `${lines.join('\n')}\n`, stderr: '' };
+}
+
+function workflowFailure(error: unknown): CliResult {
+  const message = error instanceof Error ? error.message : '';
+  const code = error instanceof ApplicationCommandError
+    ? error.code
+    : message.startsWith('Unsupported future workflow schema version:')
+      ? 'workflow.schema.future'
+      : message.startsWith('Unsupported workflow schema version:')
+        ? 'workflow.schema.unsupported'
+        : 'workflow.artifact.malformed';
+  return {
+    exitCode: 1,
+    stdout: `${failureBlock('status', code, 'repair the local versioned workflow artifact')}\n`,
+    stderr: '',
+  };
+}
+
+async function readWorkflowFromPath(filePath: string): Promise<WorkflowSnapshot | null> {
   const absolute = isAbsolute(filePath) ? filePath : resolve(filePath);
   const extension = extname(absolute);
   if (extension.toLowerCase() !== '.json') {
     throw new TypeError('Workflow artifact must be a JSON file');
   }
-  const workflowId = basename(absolute, extension);
-  if (extension === '.json' && basename(dirname(absolute)).toLowerCase() === 'workflows') {
-    return new JsonArtifactStore(dirname(dirname(absolute))).readWorkflow(workflowId);
+  if (basename(dirname(absolute)).toLowerCase() === 'workflows') {
+    return createFileHarnessApplication(fileInputFromWorkflowPath(absolute)).readWorkflow();
   }
 
   const temporaryRoot = await mkdtemp(join(tmpdir(), 'harness-cli-'));
   try {
     const temporaryWorkflows = join(temporaryRoot, 'workflows');
     await mkdir(temporaryWorkflows);
-    await copyFile(absolute, join(temporaryWorkflows, `${workflowId}.json`));
-    return await new JsonArtifactStore(temporaryRoot).readWorkflow(workflowId);
+    await copyFile(absolute, join(temporaryWorkflows, `${basename(absolute, extension)}.json`));
+    return await createFileHarnessApplication({
+      artifactRoot: temporaryRoot,
+      workflowId: basename(absolute, extension),
+      actorId: 'Unknown',
+      inputDigest: `file:${absolute}`,
+    }).readWorkflow();
   } catch (error) {
     if (error instanceof Error && 'code' in error && error.code === 'ENOENT') return null;
     throw error;
@@ -162,39 +176,9 @@ async function readWorkflow(filePath: string): Promise<WorkflowSnapshot | null> 
   }
 }
 
-function renderLease(plan: WorkflowSnapshot['plans'][number]): string {
-  return plan.executionLease === undefined ? 'none' : 'execution';
-}
-
-function renderStatus(snapshot: WorkflowSnapshot): CliResult {
-  const lines = [
-    `workflow: ${snapshot.workflowId}`,
-    `revision: ${snapshot.revision}`,
-  ];
-  for (const plan of snapshot.plans) {
-    lines.push(`plan: ${plan.id}`, `status: ${plan.status}`, `lease: ${renderLease(plan)}`);
-  }
-  lines.push(`integration-merge-lease: ${snapshot.integrationMergeLease === undefined ? 'none' : 'integration-merge'}`);
-  return { exitCode: 0, stdout: `${lines.join('\n')}\n`, stderr: '' };
-}
-
-function workflowFailure(error: unknown): CliResult {
-  const message = error instanceof Error ? error.message : '';
-  const code = message.startsWith('Unsupported future workflow schema version:')
-    ? 'workflow.schema.future'
-    : message.startsWith('Unsupported workflow schema version:')
-      ? 'workflow.schema.unsupported'
-      : 'workflow.artifact.malformed';
-  return {
-    exitCode: 1,
-    stdout: `${failureBlock('status', code, 'repair the local versioned workflow artifact')}\n`,
-    stderr: '',
-  };
-}
-
 async function statusWorkflow(filePath: string): Promise<CliResult> {
   try {
-    const snapshot = await readWorkflow(filePath);
+    const snapshot = await readWorkflowFromPath(filePath);
     if (snapshot === null) {
       return {
         exitCode: 1,
@@ -202,23 +186,74 @@ async function statusWorkflow(filePath: string): Promise<CliResult> {
         stderr: '',
       };
     }
-    return renderStatus(snapshot);
+    return renderStatus({
+      workflowId: snapshot.workflowId,
+      revision: snapshot.revision,
+      plans: snapshot.plans.map((plan) => ({ id: plan.id, status: plan.status, lease: plan.executionLease === undefined ? 'none' : 'execution' })),
+      integrationMergeLease: snapshot.integrationMergeLease === undefined ? 'none' : 'integration-merge',
+    });
   } catch (error) {
     return workflowFailure(error);
+  }
+}
+
+async function readJsonPayload(filePath: string): Promise<JsonRecord> {
+  const parsed = JSON.parse(await readFile(filePath, 'utf8')) as unknown;
+  if (!isJsonRecord(parsed) || !isJsonRecord(parsed.fileInput)) {
+    throw new ApplicationCommandError('cli.file-input.missing', 'JSON command payload requires fileInput');
+  }
+  return parsed;
+}
+
+function commandPayload(payload: JsonRecord): unknown {
+  return Object.hasOwn(payload, 'command') ? payload.command : payload;
+}
+
+async function runApplicationCommand(command: string, filePath: string): Promise<CliResult> {
+  try {
+    const payload = await readJsonPayload(filePath);
+    const app = createFileHarnessApplication(payload.fileInput as unknown as FileInput);
+    const input = commandPayload(payload);
+    const result = command === 'create'
+      ? await app.createWorkflow(input as never)
+      : command === 'read'
+        ? await app.readWorkflow()
+        : command === 'register-plan'
+          ? await app.registerPlan(input as never)
+          : command === 'register-assignment'
+            ? await app.registerAssignment(input as never)
+            : command === 'transition-plan'
+              ? await app.transitionPlan(input as never)
+              : command === 'claim-lease'
+                ? await app.claimExecutionLease(input as never)
+                : command === 'release-lease'
+                  ? await app.releaseExecutionLease(input as never)
+                  : command === 'append-completion-evidence'
+                    ? await app.appendCompletionEvidence(input as never)
+                    : undefined;
+    if (result === undefined) {
+      return { exitCode: 2, stdout: '', stderr: `${usage()}\n` };
+    }
+    return { exitCode: 0, stdout: `${JSON.stringify(result, null, 2)}\n`, stderr: '' };
+  } catch (error) {
+    const code = error instanceof ApplicationCommandError ? error.code : 'cli.command.failed';
+    return { exitCode: 1, stdout: `${failureBlock(command, code, 'provide a valid application command payload')}\n`, stderr: '' };
   }
 }
 
 export async function runCli(args: readonly string[]): Promise<CliResult> {
   const command = args[0];
   const filePath = args[1];
-  if (args.length !== 2
-    || (command !== 'validate' && command !== 'status')
-    || filePath === undefined
-    || filePath.trim().length === 0) {
+  if (args.length !== 2 || command === undefined || filePath === undefined || filePath.trim().length === 0) {
     return { exitCode: 2, stdout: '', stderr: `${usage()}\n` };
   }
 
-  return command === 'validate' ? validateAssignment(filePath) : statusWorkflow(filePath);
+  if (command === 'validate') return validateAssignment(filePath);
+  if (command === 'status') return statusWorkflow(filePath);
+  if (!['create', 'read', 'register-plan', 'register-assignment', 'transition-plan', 'claim-lease', 'release-lease', 'append-completion-evidence'].includes(command)) {
+    return { exitCode: 2, stdout: '', stderr: `${usage()}\n` };
+  }
+  return runApplicationCommand(command, filePath);
 }
 
 export async function main(args = process.argv.slice(2)): Promise<void> {

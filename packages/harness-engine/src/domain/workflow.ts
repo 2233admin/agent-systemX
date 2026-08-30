@@ -23,9 +23,12 @@ export interface WorkflowSnapshot {
 }
 
 export interface CompletionEvidence {
+  readonly completionKind?: 'plan-completion' | 'worker_done' | string;
   readonly leaseRemaining?: boolean;
   readonly executionLeaseRemaining?: boolean;
   readonly integrationMergeLeaseRemaining?: boolean;
+  readonly executionLeaseReleased?: boolean;
+  readonly integrationMergeLeaseReleased?: boolean;
   readonly reviewRequired?: boolean;
   readonly reviewComplete?: boolean;
   readonly qaRequired?: boolean;
@@ -64,16 +67,18 @@ function assertCompletionEvidence(
     throw new Error('Cannot mark a plan Done while a lease remains');
   }
 
+  if (evidence.completionKind === 'worker_done') {
+    throw new Error('plan.done.worker-done-insufficient: worker_done is delivery evidence, not completion evidence');
+  }
+
   const reviewMissing = evidence.requiredReviewMissing === true
-    || (evidence.reviewRequired === true && evidence.reviewComplete !== true)
-    || evidence.reviewComplete === false;
+    || evidence.reviewComplete !== true;
   if (reviewMissing) {
     throw new Error('Cannot mark a plan Done while required review evidence is missing');
   }
 
   const qaMissing = evidence.requiredQaMissing === true
-    || (evidence.qaRequired === true && evidence.qaComplete !== true)
-    || evidence.qaComplete === false;
+    || evidence.qaComplete !== true;
   if (qaMissing) {
     throw new Error('Cannot mark a plan Done while required QA evidence is missing');
   }

@@ -37,6 +37,33 @@ Execution mode: sdd
 Task 7: do not print this dynamic task正文
 `;
 
+const observedAt = '2026-08-27T12:00:00.000Z';
+
+function validValidationInput(assignment: string) {
+  return {
+    assignment,
+    planId: 'plan-1',
+    taskId: 'task-1',
+    worktree: '/tmp/harness-cli',
+    branchProtection: { defaultBranch: 'main', protectedBranches: ['main', 'master'] },
+    hostCapability: {
+      status: 'supported' as const,
+      hostId: 'omp',
+      hostVersion: '1.0.0',
+      evidence: { source: 'cli-test', observedAt, hostId: 'omp', hostVersion: '1.0.0' },
+    },
+    leaseState: {
+      kind: 'execution' as const,
+      workflowId: 'workflow-1',
+      planId: 'plan-1',
+      holderId: 'worker',
+      worktreePath: '/tmp/harness-cli',
+      fencingToken: 1,
+      claimedAt: observedAt,
+    },
+  };
+}
+
 const validWorkflow = {
   schemaVersion: 1,
   revision: 4,
@@ -57,7 +84,7 @@ const validWorkflow = {
 
 describe('harness CLI', () => {
   test('validates a complete Assignment', async () => {
-    const path = await writeAssignment(await fixtureDirectory(), validAssignment);
+    const path = await writeAssignment(await fixtureDirectory(), JSON.stringify(validValidationInput(validAssignment)));
     const result = await runCli(['validate', path]);
 
     expect(result.exitCode).toBe(0);
@@ -76,7 +103,8 @@ describe('harness CLI', () => {
   });
 
   test('reports protected default branch failure', async () => {
-    const path = await writeAssignment(await fixtureDirectory(), validAssignment.replace('Working branch: feature/cli', 'Working branch: main'));
+    const assignment = validAssignment.replace('Working branch: feature/cli', 'Working branch: main');
+    const path = await writeAssignment(await fixtureDirectory(), JSON.stringify(validValidationInput(assignment)));
     const result = await runCli(['validate', path]);
 
     expect(result.exitCode).toBe(1);

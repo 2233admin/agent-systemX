@@ -33,6 +33,33 @@ export type {
   WorkflowSnapshot,
 } from './domain/workflow';
 export type {
+  AppendCompletionEvidenceCommand,
+  ClaimExecutionLeaseCommand,
+  CreateWorkflowCommand,
+  RegisterAssignmentCommand,
+  RegisterPlanCommand,
+  ReleaseExecutionLeaseCommand,
+  RevisionedCommand,
+  TransitionPlanCommand,
+  ValidateCommand,
+} from './application/commands';
+export type {
+  StatusPlanView,
+  StatusQuery,
+  StatusView,
+  ValidateQuery,
+  ValidationView,
+} from './application/queries';
+export type {
+  ApplicationIdentity,
+  FileInput,
+} from './application/identity';
+export {
+  ApplicationCommandError,
+  createFileHarnessApplication,
+  createHarnessApplication,
+} from './application/harness-application';
+export type {
   ClaimedLease,
   ExecutionLeaseClaim,
   IntegrationMergeLeaseClaim,
@@ -93,7 +120,7 @@ export type {
   ReviewVerdict,
 } from './gates/pr-review';
 export { calculateReviewTally, evaluatePrReview, evaluatePushCadence, validateMergeReady } from './gates/pr-review';
-export type { ArtifactStore } from './ports/artifacts';
+export type { ApplicationWriteAuthorization, ArtifactStore, GuardedArtifactStore } from './ports/artifacts';
 export type {
   AdapterMetadata,
   CoordinationAdapter,

@@ -5,7 +5,7 @@ import { isRfc3339Timestamp } from '../../core/result';
 import { validateArtifactRevision } from '../../core/ids';
 import { isPlanStatus, type ExecutionLease, type IntegrationMergeLease, type PlanRow, type WorkflowSnapshot } from '../../domain/workflow';
 import { validateLease as isCanonicalLease } from '../../domain/lease';
-import type { ArtifactStore } from '../../ports/artifacts';
+import type { ApplicationWriteAuthorization, GuardedArtifactStore } from '../../ports/artifacts';
 
 const CURRENT_SCHEMA_VERSION = 1;
 const PRIVATE_KEYS: Record<string, true> = {
@@ -34,7 +34,6 @@ function isRecord(value: unknown): value is JsonRecord {
 }
 
 function privateKey(value: string): boolean {
-  // 先做 Unicode 兼容与格式归一化，再识别动态正文字段，避免全角或不可见字符逃逸。
   const normalizedUnicode = value.normalize('NFKC').toLowerCase().replace(/[\p{Cf}\p{Z}\s]/gu, '');
   if (normalizedUnicode.includes('task正文') || normalizedUnicode.includes('prompt正文')
     || normalizedUnicode.includes('taskbody') || normalizedUnicode.includes('promptbody')) {
@@ -62,7 +61,6 @@ function sanitizeJson(value: unknown): unknown {
   }
   return sanitized;
 }
-
 
 function workflowPath(rootDirectory: string, workflowId: string): string {
   if (workflowId.trim().length === 0 || workflowId === '.' || workflowId === '..' || /[\\/]/.test(workflowId)) {
@@ -99,7 +97,6 @@ function ownerIsRunning(ownerPid: number): boolean {
     process.kill(ownerPid, 0);
     return true;
   } catch (error) {
-    // 权限错误或未知错误不能证明进程已退出，因此保守地视为仍存活。
     return !(isNodeError(error) && error.code === 'ESRCH');
   }
 }
@@ -150,12 +147,10 @@ async function recoverStaleLock(lockPath: string): Promise<boolean> {
     if (removeRecovery) {
       await rm(recoveryPath, { force: true });
     } else {
-      // 失败时仅用 wx 恢复，若新锁已出现则保留双方文件，绝不覆盖新 owner。
       try {
         await writeFile(lockPath, raw, { encoding: 'utf8', flag: 'wx' });
         await rm(recoveryPath, { force: true });
       } catch {
-        // 恢复失败时保留 recovery 文件，避免丢失未知 owner 的锁。
       }
     }
   }
@@ -302,8 +297,17 @@ function toDto(snapshot: WorkflowSnapshot): WorkflowDto {
   };
 }
 
-export class JsonArtifactStore implements ArtifactStore {
-  public constructor(private readonly rootDirectory: string) {}
+function authorizationMatches(actual: ApplicationWriteAuthorization | undefined, expected: ApplicationWriteAuthorization): boolean {
+  return actual?.kind === 'harness-application-write'
+    && actual.applicationId === expected.applicationId
+    && actual.nonce === expected.nonce;
+}
+
+class JsonArtifactStore implements GuardedArtifactStore {
+  public constructor(
+    private readonly rootDirectory: string,
+    private readonly writeAuthorization: ApplicationWriteAuthorization,
+  ) {}
 
   public async readWorkflow(workflowId: string): Promise<WorkflowSnapshot | null> {
     const path = workflowPath(this.rootDirectory, workflowId);
@@ -323,7 +327,14 @@ export class JsonArtifactStore implements ArtifactStore {
     return toSnapshot(dto);
   }
 
-  public async writeWorkflow(expectedRevision: number, next: WorkflowSnapshot): Promise<void> {
+  public async writeWorkflow(
+    expectedRevision: number,
+    next: WorkflowSnapshot,
+    authorization: ApplicationWriteAuthorization,
+  ): Promise<void> {
+    if (!authorizationMatches(authorization, this.writeAuthorization)) {
+      throw new Error('Workflow write authorization rejected');
+    }
     validateRevision(expectedRevision);
     if (!Number.isSafeInteger(expectedRevision + 1) || next.revision !== expectedRevision + 1) {
       throw new Error(`Workflow revision must advance exactly once: expected ${expectedRevision + 1}, received ${next.revision}`);
@@ -350,10 +361,16 @@ export class JsonArtifactStore implements ArtifactStore {
         await rm(temporary, { force: true });
       }
     } finally {
-      // 只在持有者退出写入流程后清理锁；不自动删除未知遗留锁，避免破坏活跃写入。
       await rm(lockPath, { force: true });
     }
   }
+}
+
+export function createJsonArtifactStore(
+  rootDirectory: string,
+  writeAuthorization: ApplicationWriteAuthorization,
+): GuardedArtifactStore {
+  return new JsonArtifactStore(rootDirectory, writeAuthorization);
 }
 
 function isNodeError(error: unknown): error is NodeJS.ErrnoException {

@@ -1,0 +1,24 @@
+{
+  "taskId": "task_7f87a145eb66",
+  "dispatchId": "ctx_ce305cf0b2a5",
+  "status": "failed",
+  "currentHead": "c42fa482dd7420466053232f1b31462968e7297e",
+  "observedAt": "2026-08-28T01:23:10Z",
+  "implementedStage": "Stage 1 only",
+  "implementedPathsOnly": true,
+  "tests": {
+    "application": "pass",
+    "cliAndAdapter": "pass",
+    "combinedFocused": "pass",
+    "packageTypecheck": "fail"
+  },
+  "failure": {
+    "blockingCommand": "bunx tsc --noEmit -p packages/harness-engine/tsconfig.json",
+    "exitCode": 1,
+    "firstError": "error TS2688: Cannot find type definition file for 'bun-types'.",
+    "reason": "Required typecheck cannot resolve the tsconfig-declared bun-types type library in this clean worktree; bun install --frozen-lockfile also fails because the lockfile would change, and non-frozen install is disallowed because bun.lock is protected."
+  },
+  "stage2OrExternalWork": "not started",
+  "localCommit": "not created because validation failed",
+  "mergeReadyClaimed": false
+}

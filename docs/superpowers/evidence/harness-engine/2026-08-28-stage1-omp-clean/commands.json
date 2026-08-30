@@ -1,0 +1,64 @@
+{
+  "taskId": "task_7f87a145eb66",
+  "dispatchId": "ctx_ce305cf0b2a5",
+  "currentHead": "c42fa482dd7420466053232f1b31462968e7297e",
+  "observedAt": "2026-08-28T01:23:10Z",
+  "preflight": {
+    "command": "git status --short --branch && git rev-parse HEAD && git rev-parse --abbrev-ref HEAD",
+    "exitCode": 0,
+    "output": "## 2233admin/harness-stage1-omp-clean-snapshot\nc42fa482dd7420466053232f1b31462968e7297e\n2233admin/harness-stage1-omp-clean-snapshot"
+  },
+  "red": [
+    {
+      "command": "bun test packages/harness-engine/tests/application",
+      "exitCode": 1,
+      "observedAt": "2026-08-28T01:08:00Z",
+      "firstError": "Cannot find module '../../src/application/harness-application.ts' from packages/harness-engine/tests/application/harness-application.test.ts",
+      "output": "0 pass, 3 fail; new application modules absent before implementation"
+    }
+  ],
+  "green": [
+    {
+      "command": "bun test packages/harness-engine/tests/application",
+      "exitCode": 0,
+      "observedAt": "2026-08-28T01:20:00Z",
+      "firstError": null,
+      "output": "7 pass, 0 fail, 35 expect() calls, 3 files"
+    },
+    {
+      "command": "bun test packages/harness-engine/tests/cli.test.ts packages/harness-engine/tests/adapters/json-artifact-store.test.ts",
+      "exitCode": 0,
+      "observedAt": "2026-08-28T01:20:00Z",
+      "firstError": null,
+      "output": "20 pass, 0 fail, 68 expect() calls, 2 files"
+    },
+    {
+      "command": "bun test packages/harness-engine/tests/application packages/harness-engine/tests/cli.test.ts packages/harness-engine/tests/adapters/json-artifact-store.test.ts",
+      "exitCode": 0,
+      "observedAt": "2026-08-28T01:20:00Z",
+      "firstError": null,
+      "output": "27 pass, 0 fail, 103 expect() calls, 5 files"
+    }
+  ],
+  "typecheck": {
+    "command": "bunx tsc --noEmit -p packages/harness-engine/tsconfig.json",
+    "exitCode": 1,
+    "observedAt": "2026-08-28T01:21:00Z",
+    "firstError": "error TS2688: Cannot find type definition file for 'bun-types'.",
+    "output": "error TS2688: Cannot find type definition file for 'bun-types'. The file is in the program because: Entry point of type library 'bun-types' specified in compilerOptions"
+  },
+  "dependencyInstallAttempt": {
+    "command": "bun install --frozen-lockfile",
+    "exitCode": 1,
+    "observedAt": "2026-08-28T01:22:00Z",
+    "firstError": "lockfile had changes, but lockfile is frozen",
+    "output": "No bun.lock changes observed after the failed frozen install attempt. Non-frozen install was not run because bun.lock is protected."
+  },
+  "rawConstructorCheck": {
+    "command": "grep tool pattern export class JsonArtifactStore|new JsonArtifactStore|export { JsonArtifactStore|JsonArtifactStore over packages/harness-engine/src;packages/harness-engine/tests",
+    "exitCode": 0,
+    "observedAt": "2026-08-28T01:22:00Z",
+    "firstError": null,
+    "output": "JsonArtifactStore class is module-private; only createJsonArtifactStore factory and application factory call the constructor; public index does not export the raw constructor."
+  }
+}

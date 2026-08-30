@@ -2,10 +2,16 @@ import { afterEach, describe, expect, test } from 'bun:test';
 import { mkdtemp, readFile, readdir, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { JsonArtifactStore } from '../../src/adapters/json/json-artifact-store.ts';
+import { createJsonArtifactStore } from '../../src/adapters/json/json-artifact-store.ts';
 import type { WorkflowSnapshot } from '../../src/domain/workflow.ts';
+import type { ApplicationWriteAuthorization, GuardedArtifactStore } from '../../src/ports/artifacts.ts';
 
 const temporaryDirectories: string[] = [];
+const authorization: ApplicationWriteAuthorization = {
+  kind: 'harness-application-write',
+  applicationId: 'workflow-1:worker-1:sha256:input',
+  nonce: 'nonce-1',
+};
 
 afterEach(async () => {
   await Promise.all(temporaryDirectories.splice(0).map((directory) => rm(directory, { recursive: true, force: true })));
@@ -34,10 +40,10 @@ function snapshot(revision = 1): WorkflowSnapshot {
   };
 }
 
-async function makeStore(): Promise<{ root: string; store: JsonArtifactStore }> {
+async function makeStore(): Promise<{ root: string; store: GuardedArtifactStore }> {
   const root = await mkdtemp(join(tmpdir(), 'harness-artifact-store-'));
   temporaryDirectories.push(root);
-  return { root, store: new JsonArtifactStore(root) };
+  return { root, store: createJsonArtifactStore(root, authorization) };
 }
 
 describe('JsonArtifactStore', () => {
@@ -49,7 +55,7 @@ describe('JsonArtifactStore', () => {
 
   test('writes and reads an explicit versioned workflow DTO', async () => {
     const { root, store } = await makeStore();
-    await store.writeWorkflow(0, snapshot());
+    await store.writeWorkflow(0, snapshot(), authorization);
 
     const loaded = await store.readWorkflow('workflow-1');
     expect(loaded).toMatchObject({ schemaVersion: 1, revision: 1, workflowId: 'workflow-1' });
@@ -64,6 +70,7 @@ describe('JsonArtifactStore', () => {
       expect(raw).not.toContain(privateKey);
     }
   });
+
   test('filters full-width and format-inserted dynamic privacy keys', async () => {
     const { root, store } = await makeStore();
     const base = snapshot();
@@ -71,33 +78,40 @@ describe('JsonArtifactStore', () => {
       ...base,
       plans: [{ ...base.plans[0]!, metadata: { ...base.plans[0]!.metadata, 'ｔａｓｋ正文': 'full-width secret', 'task\u200b正文': 'format secret' } }],
     };
-    await store.writeWorkflow(0, input);
+    await store.writeWorkflow(0, input, authorization);
     const raw = await readFile(join(root, 'workflows', 'workflow-1.json'), 'utf8');
     expect(raw).not.toContain('full-width secret');
     expect(raw).not.toContain('format secret');
   });
 
+  test('rejects missing or wrong application authorization before writing', async () => {
+    const { root, store } = await makeStore();
+    await expect((store as { writeWorkflow(expectedRevision: number, next: WorkflowSnapshot): Promise<void> })
+      .writeWorkflow(0, snapshot())).rejects.toThrow('authorization');
+    await expect(store.writeWorkflow(0, snapshot(), { ...authorization, applicationId: 'other' })).rejects.toThrow('authorization');
+    await expect(readFile(join(root, 'workflows', 'workflow-1.json'), 'utf8')).rejects.toThrow();
+  });
+
   test('rejects a revision mismatch without replacing the existing artifact', async () => {
     const { root, store } = await makeStore();
-    await store.writeWorkflow(0, snapshot(1));
+    await store.writeWorkflow(0, snapshot(1), authorization);
     const before = await readFile(join(root, 'workflows', 'workflow-1.json'), 'utf8');
 
-    await expect(store.writeWorkflow(0, snapshot(2))).rejects.toThrow('revision');
+    await expect(store.writeWorkflow(0, snapshot(2), authorization)).rejects.toThrow('revision');
     expect(await readFile(join(root, 'workflows', 'workflow-1.json'), 'utf8')).toBe(before);
   });
 
   test('allows only one concurrent writer for the same expected revision', async () => {
     const { store } = await makeStore();
     const results = await Promise.allSettled([
-      store.writeWorkflow(0, snapshot(1)),
-      store.writeWorkflow(0, { ...snapshot(1), plans: [] }),
+      store.writeWorkflow(0, snapshot(1), authorization),
+      store.writeWorkflow(0, { ...snapshot(1), plans: [] }, authorization),
     ]);
 
     expect(results.filter((result) => result.status === 'fulfilled')).toHaveLength(1);
     expect(results.filter((result) => result.status === 'rejected')).toHaveLength(1);
     expect(await store.readWorkflow('workflow-1')).toMatchObject({ revision: 1 });
   });
-
 
   test('recovers a lock only after proving its owner exited', async () => {
     const { root, store } = await makeStore();
@@ -110,7 +124,7 @@ describe('JsonArtifactStore', () => {
       createdAt: new Date().toISOString(),
     }));
 
-    await store.writeWorkflow(0, snapshot(1));
+    await store.writeWorkflow(0, snapshot(1), authorization);
     expect(await store.readWorkflow('workflow-1')).toMatchObject({ revision: 1 });
     expect(await readdir(join(root, 'workflows'))).toEqual(['workflow-1.json']);
   });
@@ -123,10 +137,10 @@ describe('JsonArtifactStore', () => {
       ownerToken: 'active-owner',
       createdAt: new Date().toISOString(),
     }));
-    await expect(store.writeWorkflow(0, snapshot(1))).rejects.toThrow('lock');
+    await expect(store.writeWorkflow(0, snapshot(1), authorization)).rejects.toThrow('lock');
 
     await Bun.write(lockPath, JSON.stringify({ ownerPid: 'unknown' }));
-    await expect(store.writeWorkflow(0, snapshot(1))).rejects.toThrow('lock');
+    await expect(store.writeWorkflow(0, snapshot(1), authorization)).rejects.toThrow('lock');
 
     const child = Bun.spawn([process.execPath, '-e', 'process.exit(0)']);
     await child.exited;
@@ -135,15 +149,16 @@ describe('JsonArtifactStore', () => {
       ownerToken: '',
       createdAt: new Date().toISOString(),
     }));
-    await expect(store.writeWorkflow(0, snapshot(1))).rejects.toThrow('lock');
+    await expect(store.writeWorkflow(0, snapshot(1), authorization)).rejects.toThrow('lock');
 
     await Bun.write(lockPath, JSON.stringify({
       ownerPid: child.pid,
       ownerToken: 'malformed-time',
       createdAt: 'not-a-timestamp',
     }));
-    await expect(store.writeWorkflow(0, snapshot(1))).rejects.toThrow('lock');
+    await expect(store.writeWorkflow(0, snapshot(1), authorization)).rejects.toThrow('lock');
   });
+
   test('rejects malformed execution and integration merge leases', async () => {
     const { root, store } = await makeStore();
     const directory = join(root, 'workflows');
@@ -184,7 +199,6 @@ describe('JsonArtifactStore', () => {
     }));
     await expect(store.readWorkflow('workflow-1')).rejects.toThrow('lease');
 
-
     await Bun.write(join(directory, 'workflow-1.json'), JSON.stringify({
       schemaVersion: 1,
       revision: 1,
@@ -195,7 +209,6 @@ describe('JsonArtifactStore', () => {
     }));
     await expect(store.readWorkflow('workflow-1')).rejects.toThrow('lease');
   });
-
 
   test('rejects future schema versions instead of migrating them', async () => {
     const { root, store } = await makeStore();
@@ -213,8 +226,8 @@ describe('JsonArtifactStore', () => {
 
   test('replaces artifacts atomically in the same directory', async () => {
     const { root, store } = await makeStore();
-    await store.writeWorkflow(0, snapshot());
-    await store.writeWorkflow(1, { ...snapshot(2), plans: [] });
+    await store.writeWorkflow(0, snapshot(), authorization);
+    await store.writeWorkflow(1, { ...snapshot(2), plans: [] }, authorization);
 
     const files = await readdir(join(root, 'workflows'));
     expect(files).toEqual(['workflow-1.json']);
