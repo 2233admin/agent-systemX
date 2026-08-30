@@ -1,0 +1,14 @@
+{
+  "schemaVersion": 1,
+  "status": "zero-failures",
+  "failures": [],
+  "currentFailureCount": 0,
+  "observedAt": "2026-08-27T18:47:43.2617445Z",
+  "sanitization": {
+    "stderrIncluded": false,
+    "credentialsIncluded": false,
+    "promptsIncluded": false,
+    "transcriptsIncluded": false,
+    "taskBodiesIncluded": false
+  }
+}

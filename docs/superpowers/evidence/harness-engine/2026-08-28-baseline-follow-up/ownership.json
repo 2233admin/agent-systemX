@@ -1,0 +1,101 @@
+{
+  "schemaVersion": 1,
+  "currentHead": "9f957f173ae002f247f51c0df2cb853814e08c08",
+  "branch": "2233admin/harness-stage0-retry",
+  "worktree": "D:\\projects\\agent-systemX\\.orca\\worktrees\\harness-stage0-retry",
+  "ownedPaths": [
+    "packages/harness-engine/src/validation/failure-ledger.ts",
+    "packages/harness-engine/tests/validation/failure-ledger.test.ts",
+    "docs/superpowers/evidence/harness-engine/2026-08-28-baseline-follow-up/failure-ledger.json",
+    "docs/superpowers/evidence/harness-engine/2026-08-28-baseline-follow-up/ownership.json",
+    "docs/superpowers/evidence/harness-engine/2026-08-28-baseline-follow-up/commands.json"
+  ],
+  "attributedDirtyPaths": [
+    "packages/harness-engine/src/validation/failure-ledger.ts",
+    "packages/harness-engine/tests/validation/failure-ledger.test.ts",
+    "docs/superpowers/evidence/harness-engine/2026-08-28-baseline-follow-up/failure-ledger.json",
+    "docs/superpowers/evidence/harness-engine/2026-08-28-baseline-follow-up/ownership.json",
+    "docs/superpowers/evidence/harness-engine/2026-08-28-baseline-follow-up/commands.json"
+  ],
+  "untrackedPaths": [
+    "packages/harness-engine/src/validation/failure-ledger.ts",
+    "packages/harness-engine/tests/validation/failure-ledger.test.ts",
+    "docs/superpowers/evidence/harness-engine/2026-08-28-baseline/commands.json",
+    "docs/superpowers/evidence/harness-engine/2026-08-28-baseline/failure-ledger.json",
+    "docs/superpowers/evidence/harness-engine/2026-08-28-baseline/ownership.json",
+    "docs/superpowers/evidence/harness-engine/2026-08-28-baseline-follow-up/commands.json",
+    "docs/superpowers/evidence/harness-engine/2026-08-28-baseline-follow-up/failure-ledger.json",
+    "docs/superpowers/evidence/harness-engine/2026-08-28-baseline-follow-up/ownership.json"
+  ],
+  "conflictingPaths": [],
+  "implementer": "Orca-dispatched worker",
+  "observedAt": "2026-08-27T18:47:43.2617445Z",
+  "statusBeforeFollowUp": [
+    " M bun.lock",
+    "?? docs/superpowers/evidence/harness-engine/2026-08-28-baseline/commands.json",
+    "?? docs/superpowers/evidence/harness-engine/2026-08-28-baseline/failure-ledger.json",
+    "?? docs/superpowers/evidence/harness-engine/2026-08-28-baseline/ownership.json",
+    "?? packages/harness-engine/src/validation/failure-ledger.ts",
+    "?? packages/harness-engine/tests/validation/failure-ledger.test.ts"
+  ],
+  "statusAfterFollowUp": [
+    " M bun.lock",
+    "?? docs/superpowers/evidence/harness-engine/2026-08-28-baseline-follow-up/commands.json",
+    "?? docs/superpowers/evidence/harness-engine/2026-08-28-baseline-follow-up/failure-ledger.json",
+    "?? docs/superpowers/evidence/harness-engine/2026-08-28-baseline-follow-up/ownership.json",
+    "?? docs/superpowers/evidence/harness-engine/2026-08-28-baseline/commands.json",
+    "?? docs/superpowers/evidence/harness-engine/2026-08-28-baseline/failure-ledger.json",
+    "?? docs/superpowers/evidence/harness-engine/2026-08-28-baseline/ownership.json",
+    "?? packages/harness-engine/src/validation/failure-ledger.ts",
+    "?? packages/harness-engine/tests/validation/failure-ledger.test.ts"
+  ],
+  "unownedPreexisting": [
+    {
+      "path": "bun.lock",
+      "classification": "unowned-preexisting",
+      "modifiedByThisTask": false
+    },
+    {
+      "path": "docs/superpowers/evidence/harness-engine/2026-08-28-baseline/commands.json",
+      "classification": "prior-completed-correction-evidence",
+      "modifiedByThisTask": false
+    },
+    {
+      "path": "docs/superpowers/evidence/harness-engine/2026-08-28-baseline/failure-ledger.json",
+      "classification": "prior-completed-correction-evidence",
+      "modifiedByThisTask": false
+    },
+    {
+      "path": "docs/superpowers/evidence/harness-engine/2026-08-28-baseline/ownership.json",
+      "classification": "prior-completed-correction-evidence",
+      "modifiedByThisTask": false
+    }
+  ],
+  "priorEvidencePreservation": {
+    "preserved": true,
+    "immutablePaths": [
+      "docs/superpowers/evidence/harness-engine/2026-08-28-baseline/failure-ledger.json",
+      "docs/superpowers/evidence/harness-engine/2026-08-28-baseline/ownership.json",
+      "docs/superpowers/evidence/harness-engine/2026-08-28-baseline/commands.json"
+    ],
+    "sha256": {
+      "docs/superpowers/evidence/harness-engine/2026-08-28-baseline/failure-ledger.json": "AC5DE8357BAAFED7FE0DDD79E1FD535E11DE49804601BADCB3F512A149DB1AE0",
+      "docs/superpowers/evidence/harness-engine/2026-08-28-baseline/ownership.json": "C7718076CDB0C80C548C2619CA49DF9FD320C9BC24439C9CB5257AC353C6D403",
+      "docs/superpowers/evidence/harness-engine/2026-08-28-baseline/commands.json": "D184EB326D2B85A5EF34F602FBA80F267C5A2B10C1619BB9636662A4F35DB337"
+    }
+  },
+  "ownershipChecks": {
+    "noFollowUpPathOverlap": true,
+    "concurrentWipOverlap": false,
+    "protectedPathsModified": false,
+    "protectedAndUnownedUntouched": true,
+    "headAndBranchMatchDispatch": true
+  },
+  "sanitization": {
+    "credentialsIncluded": false,
+    "promptsIncluded": false,
+    "transcriptsIncluded": false,
+    "taskBodiesIncluded": false,
+    "unsanitizedStderrIncluded": false
+  }
+}

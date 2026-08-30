@@ -1,0 +1,75 @@
+{
+  "schemaVersion": 1,
+  "capturedAt": "2026-08-27T18:47:43.2617445Z",
+  "head": "9f957f173ae002f247f51c0df2cb853814e08c08",
+  "branch": "2233admin/harness-stage0-retry",
+  "worktreePath": "D:\\projects\\agent-systemX\\.orca\\worktrees\\harness-stage0-retry",
+  "commands": [
+    {
+      "id": "focused-validator-red",
+      "command": "bun test packages/harness-engine/tests/validation/failure-ledger.test.ts",
+      "phase": "before implementation",
+      "result": "red",
+      "exitCode": 1,
+      "observedAt": "2026-08-27T18:42:00Z",
+      "firstError": "TypeError: Malformed current failure row",
+      "summary": "New omitted-firstError case failed while the pre-existing cases passed"
+    },
+    {
+      "id": "focused-validator-green",
+      "command": "bun test packages/harness-engine/tests/validation/failure-ledger.test.ts",
+      "phase": "after implementation",
+      "result": "green",
+      "exitCode": 0,
+      "observedAt": "2026-08-27T18:47:43.2512309Z",
+      "firstError": null,
+      "summary": "13 pass, 0 fail, 37 expect() calls"
+    },
+    {
+      "id": "package-typecheck",
+      "command": "bunx tsc --noEmit -p packages/harness-engine/tsconfig.json",
+      "phase": "after implementation",
+      "result": "green",
+      "exitCode": 0,
+      "observedAt": "2026-08-27T18:47:43.2617445Z",
+      "firstError": null,
+      "summary": "TypeScript compilation passed"
+    },
+    {
+      "id": "stage0-acceptance",
+      "command": "bun test packages/harness-engine/tests/validation/failure-ledger.test.ts packages/harness-engine/tests/cli.test.ts packages/harness-engine/tests/adapters/json-artifact-store.test.ts",
+      "phase": "after implementation",
+      "result": "green",
+      "exitCode": 0,
+      "observedAt": "2026-08-27T18:47:43.2544958Z",
+      "firstError": null,
+      "summary": "32 pass, 0 fail, 102 expect() calls"
+    },
+    {
+      "id": "tagged-schema-probe",
+      "command": "bun -e \"import { validateFailureLedger } from './packages/harness-engine/src/validation/failure-ledger.ts'; validateFailureLedger({ status: 'zero-failures', failures: [] }); try { validateFailureLedger([]); process.exit(1); } catch {} console.log('tagged schema valid; bare array rejected');\"",
+      "phase": "after implementation",
+      "result": "green",
+      "exitCode": 0,
+      "observedAt": "2026-08-27T18:47:43.2542385Z",
+      "firstError": null,
+      "summary": "Tagged zero-failures accepted; bare array rejected"
+    }
+  ],
+  "currentFailureCount": 0,
+  "directTaggedSchemaChecks": {
+    "zeroFailuresTaggedObjectAccepted": true,
+    "bareArrayRejected": true,
+    "currentFailuresRequireNonEmptyTuple": true,
+    "rerunFirstErrorMayBeOmitted": true,
+    "presentRerunFirstErrorMustBeNonEmptyString": true,
+    "unknownKeysRejected": true
+  },
+  "sanitization": {
+    "stderrIncluded": false,
+    "credentialsIncluded": false,
+    "promptsIncluded": false,
+    "transcriptsIncluded": false,
+    "taskBodiesIncluded": false
+  }
+}

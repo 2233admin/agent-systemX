@@ -1,0 +1,50 @@
+{
+  "schemaVersion": 1,
+  "capturedAt": "2026-08-27T18:37:13.1220109Z",
+  "head": "9f957f173ae002f247f51c0df2cb853814e08c08",
+  "branch": "2233admin/harness-stage0-retry",
+  "worktreePath": "D:\\projects\\agent-systemX\\.orca\\worktrees\\harness-stage0-retry",
+  "commands": [
+    {
+      "id": "package-typecheck",
+      "command": "bunx tsc --noEmit -p packages/harness-engine/tsconfig.json",
+      "exitCode": 0,
+      "observedAt": "2026-08-27T18:37:12.7889239Z",
+      "firstError": null,
+      "summary": "TypeScript compilation passed"
+    },
+    {
+      "id": "focused-validator",
+      "command": "bun test packages/harness-engine/tests/validation/failure-ledger.test.ts",
+      "exitCode": 0,
+      "observedAt": "2026-08-27T18:37:12.8731928Z",
+      "firstError": null,
+      "summary": "10 pass, 0 fail, 28 expect() calls; 10 tests across 1 file"
+    },
+    {
+      "id": "stage0-acceptance",
+      "command": "bun test packages/harness-engine/tests/validation/failure-ledger.test.ts packages/harness-engine/tests/cli.test.ts packages/harness-engine/tests/adapters/json-artifact-store.test.ts",
+      "exitCode": 0,
+      "observedAt": "2026-08-27T18:37:13.1220109Z",
+      "firstError": null,
+      "summary": "29 pass, 0 fail, 93 expect() calls; 29 tests across 3 files"
+    },
+    {
+      "id": "tagged-schema-probe",
+      "command": "bun -e \"import { validateFailureLedger } from './packages/harness-engine/src/validation/failure-ledger.ts'; validateFailureLedger({ status: 'zero-failures', failures: [] }); try { validateFailureLedger([]); process.exit(1); } catch {} console.log('tagged schema valid; bare array rejected');\"",
+      "exitCode": 0,
+      "observedAt": "2026-08-27T18:37:59.5030348Z",
+      "firstError": null,
+      "summary": "Tagged zero-failures accepted; bare array rejected"
+    }
+  ],
+  "currentFailureCount": 0,
+  "rerunEvidence": [],
+  "sanitization": {
+    "stderrIncluded": false,
+    "credentialsIncluded": false,
+    "promptsIncluded": false,
+    "transcriptsIncluded": false,
+    "taskBodiesIncluded": false
+  }
+}
