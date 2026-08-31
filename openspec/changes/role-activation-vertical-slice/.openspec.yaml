@@ -1,0 +1,5 @@
+schema: delivery-change
+created: 2026-08-30
+goal: 用户能够选择一个公开 Role，将其 instructions 与 skills 编译为 Claude Code 的 Session
+  级装配，经过一次确认后启动并获得可观察清理证据
+skip_specs: true
