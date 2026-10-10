@@ -1,0 +1,164 @@
+{
+  "skills": [
+    {
+      "name": "adaptive-problem-solving",
+      "target": "plugins/adaptive-problem-solving/skills/adaptive-problem-solving"
+    },
+    {
+      "name": "architecture-decision",
+      "target": "plugins/flow-steps/skills/architecture-decision"
+    },
+    {
+      "name": "baseline-measurement",
+      "target": "plugins/practices/skills/baseline-measurement"
+    },
+    {
+      "name": "canary-release",
+      "target": "plugins/practices/skills/canary-release"
+    },
+    {
+      "name": "characterization-test",
+      "target": "plugins/practices/skills/characterization-test"
+    },
+    {
+      "name": "clarify",
+      "target": "plugins/clarify/skills/clarify"
+    },
+    {
+      "name": "code-review",
+      "target": "plugins/practices/skills/code-review"
+    },
+    {
+      "name": "domain-modeling",
+      "target": "plugins/practices/skills/domain-modeling"
+    },
+    {
+      "name": "ears",
+      "target": "plugins/practices/skills/ears"
+    },
+    {
+      "name": "effect-sketch",
+      "target": "plugins/practices/skills/effect-sketch"
+    },
+    {
+      "name": "feature-toggle",
+      "target": "plugins/practices/skills/feature-toggle"
+    },
+    {
+      "name": "flow",
+      "target": "plugins/flow/skills/flow"
+    },
+    {
+      "name": "golden-master",
+      "target": "plugins/practices/skills/golden-master"
+    },
+    {
+      "name": "grilling",
+      "target": "plugins/practices/skills/grilling"
+    },
+    {
+      "name": "impact-analysis",
+      "target": "plugins/flow-steps/skills/impact-analysis"
+    },
+    {
+      "name": "incremental-integration",
+      "target": "plugins/practices/skills/incremental-integration"
+    },
+    {
+      "name": "interface-contract-checklist",
+      "target": "plugins/practices/skills/interface-contract-checklist"
+    },
+    {
+      "name": "knowledge-maintenance",
+      "target": "plugins/knowledge-maintenance/skills/knowledge-maintenance"
+    },
+    {
+      "name": "legacy-code-change",
+      "target": "plugins/flow-steps/skills/legacy-code-change"
+    },
+    {
+      "name": "note",
+      "target": "plugins/note/skills/note"
+    },
+    {
+      "name": "orchestrated-collaboration",
+      "target": "plugins/orchestrated-collaboration/skills/orchestrated-collaboration"
+    },
+    {
+      "name": "record-replay",
+      "target": "plugins/practices/skills/record-replay"
+    },
+    {
+      "name": "regression-evidence",
+      "target": "plugins/flow-steps/skills/regression-evidence"
+    },
+    {
+      "name": "requirement-elicitation",
+      "target": "plugins/flow-steps/skills/requirement-elicitation"
+    },
+    {
+      "name": "requirement-specification",
+      "target": "plugins/flow-steps/skills/requirement-specification"
+    },
+    {
+      "name": "review-response",
+      "target": "plugins/flow-steps/skills/review-response"
+    },
+    {
+      "name": "rollout-observe",
+      "target": "plugins/flow-steps/skills/rollout-observe"
+    },
+    {
+      "name": "self-improvement",
+      "target": "plugins/self-improvement/skills/self-improvement"
+    },
+    {
+      "name": "skill-appraisal",
+      "target": "plugins/skill-appraisal/skills/skill-appraisal"
+    },
+    {
+      "name": "skill-authoring",
+      "target": "plugins/skill-authoring/skills/skill-authoring"
+    },
+    {
+      "name": "skill-maintenance",
+      "target": "plugins/skill-maintenance/skills/skill-maintenance"
+    },
+    {
+      "name": "specification-by-example",
+      "target": "plugins/practices/skills/specification-by-example"
+    },
+    {
+      "name": "sprout-method",
+      "target": "plugins/practices/skills/sprout-method"
+    },
+    {
+      "name": "switch-interview",
+      "target": "plugins/practices/skills/switch-interview"
+    },
+    {
+      "name": "system-integration",
+      "target": "plugins/flow-steps/skills/system-integration"
+    },
+    {
+      "name": "tdd",
+      "target": "plugins/practices/skills/tdd"
+    },
+    {
+      "name": "tradeoff-analysis",
+      "target": "plugins/practices/skills/tradeoff-analysis"
+    },
+    {
+      "name": "verify-evidence",
+      "target": "plugins/flow-steps/skills/verify-evidence"
+    },
+    {
+      "name": "worktree-baseline",
+      "target": "plugins/flow-steps/skills/worktree-baseline"
+    },
+    {
+      "name": "wrap-up",
+      "target": "plugins/flow-steps/skills/wrap-up"
+    }
+  ]
+}

@@ -1,6 +1,8 @@
+> **2026-09-02 负责人裁定：旧治理退库。** 路由声明（tests/workflow-routing.json）、生命周期表、三句说明、skill_registry 组登记与资产面、Codex 端 manifest 要求已全部移除；仓储只留五样：一个 skill 一个目录加 SKILL.md、evals/、自动生成的目录页 docs/skills-overview.md、sk 的 profile 装配、一条检查目录页没漂的测试（tests/skills.test.ts）。下文中涉及旧治理的段落为历史描述。
+
 # Agent System plugins
 
-`agent-plugins` 是公开的 Codex／Claude Plugin 源码仓，保存可版本化、可审阅、可回滚的 Plugin、Skill、双端发现清单和来源符合性检查。仓库内容只证明源码状态；不证明任何机器已经安装或正在使用它。
+本目录是公开的 Plugin／Skill 源码仓储，保存可版本化、可审阅、可回滚的 Plugin 与 Skill。运行端只支持 Claude Code CLI 与 OMP（OMP 直读 Claude 格式 skill），发现清单只维护 `.claude-plugin/marketplace.json`；`.agents/` 下的 Codex 端清单与各 Plugin 的 `.codex-plugin/` 不再维护（2026-09-03 负责人裁定）。仓库内容只证明源码状态；不证明任何机器已经安装或正在使用它。
 
 ## 开始工作
 
@@ -29,12 +31,27 @@
 本批按 clean-slate 迁仓修正发布身份：仓库所有权由 `Eridanus117` 迁至 `Eridanus117`，七个 Plugin 的 `author.name` 与 `repository` 字段、两份 Marketplace（Claude 与 Codex）、符合性版本声明与 README 版本总览同步更新，七个 Plugin 各递增一个修订号。**运行端重装与三端指纹验收必须在本版进入 `main` 后另行完成，不能由源仓合并推定。**
 
 以下发布记录保留迁移前编号以便仓库维护者溯源；其中私有链接对公共协作者不可用，只是可选历史来源。当前行为、贡献要求和验收必须在本仓公开内容中自足表达。
+`adaptive-problem-solving` `0.2.14` 随 2026-09-01 负责人裁定的 bmad 整组退库清理引用：description 与方法登记面 INDEX 的「与装配内其他 Skill 的分界」表不再列 bmad-* 执行流程承载者（仅保留 `grilling`），失效条款同步；行为合同与方法卡内容不变。
 
-仓库目前包含九个可安装 Plugin：`grilling` `0.1.2`、`self-improvement` `0.1.7`、`skill-maintenance` `0.1.0`、`skill-appraisal` `0.2.0`、`knowledge-maintenance` `0.1.3`、`orchestrated-collaboration` `0.2.7`、`adaptive-problem-solving` `0.2.13`、`resource-observability` `0.2.4` 与 `github-collaboration` `0.3.18`。
+仓库目前包含十二个可安装 Plugin：`self-improvement` `0.1.7`、`skill-maintenance` `0.1.2`、`knowledge-maintenance` `0.1.3`、`orchestrated-collaboration` `0.2.7`、`adaptive-problem-solving` `0.2.14`、`skill-appraisal` `0.2.0`、`clarify` `0.1.1`、`note` `0.1.1`、`skill-authoring` `0.1.3`、`flow` `0.1.6`、`flow-steps` `0.1.5`（含 12 条活动 Skill）、`practices` `0.1.4`（含 18 条实践 Skill：`grilling`、`domain-modeling`、`tdd`、`code-review` 按 MIT 从 Matt Pocock 的 skills 仓复制入库改写，来源与 revision 见 `plugins/practices/SOURCE`，ADR-0007；其余 14 条从已归档的 workcoding 八条规程拆出的自建实践），合计 40 个 Skill。Matt 的其余 21 个 promoted Skill 与 Superpowers 的 14 个 Skill 由 daily profile 从 `vendor/` 固定来源装配，不属于本仓 Plugin 目录。以 `docs/skills-overview.md`（自动生成）为准。
 
-仓库资产、Marketplace 可安装目录和当前默认装配是三个不同状态：`plugins/` 保存可发布资产，两份 Marketplace 只声明可安装来源，当前 profile 只按 `plugins/skill-imports.toml` 显式装配（此前由已退役的 `.cap/skill-imports.toml` 承载，见 Epic 4 Story 4.7）。`github-collaboration` 与 `self-improvement` 同级，都是仓内可安装资产；二者不会因为出现在 Marketplace 或插件目录中就自动进入当前 profile。
+**2026-09-02 负责人裁定退库两组**：`github-collaboration`（六个 Skill）与 `resource-observability`。理由见下方「已退库」。此前写进符合性门禁的「GitHub 协作 Plugin 必须作为可发布资产保留」一条同时作废，已从 `plugins/tests/workflow-routing.test.ts` 移除。
 
-`github-collaboration` 提供六个 GitHub 协作 Skill：`issue-workflow` 推进一棵 Issue 子树并消费负责人动作；`issue-delivery` 把已就绪 Issue 交付成 Draft PR 或自足证据评论；`issue-contract-compaction` 压缩漂移的 Issue 正文；`objective-to-issues` 建立原生父子 Issue 图；`operating-ledger-maintenance` 维护经营总账观察面；`pr-integration` 按当前 head 整合 PR。
+`skill-maintenance` `0.1.1` 在明确创建、审计、修正、拆分、升级、迁移或退役 Skill 时进入：先绑定当前行为合同与授权，预注册行为判据，再同步主合同、按需 reference、全部调用者、双端发现入口、版本、生成物和复杂度预算；安全门零回退，调用者 clean cutover，方案／实施同源时必须独立审查。它不维护普通业务代码，也不替 `self-improvement` 决定一次纠正应该落到哪里。
+
+仓库资产、Marketplace 可安装目录和当前装配是三个不同状态：`plugins/` 保存可发布资产，Marketplace 只声明可安装来源，实际装配由 `sk` 的 profile（`profiles/<name>/manifest.json`，源码 `packages/sk`）决定。仓内可安装资产不会因为出现在 Marketplace 或插件目录中就自动进入某个 profile。
+
+## 已归档（2026-09-19）
+
+`workcoding`（挑规程的壳 `workcoding` 加八条工程规程 `requirement-insight`、`requirement-translation`、`architecture-design`、`system-analysis`、`legacy-change`、`integration`、`evidence-regression`、`release-observe`）于 2026-09-19 按 agent-system#123 归档到 `_archive/plugins/workcoding/`。壳退役是负责人 2026-09-14 的裁定（desk#142，agent-system#111）：`flow` 在第 4 阶段的门上按缺口开改旧代码时才开的活动，壳失去角色；八条规程已在 agent-system#119 到 #122 拆成 `practices` 的 14 条实践与 `flow-steps` 的 8 条活动。marketplace 与两份 profile manifest 已清掉它的条目；正文原样保留，git 历史可查（`git log --follow -- _archive/plugins/workcoding`）。
+
+## 已退库（2026-09-02）
+
+`github-collaboration`（`issue-workflow` / `issue-delivery` / `issue-contract-compaction` / `objective-to-issues` / `operating-ledger-maintenance` / `pr-integration` 六个 Skill，合计约 156 KB）与 `resource-observability` 于 2026-09-02 经负责人裁定整组退库。git 历史保留，`git log --diff-filter=D -- plugins/github-collaboration plugins/resource-observability` 可复原。
+
+退库依据：两组都写得出行为评测，但**都跑不起来**——GitHub 六个需要一个专用的 fixture 仓才能验证（在真仓跑会污染，2026-09-01 已有事故先例）；`resource-observability` 依赖 Orca 账户接口与固定版本 `ccusage`，而 Orca 那套仍是停靠中的 change。跑不起来的评测等于没有评测。此外六个 GitHub Skill 属于「补充知识」类（教 agent 用 `gh` 与一套 Issue 生命周期约定），该类正被模型自身能力吃掉：2026-09-02 当天在不加载它们的情况下完成了四个仓的分支、PR、CI 核对、分支保护调整与合并全流程。
+
+**连带后果（如实记录）**：事项 `E3 推进仓库事项` 现在无任何组覆盖，与 `E5` 在 bmad 退库后的处境相同。若日后确认需要，重新覆盖时应先写得出可跑的评测再进库。
 
 `orchestrated-collaboration` `0.2.7` 删除两个对未装配 Issue 驱动资产的直接调用：任务子树由当前合同和写入所有权确定驱动者，`worker_done` 只触发远端来源核验并把事实交回当前合同持有者；它不接管 Issue 生命周期。
 
@@ -50,7 +67,7 @@
 
 `self-improvement` `0.1.7` 把承载位置已确定为 Skill 的纠正交给 `skill-maintenance`，自己只负责停止漂移、诊断根因、判断长期价值和选择持久载体，不再复制来源盘点、预算、版本、clean cutover 或审查协议。
 
-`skill-maintenance` `0.1.0` 在明确创建、审计、修正、拆分、升级、迁移或退役 Skill 时进入：先绑定当前行为合同与授权，预注册行为判据，再同步主合同、按需 reference、全部调用者、双端发现入口、版本、生成物和复杂度预算；安全门零回退，调用者 clean cutover，方案／实施同源时必须独立审查。它不维护普通业务代码，也不替 `self-improvement` 决定一次纠正应该落到哪里。
+`skill-maintenance` `0.1.1` 在明确创建、审计、修正、拆分、升级、迁移或退役 Skill 时进入：先绑定当前行为合同与授权，预注册行为判据，再同步主合同、按需 reference、全部调用者、双端发现入口、版本、生成物和复杂度预算；影响行为或 description 时增加配对评估，安全门零回退，调用者 clean cutover，方案／实施同源时必须独立审查。它不维护普通业务代码，也不替 `self-improvement` 决定一次纠正应该落到哪里。
 
 `skill-appraisal` `0.2.0` 判定一个 Skill **组**该不该收进当前体系：五道门依次是组边界（成员互相调用就不许拆）、事项归属（可跨多个）、净增量（不允许两个组覆盖同一个决定）、路由（组内每个成员的 `description` 单独可判）、来源与移植（`own`／`fork`／`vendor`，`fork` 的零改动必须可机械验证）。已收组到节拍时走复核路径而不是重判：只重跑被失效条件命中的那道门。每次判定必须留下失效条件与下次最少复核步骤，否则等于制造一个下次从零重做的负担。它只产出判定，不安装、不写配置、不改 profile；判定为「改造后收」时把执行交给 `skill-maintenance`。
 
@@ -62,43 +79,11 @@
 
 `adaptive-problem-solving` `0.2.13` 将主 `SKILL.md` 收敛为进入／退出、问题恢复、类型路由、共用安全门指针与结果返回；受限调研、攻防、最小实验、G1–G3 和长程验收分别移入命中条件明确的 `references/`。主控制合同从 22,537 UTF-8 字节降为 8,812 字节，五份分支协议与主合同合计仍低于拆分前基线；未命中分支不加载，授权、同意、写入所有权、M0／M1 选择资格、攻防四席下限和产品证据等级不变。
 
-`resource-observability` 在用户询问账户容量、重置时间、Codex 重置券或单 Session Token，或者高成本／多 Agent 工作需要资源决定时，按需组合两种现有来源：账户层读取 `orca account list --json`，会话层通过固定 `ccusage` `20.0.19` 生成 Token 回执。Skill 只保留负责人需要的窗口、时间、权益、来源和失败，不输出账户标识、凭据、原始正文、路径或 stderr。`0.2.1` 将会话薄门面和直接耦合的验证资产迁移到 TypeScript，由 Node 直接运行 `.ts` 源码，保持原协议、退出码、超时、输出上限、Windows npm shim 和脱敏边界。该门面只服务会话协议，不代表完整产品。它不建设监控、轮询、自动停止、计费推断或调度，也不自动消费重置券；Orca 只是当前可替换来源，不因此成为长期依赖。
 
 仓库分别维护两端的原生发现清单：Codex 使用 `.agents/plugins/marketplace.json`，Claude 使用 `.claude-plugin/marketplace.json`。Plugin 正文可以共享，但不能因为两端都叫 Marketplace 就假设清单格式相同。
 
 本仓当前需求与授权只来自负责人当前明确指令，或本仓公开、自足且经明确激活的 Issue／PR。旧 Issue、私有历史和既有研究默认只作待核验来源，不能自行恢复工作。
 
-## 安装 `grilling`
-
-先克隆本仓，然后把仓库根目录作为本地 Marketplace 添加。下面的 `<repo-root>` 是本仓的绝对路径。
-
-Codex：
-
-```powershell
-codex plugin marketplace add "<repo-root>" --json
-codex plugin add grilling@agent-plugins --json
-```
-
-显式入口为 `$grilling`。
-
-Claude：
-
-```powershell
-claude plugin marketplace add "<repo-root>"
-claude plugin install grilling@agent-plugins --scope user
-```
-
-显式入口为 `/grilling:grilling`。
-
-移除时先卸载 Plugin，再移除 Marketplace：
-
-```powershell
-codex plugin remove grilling@agent-plugins --json
-codex plugin marketplace remove agent-plugins --json
-
-claude plugin uninstall grilling@agent-plugins --scope user
-claude plugin marketplace remove agent-plugins
-```
 
 原生 Windows 的 Codex `elevated` sandbox 在首次初始化或 marker 不兼容时可能触发 UAC；请在确认程序来自本机 Codex 后完成提升。本仓曾在无人处理 UAC 时只对受阻测试命令临时使用 `windows.sandbox="unelevated"`，随后在可处理 UAC 时确认 `elevated` 最小探针恢复正常。持久配置没有被降低，也没有关闭沙箱；若以后必须临时回退，优先只覆盖单条命令，因为 `unelevated` 的隔离强度低于 `elevated`。
 
@@ -138,19 +123,12 @@ claude plugin install adaptive-problem-solving@agent-plugins --scope user
 ```
 
 
-安装 `resource-observability`：
-
-```powershell
-codex plugin add resource-observability@agent-plugins --json
-claude plugin install resource-observability@agent-plugins --scope user
-```
-
-显式入口是 Codex 的 `$resource-observability` 与 Claude 的 `/resource-observability:resource-observability`。账户层由 Skill 调用 `orca account list --json` 并只整理 Claude／Codex 窗口与 Codex 重置券；会话层继续使用内置 TypeScript CLI 的 `session --provider codex|claude --id <id> --json|--summary`，JSON 标准输出恰好一个回执且自带 `summary_zh`。Node 直接运行该 `.ts` 入口，CLI 默认调用 `ccusage` 并固定验证 `20.0.19`，测试或非标准安装可用显式 `--ccusage-command`。当前仓库交付不自动安装、升级或移除 Orca、Node 或 `ccusage`；账户来源不可用时明确失败，不读取凭据或改走内部 HTTP。
-
 
 ## 检查
 
 ```powershell
+bun test tools/skill_eval/tests/skill-eval.test.ts plugins/tests/skill-evaluation.test.ts
+bun tools/skill_eval/skill-eval.ts validate plugins/skill-maintenance/skills/skill-maintenance/evals/evals.json
 node plugins/tests/workflow-routing.test.ts
 node plugins/orchestrated-collaboration/tests/verify-three-party-review.test.ts
 ```
@@ -177,6 +155,17 @@ node plugins/orchestrated-collaboration/tests/verify-three-party-review.test.ts
 - 当前 profile 装配：读取 `plugins/skill-imports.toml`，只有显式列出的 Skill 会进入该 profile；
 - **每个 Skill 替你做什么、什么时候用，以及 L1／L2／L3 与递归维护面实测：[`docs/skills-overview.md`](docs/skills-overview.md)**（生成产物，符合性测试钉住它不会漂）；
 - 「装了才算数」的部署方式、Skill 的失效条件、最少复核、退役路径与复杂度管理：[`docs/lifecycle.md`](docs/lifecycle.md)。其中「必须声明失效条件与最少复核步骤」「Skill 数量门」「分层体积必须递归、可复现」由本仓 CI 强制；
+
+### Skill 评估闭环
+
+参考 Anthropic `skill-creator` 的 with/without Skill 对照方法，本仓将评估作为 `skill-maintenance` 的按需分支，而不是新增 Plugin。影响新能力、核心行为或 description 触发面的变更，可在 Skill 目录提供 `evals/evals.json`，并用以下命令做确定性合同校验：
+
+```text
+bun tools/skill_eval/skill-eval.ts validate plugins/skill-maintenance/skills/skill-maintenance/evals/evals.json
+bun tools/skill_eval/skill-eval.ts summarize <result-dir> --evals <skill-dir>/evals/evals.json
+```
+
+工具只校验和汇总外部运行结果，不调用模型、不读取凭据、不证明 Skill 已安装或生效。结果包中的 `baseline`、`with_skill`、`old_skill`、`unknown` 和成本差异必须如实保留；真实客户端和新会话仍按 [生命周期文档](docs/lifecycle.md) 单独验收。
 - [方法资产模型](docs/asset-model.md)、[符合性检查](docs/conformance.md)、旧 Issue 和 `codex-work`：只作为历史或待核验材料，不默认指导新工作。
 
 不要从旧交付顺序、私有历史或开放状态自行恢复工作。跨仓项目调用本仓 Plugin 时，以调用方公开合同和本仓当前可用接口的交集为边界。

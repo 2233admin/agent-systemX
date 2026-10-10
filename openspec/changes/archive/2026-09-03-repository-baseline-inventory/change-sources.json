@@ -1,0 +1,40 @@
+{
+  "schemaVersion": 1,
+  "sources": [
+    {
+      "id": "user-session",
+      "kind": "user",
+      "authority": 1,
+      "locator": "current-session",
+      "adapter": "builtin:user"
+    },
+    {
+      "id": "project-entry-and-config",
+      "kind": "repository",
+      "authority": 2,
+      "locator": "README.md; entrypoints/agent-system.md; openspec/config.yaml",
+      "adapter": "builtin:repository"
+    },
+    {
+      "id": "active-openspec-specs",
+      "kind": "repository-spec",
+      "authority": 3,
+      "locator": "openspec/specs/*/spec.md",
+      "adapter": "builtin:repository"
+    },
+    {
+      "id": "bmad-migration-input",
+      "kind": "migration-evidence",
+      "authority": 4,
+      "locator": "_bmad-output/specs; _bmad-output/planning-artifacts; _bmad-output/implementation-artifacts",
+      "adapter": "builtin:repository"
+    },
+    {
+      "id": "delivery-spec-runtime",
+      "kind": "workflow-runtime",
+      "authority": 5,
+      "locator": ".delivery-spec-runtime/openspec/schemas/delivery-change/schema.yaml",
+      "adapter": "builtin:repository"
+    }
+  ]
+}

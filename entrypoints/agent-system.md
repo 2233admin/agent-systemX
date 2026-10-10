@@ -10,9 +10,22 @@
 
 ## Agent 系统任务路由
 
-> **权威变更（2026-08-22，负责人确认；2026-08-23 物理归档）：** 下一句"读取 `authority/00-map.md`"已不再产生产品政策——`authority/`、`src/agent_system/`、`docs/`、`knowledge/` 全部降级为历史资产，并已于 2026-08-23 物理搬迁到 `_archive/` 同名子路径（如 `_archive/authority/00-map.md`）。当前产品政策、需求、架构与范围的唯一权威来源改为 BMad 工作流产出（`_bmad-output/specs/spec-agent-system/SPEC.md`、`_bmad-output/planning-artifacts/epics.md`、`_bmad-output/planning-artifacts/architecture/**/ARCHITECTURE-SPINE.md`、`_bmad-output/implementation-artifacts/sprint-status.yaml`），详见 [`AGENTS.md` 的同名章节](../AGENTS.md#当前权威声明2026-08-22负责人确认)。以下 GitHub Issue 授权边界、迁移标签处理等流程规则本身不受影响，仍然适用。
+> ~~**权威迁移方向（2026-08-30，负责人确认）：** BMad 产出是迁移完成前的临时现状来源，后期废弃；后续产品权威收敛到仓内 OpenSpec 与版本化文档。迁移验收前，`_bmad-output/` 继续约束尚未迁出的现有范围；不得因为目标方向已确定就提前删除 BMad 资产或丢失现有决定。~~
+>
+> **上条已于 2026-09-02 被负责人明着推翻。** 裁定原话：「bmad 可以干掉」。执行结果：`vendor/bmad` 与 `_bmad`（引擎）已于 2026-09-01 PR #25 移除；`_bmad-output/`（产出，87 文件）与覆盖矩阵 Change `bmad-openspec-coverage`（25 文件）于 2026-09-02 一并删除。
+>
+> **为什么「不得丢失现有决定」这条前提不再成立**：该条的保护对象是「尚未迁出的现有决定」，而 `_bmad-output` 已被负责人判定「有大量错误」并整体降级为非权威。覆盖矩阵原本要回答的正是「哪些决定还没迁出来」——但既然该语料不可信、也不打算迁移，这个问题就没有答的价值。**为不打算迁的语料建覆盖矩阵是无收益工作，故连同语料一并杀掉。** git 历史保留：`git log --diff-filter=D -- _bmad-output`。
 
-当任务落在本仓时，先读取仓库根 `README.md` 与（现仅作历史索引的）`_archive/authority/00-map.md`，再按模式继续：
+目标权威结构固定为：
+
+1. `openspec/specs/`：已生效的产品需求与 capability 规范（纯 Markdown 记录，见下方退役说明；其中 `agent-skill-design` 已于 2026-09-14 经负责人裁定删除，由 `plugins/skill-authoring` 与 ADR-0004 取代，归档副本仍在 `openspec/changes/archive/`）；
+2. 仓内版本化文档、入口和合同：架构、操作边界、失败语义与维护规则；
+3. `openspec/changes/`：已归档的交付证据（纯 Markdown 记录，不再有 Change 生命周期）；
+4. ~~`_bmad-output/`：迁移输入和历史证据，完成覆盖核验后退役~~ —— **2026-09-02 已整体删除**，覆盖核验永不发生（理由见上方推翻说明）。权威结构现为上述三层。
+
+> **OpenSpec 工具与工作流已于 2026-09-08 退役（负责人裁定「干掉」）。** `@fission-ai/openspec` 依赖、`openspec/config.yaml`、`openspec/schemas/` 已删除；此前承载 Change 生命周期、机器状态门与 opsx 命令的 `.delivery-spec-runtime` 子模块已于 PR #67 拆除。`openspec/specs/`、`openspec/intake/`、`openspec/changes/archive/` 作为负责人裁决与交付证据的记录原样保留，可读可引用，但新工作不再套入 OpenSpec，也不再产生新的 Change 目录（与 `_archive/plugins/workcoding/工作项资产与人机审阅.md` 一致；原在 `plugins/workcoding`，agent-system#123 归档）。
+
+当任务落在本仓时，先读取仓库根 `README.md` 与 `AGENTS.md` 的当前权威声明，再按模式继续（`_archive/authority/00-map.md` 只是历史索引，不再必读）：
 
 1. 负责人明确激活公开、自足的 GitHub Issue：读取远端当前正文、状态、标签和明确引用，只在合同授权范围内实施并验证。版本化变更通过可核验 PR 交付；只读研究通过自足证据评论交付。
 2. Issue 带 `迁移索引/待分诊` 标签：默认只分诊和只读核验，不从旧正文、私有评论或开放状态恢复授权。
@@ -23,10 +36,6 @@ Session 职责由负责人当前指令、公开自足合同和写入所有权决
 ## 知识按名问路
 
 需要 Windows／GitHub 多行 Markdown 或长路径／文件锁知识时，可在仓库根运行 `python tools/knowledge_action_trigger/action_trigger.py --action github-multiline-markdown` 或 `--action windows-path-or-file-lock`，再按输出读取来源。这是问路查询，不扩大合同、权限或产品决定。
-
-## BMad 下一步推荐规范
-
-本仓内任何 BMad 技能／workflow 给出"下一步用哪个技能"的推荐时（例如 Finalize 阶段的 Common next、`bmad-help` 的建议），必须同时明确说明该下一步应该开新 session 还是可以接着当前 session 继续，不能只报技能名、把 session 连续性留空。
 
 ## GitHub 安全引用
 

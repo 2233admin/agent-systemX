@@ -1,0 +1,79 @@
+{
+  "schemaVersion": 1,
+  "tasks": [
+    {
+      "id": "1.1",
+      "state": "verified",
+      "deliverables": [
+        "packages/control-plane/package.json",
+        "packages/control-plane/src/cli/"
+      ],
+      "verification": [
+        "bun install --frozen-lockfile 后，bun packages/control-plane/src/cli/index.ts --version 与 list 成功退出"
+      ],
+      "evidence": [
+        "openspec/changes/role-activation-vertical-slice/runs/20260830T124357Z/cli-version-list.txt"
+      ],
+      "blocker": null
+    },
+    {
+      "id": "2.1",
+      "state": "verified",
+      "deliverables": [
+        "packages/control-plane/src/adapters/sources/",
+        "packages/control-plane/src/application/"
+      ],
+      "verification": [
+        "Role fixture 解析、版本/digest 保留和非法输入拒绝测试通过"
+      ],
+      "evidence": [
+        "packages/control-plane/tests/contracts/role-fs.test.ts"
+      ],
+      "blocker": null
+    },
+    {
+      "id": "3.1",
+      "state": "verified",
+      "deliverables": [
+        "packages/control-plane/src/cli/",
+        "packages/control-plane/src/adapters/clients/claude/"
+      ],
+      "verification": [
+        "Role instructions/skills 生成 Claude invocation plan 并保持失败关闭"
+      ],
+      "evidence": [
+        "packages/control-plane/tests/contracts/claude-materializer.test.ts"
+      ],
+      "blocker": null
+    },
+    {
+      "id": "4.1",
+      "state": "verified",
+      "deliverables": [
+        "packages/control-plane/tests/",
+        "openspec/changes/role-activation-vertical-slice/06-测试方案/测试方案.md"
+      ],
+      "verification": [
+        "ROLE-001 至 ROLE-010 的定向测试与隔离清理通过"
+      ],
+      "evidence": [
+        "openspec/changes/role-activation-vertical-slice/runs/20260830T124357Z/tests.txt"
+      ],
+      "blocker": null
+    },
+    {
+      "id": "5.1",
+      "state": "verified",
+      "deliverables": [
+        "openspec/changes/role-activation-vertical-slice/runs/<run-id>/"
+      ],
+      "verification": [
+        "保存 CLI、测试、宿主 probe、真实 smoke 和清理证据"
+      ],
+      "evidence": [
+        "openspec/changes/role-activation-vertical-slice/runs/20260830T124357Z"
+      ],
+      "blocker": null
+    }
+  ]
+}

@@ -1,0 +1,100 @@
+{
+  "skill_name": "system-analysis",
+  "evals": [
+    {
+      "id": "count-with-decision",
+      "name": "路线已确认的「查个数」，数挂着一个决定",
+      "kind": "behavior",
+      "prompt": "路线确认了，走系统分析。查个数：运费服务里调 FreightCalc.calc 的调用方有几个？这个数是为了定「偏远附加的分流开关放 calc 入口还是放更里面」。你看不到代码也跑不了 Arthas，按规程把能写的写出来，要主人做的写清楚。",
+      "expected_trigger": true,
+      "expected_output": "六行形态：问（挂决定「开关放哪」）、假设单列、草图两跳并指出拿不准的边、证据写成要主人在工作机上跑的 Arthas 命令、结论行写待核实并带置信度、留。不扩成全量调用图，不改代码。",
+      "files": [],
+      "assertions": [
+        { "name": "tied-to-decision", "description": "说明调用影响证据服务于分流开关放置决定。" },
+        { "name": "assumptions-separate", "description": "把未经验证的调用路径与已知事实分开，没有编造实际调用方。" },
+        { "name": "bounded-sketch", "description": "只描述与开关位置有关的调用边界及缺失证据，不宣称已经画出真实全量调用图。" },
+        { "name": "evidence-only-uncertain", "description": "给出针对不确定调用边的最小核实动作；未访问系统时不声称抓过真实请求。" },
+        { "name": "honest-conclusion", "description": "无法访问源码和运行环境时明确未核实，结论不冒充测得的调用数。" },
+        { "name": "no-code-no-plan", "description": "没有改代码、没有写方案、没有做压测方案、没有写文件。" }
+      ]
+    },
+    {
+      "id": "stuck-in-change-plan",
+      "name": "摆改法时卡住：新路径慢多少",
+      "kind": "behavior",
+      "prompt": "走系统分析，帮我定一个判断：偏远附加改成按省份查表之后，运费计算的新路径比老路径慢多少？这个判断决定灰度第一档要不要只放测试模板。你看不到代码也跑不了 Arthas，按规程写。",
+      "expected_trigger": true,
+      "expected_output": "六行形态：问挂决定「灰度第一档放谁」、假设（例如查表走本地缓存）、草图两跳、证据写成 Arthas trace 对比两条真实请求耗时的做法、结论待核实带置信度、留。",
+      "files": [],
+      "assertions": [
+        { "name": "tied-to-decision", "description": "写明这个判断进哪个决定（灰度第一档放谁）。" },
+        { "name": "assumptions-separate", "description": "假设与事实分开，没有把本地缓存等未给定条件当事实。" },
+        { "name": "evidence-is-targeted", "description": "建议有边界的新老耗时对照，而不是全量压测或在无数据时编造耗时。" },
+        { "name": "honest-conclusion", "description": "结论带置信边界；看不到代码和运行数据时不报告已测性能差值。" },
+        { "name": "no-code-no-plan", "description": "没有改代码、没有写方案、没有写文件。" }
+      ]
+    },
+    {
+      "id": "incoming-requirement",
+      "name": "近似案例：外来需求（应由 requirement-insight 承担）",
+      "kind": "trigger",
+      "prompt": "来了个需求，产品 A 说「运费模板要支持按省份设偏远附加」。这个需求到底要什么？你看不到代码。",
+      "expected_trigger": false,
+      "expected_output": "不进系统分析：输入是需求，不是缺一个数。",
+      "files": [],
+      "assertions": [
+        { "name": "addresses-requirement", "description": "处理需求含义，不强迫用户为未收口需求先准备调用链或耗时数。" }
+      ]
+    },
+    {
+      "id": "direct-code-change",
+      "name": "近似案例：直接要改代码（应由 workcoding / legacy-change 承担）",
+      "kind": "trigger",
+      "prompt": "帮我改一下 FreightCalc.calc：目的地是新疆或西藏时加一笔偏远附加。这个类在我们的运费服务里，你现在看不到代码。",
+      "expected_trigger": false,
+      "expected_output": "不进系统分析。",
+      "files": [],
+      "assertions": [
+        { "name": "addresses-code-gap", "description": "说明现有实现和业务规则缺口，不把代码改动请求替换成无关的流量或耗时调查。" }
+      ]
+    },
+    {
+      "id": "plain-question",
+      "name": "讲解 Arthas 本身的知识问答不触发",
+      "kind": "trigger",
+      "prompt": "Arthas 的 trace 和 stack 命令有什么区别？",
+      "expected_trigger": false,
+      "expected_output": "直接回答，不进入规程。",
+      "files": [],
+      "assertions": [
+        { "name": "answers-tool-question", "description": "直接区分trace的调用耗时与stack的调用栈用途，不要求先确认一个改动决定。" }
+      ]
+    },
+    {
+      "id": "load-test-request",
+      "name": "近似案例：要的是压测方案（6.4.9 性能测试，不是系统分析）",
+      "kind": "trigger",
+      "prompt": "帮我出一份运费计算接口的压测方案：并发多少、跑多久、看哪些指标。这是自足的练习，不对应真实系统。",
+      "expected_trigger": false,
+      "expected_output": "不进系统分析；直接给压测方案或说明那是性能测试。",
+      "files": [],
+      "assertions": [
+        { "name": "addresses-performance-plan", "description": "给出性能测试计划，不把并发、持续时间和指标问题替换为一条trace就结束。" }
+      ]
+    }
+    ,
+    {
+      "id": "plain-static-count",
+      "name": "普通静态计数不强套影响分析",
+      "kind": "trigger",
+      "prompt": "只读计数，全部证据如下：api.ts 和 batch.ts 调用 buildReport，types.ts 仅声明 Report 类型。buildReport 有几个直接调用方？直接给数量与文件名。",
+      "expected_trigger": false,
+      "expected_output": "2个：api.ts、batch.ts；不要求补一个改动决定或运行Arthas。",
+      "files": [],
+      "assertions": [
+        { "name": "correct-static-answer", "description": "回答2及两个正确文件名，没有把类型声明误算为调用。" },
+        { "name": "no-artificial-procedure", "description": "在本轮完成计数，没有为可直接回答的问题要求路线确认、运行环境或额外调查。" }
+      ]
+    }
+  ]
+}

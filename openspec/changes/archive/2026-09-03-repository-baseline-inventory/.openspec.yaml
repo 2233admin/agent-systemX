@@ -1,0 +1,4 @@
+schema: delivery-change
+created: 2026-08-30
+goal: 先区分当前事实、历史资产、迁移输入和未知，再决定后续产品变更边界。
+skip_specs: true

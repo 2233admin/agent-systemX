@@ -1,0 +1,5 @@
+清理结果：
+- `/tmp/role-activation-cli.sqlite3` 已删除。
+- `/tmp/role-activation-smoke.sqlite3` 已删除。
+- `/tmp/role-activation-smoke-candidate.json` 已删除。
+- 测试中的临时 Role、invocation 目录由 `afterEach` 递归删除。

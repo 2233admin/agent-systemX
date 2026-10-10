@@ -1,0 +1,10 @@
+Available schemas:
+
+  delivery-change (project)
+    面向工作与私人资产仓真实交付及流程演练的九层需求、实现、验证和发布工作流
+    Artifacts: raw-requirements → specs → business-current → technical-current → change-plan → test-plan → tasks → acceptance → release
+
+  spec-driven
+    Default OpenSpec workflow - proposal → specs → design → tasks
+    Artifacts: proposal → specs → design → tasks
+

@@ -7,38 +7,104 @@ import { CONFIGS_VERSION } from './version';
 import { readYesNo } from './confirm-prompt';
 import { t } from './i18n';
 import { readCandidateFile, readStdinText, isStdinTTY } from './candidate-source';
-import { renderConfirmationSummary, renderCompare, renderDetail, renderFailure, renderHandoffLine, renderList, renderQueryFailure, renderSearchResults, renderStatus } from './render';
+import { renderConfirmationSummary, renderCompare, renderDetail, renderFailure, renderHandoffLine, renderList, renderQueryFailure, renderSearchResults, renderStatus, renderAgentListJson, renderAgentProbeJson, renderScheduleDryRunJson, renderScheduleJson, renderSchedulingFailure } from './render';
 import { SqliteStore } from '../adapters/sqlite/store';
 import { SqliteConfigRevisionRepository } from '../adapters/sqlite/repository';
 import { SqliteConfigRevisionWriter } from '../adapters/sqlite/config-revision-writer';
 import { SqliteActivationOperationRepository } from '../adapters/sqlite/activation-operation-repository';
 import { SqliteLaunchObservationRepository } from '../adapters/sqlite/launch-observation-repository';
+import { SqliteScheduleRepository } from '../adapters/sqlite/schedule-repository';
+import { SqliteDispatchOperationRepository } from '../adapters/sqlite/dispatch-repository';
 import { findDenylistedForwardedArg } from '../adapters/omp/process-port';
-import { InMemoryClientAdapterRegistry, OmpClientAdapter, ClaudeClientAdapter } from '../adapters/clients/client-adapters';
-import { clientId as toClientId } from '../domain/client';
+import { InMemoryAgentAdapterRegistry, OmpAgentAdapter, ClaudeAgentAdapter } from '../adapters/clients/agent-adapters';
+import { OrcaAgentProvider } from '../adapters/orca/agent-provider';
+import { createOrcaScheduler, buildOrcaCreateArgs, type OrcaCommandPort } from '../adapters/orca/orca-scheduler';
+import { agentId as toAgentId, type AgentKey } from '../domain/agent';
+import { type AgentScheduleIntent, type ScheduleTarget, type ScheduleTrigger } from '../domain/schedule';
+import { type DispatchOperation } from '../domain/dispatch-operation';
 import { prepareActivation, confirmActivation, rejectActivation, executeActivation, recoverActivation, getActivationStatus, requestConfigurationSwitch, type ActivationDependencies } from '../application/activation';
+import { validateAgentSchedule, buildAgentScheduleManifestHash, createAgentSchedule, dispatchAgentSchedule, cancelAgentSchedule, type SchedulingDependencies } from '../application/scheduling';
+import type { AgentRegistry } from '../application/ports/agent-registry';
+import type { AgentSchedulerPort } from '../application/ports/scheduler';
+import type { AgentScheduleRepository } from '../application/ports/schedule-repository';
+import type { DispatchOperationRepository } from '../application/ports/dispatch-repository';
+import type { ConfigurationRepository, ConfigurationSearchRepository } from '../application/ports/configuration-repository';
+import { InMemoryAgentRegistry } from '../application/agent-registry';
 import { compareConfigRevisions, getConfigRevisionDetail, listConfigRevisions, rebuildConfigSearch, searchConfigRevisions } from '../application/queries';
 import { parseCandidateRevision, parseEvidenceRef, parseSupersedesRevisionId, parseTriggerCategory, InvalidCandidateError, InvalidTriggerCategoryError, MissingEvidenceError, MissingSupersedesError, NoCandidateSourceError } from '../application/establish';
 import { loadSupplyGroups, buildSupplyCandidate } from '../adapters/sources/supply-fs';
+import { buildRoleCandidate, loadRoleSource } from '../adapters/sources/role-fs';
 import { readSelfUpdateState, writeSelfUpdateState, isCheckDue } from '../adapters/self-update/check-state';
 import { GithubReleaseUpdater } from '../adapters/self-update/github-release-updater';
 import type { SelfUpdatePort } from '../application/ports/self-update';
-import type { ClientAdapterRegistry } from '../application/ports/client-adapter';
+import type { AgentAdapterRegistry } from '../application/ports/agent-adapter';
+import { collectRuntimeGarbage, type RuntimeGarbageCollectionResult } from '../adapters/runtime-gc';
 import { runTui } from './tui';
+
+const EMPTY_RUNTIME_GARBAGE_COLLECTION_RESULT: RuntimeGarbageCollectionResult = {
+  contextScanned: 0,
+  contextRemoved: 0,
+  stagingScanned: 0,
+  stagingRemoved: 0,
+  lockRemoved: 0,
+  errors: 0,
+};
 
 export interface CliOverrides {
   readonly databasePath?: string;
-  readonly adapters?: ClientAdapterRegistry;
+  readonly adapters?: AgentAdapterRegistry;
+  readonly configurations?: ConfigurationRepository & ConfigurationSearchRepository;
+  readonly registry?: AgentRegistry;
+  readonly scheduler?: AgentSchedulerPort;
+  readonly schedules?: AgentScheduleRepository;
+  readonly dispatches?: DispatchOperationRepository;
+  readonly readOnly?: boolean;
+  readonly now?: () => string;
 }
-export interface FullDeps extends ActivationDependencies { readonly store: SqliteStore; readonly configurations: SqliteConfigRevisionRepository; readonly operations: SqliteActivationOperationRepository; readonly observations: SqliteLaunchObservationRepository; }
+export interface FullDeps extends Omit<ActivationDependencies, 'configurations'> {
+  readonly configurations: ConfigurationRepository & ConfigurationSearchRepository;
+  readonly store: SqliteStore;
+  readonly registry: AgentRegistry;
+  readonly schedules: AgentScheduleRepository;
+  readonly dispatches: DispatchOperationRepository;
+  readonly schedulerFactory: () => AgentSchedulerPort;
+  readonly now?: () => string;
+  readonly runtimeGarbageCollection: RuntimeGarbageCollectionResult;
+}
+
+function createDefaultOrcaCommand(): OrcaCommandPort {
+  return {
+    async run(args) {
+      const executable = Bun.which(args[0] ?? 'orca');
+      if (executable === null) return { exitCode: 127, stdout: '', stderr: '' };
+      const process = Bun.spawn([executable, ...args.slice(1)], { stdout: 'pipe', stderr: 'pipe' });
+      const read = async (stream: ReadableStream<Uint8Array> | null): Promise<string> => stream === null ? '' : new TextDecoder().decode(await new Response(stream).arrayBuffer());
+      const [stdout, stderr, exitCode] = await Promise.all([read(process.stdout), read(process.stderr), process.exited]);
+      return { exitCode, stdout, stderr };
+    },
+  };
+}
+
+function createAgentRegistry(overrides: CliOverrides): AgentRegistry {
+  const adapters = overrides.adapters ?? new InMemoryAgentAdapterRegistry([new OmpAgentAdapter(), new ClaudeAgentAdapter()]);
+  return overrides.registry ?? new InMemoryAgentRegistry({ provider: new OrcaAgentProvider({ candidateAgentIds: [toAgentId('omp'), toAgentId('claude-code')] }), adapters });
+}
 
 export function openDeps(overrides: CliOverrides = {}): FullDeps {
-  const store = new SqliteStore(overrides.databasePath ?? defaultDbPath());
-  const configurations = new SqliteConfigRevisionRepository(store);
+  const databasePath = overrides.databasePath ?? defaultDbPath();
+  const runtimeGarbageCollection = databasePath === ':memory:' || overrides.readOnly
+    ? EMPTY_RUNTIME_GARBAGE_COLLECTION_RESULT
+    : collectRuntimeGarbage({ databasePath });
+  const store = new SqliteStore(databasePath, { readOnly: overrides.readOnly });
+  const configurations = overrides.configurations ?? new SqliteConfigRevisionRepository(store);
   const operations = new SqliteActivationOperationRepository(store);
   const observations = new SqliteLaunchObservationRepository(store);
-  const adapters = overrides.adapters ?? new InMemoryClientAdapterRegistry([new OmpClientAdapter(), new ClaudeClientAdapter()]);
-  return { store, configurations, operations, observations, adapters };
+  const adapters = overrides.adapters ?? new InMemoryAgentAdapterRegistry([new OmpAgentAdapter(), new ClaudeAgentAdapter()]);
+  const registry = createAgentRegistry(overrides);
+  const schedules = overrides.schedules ?? new SqliteScheduleRepository(store);
+  const dispatches = overrides.dispatches ?? new SqliteDispatchOperationRepository(store);
+  const schedulerFactory = () => overrides.scheduler ?? createOrcaScheduler(createDefaultOrcaCommand());
+  return { store, configurations, operations, observations, adapters, registry, schedules, dispatches, schedulerFactory, now: overrides.now, runtimeGarbageCollection };
 }
 
 function closeDeps(deps: FullDeps): void { deps.store.close(); }
@@ -76,12 +142,12 @@ export async function runSelfUpdateWorker(params: { readonly statePath: string; 
   } catch { /* 中文注释：自更新失败只影响下一次检查。 */ }
 }
 
-function parseClient(args: string[]): { readonly clientId: string; readonly args: string[] } {
+function parseAgent(args: string[]): { readonly agentId: string; readonly args: string[] } {
   const index = args.indexOf('--client');
-  if (index === -1) return { clientId: 'omp', args };
+  if (index === -1) return { agentId: 'omp', args };
   const value = args[index + 1];
-  if (value !== 'omp' && value !== 'claude-code' && value !== 'claude') throw new Error(`unsupported client: ${value ?? '(missing)'}`);
-  return { clientId: value === 'claude' ? 'claude-code' : value, args: [...args.slice(0, index), ...args.slice(index + 2)] };
+  if (value !== 'omp' && value !== 'claude-code' && value !== 'claude') throw new Error(`unsupported agent: ${value ?? '(missing)'}`);
+  return { agentId: value === 'claude' ? 'claude-code' : value, args: [...args.slice(0, index), ...args.slice(index + 2)] };
 }
 function hasYes(args: string[]): boolean { return args.includes('--yes'); }
 function stripYes(args: string[]): string[] { return args.filter((arg) => arg !== '--yes'); }
@@ -114,24 +180,24 @@ function validateCommandBeforeStore(command: string | undefined, args: readonly 
   if (command === 'use' || command === 'switch') {
     const split = splitForwarded([...args]);
     const commandArgs = stripYes(split.commandArgs);
-    const parsed = parseClient(commandArgs);
+    const parsed = parseAgent(commandArgs);
     if (parsed.args.length !== 1 || parsed.args[0]?.startsWith('--')) throw new Error(`${command} requires exactly one revision id`);
     const denied = findDenylistedForwardedArg(split.forwardedArgs);
     if (denied !== null) throw new Error(`forwarded argument is reserved by Agent System: ${denied}`);
   }
 }
 
-async function runActivationCommand(deps: FullDeps, mode: 'use' | 'switch', revisionId: string, clientId: string, yes: boolean, forwardedArgs: readonly string[]): Promise<number> {
-  const latest = await deps.operations.findLatestForClient(toClientId(clientId));
+async function runActivationCommand(deps: FullDeps, mode: 'use' | 'switch', revisionId: string, agentId: string, yes: boolean, forwardedArgs: readonly string[]): Promise<number> {
+  const latest = await deps.operations.findLatestForAgent(toAgentId(agentId));
   if (mode === 'use' && latest !== null && ['prepared', 'awaiting-confirmation', 'applying'].includes(latest.phase)) {
-    throw new Error(`activation ${latest.operationId} is still ${latest.phase}; run configs recover ${latest.operationId} before starting another client`);
+    throw new Error(`activation ${latest.operationId} is still ${latest.phase}; run configs recover ${latest.operationId} before starting another agent`);
   }
   let operation;
   if (mode === 'switch') {
-    if (latest === null) throw new Error(`switch requires an existing completed operation for ${clientId}; use configs use ${revisionId} --client ${clientId}`);
-    const switched = await requestConfigurationSwitch(deps, { currentOperationId: latest.operationId, newRevisionId: revisionId, clientId });
+    if (latest === null) throw new Error(`switch requires an existing completed operation for ${agentId}; use configs use ${revisionId} --client ${agentId}`);
+    const switched = await requestConfigurationSwitch(deps, { currentOperationId: latest.operationId, newRevisionId: revisionId, agentId });
     operation = switched.next;
-  } else operation = await prepareActivation(deps, { revisionId, clientId });
+  } else operation = await prepareActivation(deps, { revisionId, agentId });
   if (operation.phase !== 'awaiting-confirmation') { console.log(renderFailure(operation)); return 1; }
   const revision = await getConfigRevisionDetail(deps.configurations, revisionId);
   console.log(renderConfirmationSummary(operation, revision));
@@ -172,6 +238,198 @@ async function runEstablish(deps: FullDeps | null, args: string[], mode: 'establ
   }
 }
 
+class SchedulingCliError extends Error {
+  readonly code: string;
+  constructor(code: string, message: string) {
+    super(message);
+    this.name = 'SchedulingCliError';
+    this.code = code;
+  }
+}
+function flagValue(args: readonly string[], flag: string): string {
+  const index = args.indexOf(flag);
+  if (index === -1 || args[index + 1] === undefined || args[index + 1]!.startsWith('--')) throw new SchedulingCliError('invalid-arguments', `${flag} requires a value`);
+  return args[index + 1]!;
+}
+
+const SAFE_IDENTIFIER = /^[A-Za-z0-9._~/-]+$/;
+const SAFE_SELECTOR = /^[A-Za-z0-9._~:/@-]+$/;
+const SAFE_CRON = /^[0-9*/?,\s-]+$/;
+const SAFE_RRULE = /^FREQ=(?:MINUTELY|HOURLY|DAILY|WEEKLY|MONTHLY|YEARLY)(?:;(?:INTERVAL|BYDAY|BYHOUR|BYMINUTE|BYMONTHDAY|BYMONTH|COUNT|UNTIL|WKST|BYSETPOS)=[A-Za-z0-9,.*?+TZ-]+)*$/;
+
+function assertSafeIdentifier(value: string, code: 'invalid-arguments' | 'invalid-target' | 'invalid-trigger', message: string): string {
+  if (!SAFE_IDENTIFIER.test(value) || value.includes('://') || value.includes('=')) throw new SchedulingCliError(code, message);
+  return value;
+}
+
+function parseScheduleTrigger(value: string): ScheduleTrigger {
+  const separator = value.indexOf(':');
+  if (separator <= 0) throw new SchedulingCliError('invalid-trigger', 'trigger must use kind:value');
+  const kind = value.slice(0, separator);
+  const item = value.slice(separator + 1);
+  if (kind === 'preset' && ['hourly', 'daily', 'weekdays', 'weekly'].includes(item)) return { kind: 'preset', value: item as 'hourly' | 'daily' | 'weekdays' | 'weekly' };
+  if (kind === 'cron' && SAFE_CRON.test(item) && item.trim().length > 0) return { kind: 'cron', expression: item };
+  if (kind === 'rrule' && SAFE_RRULE.test(item)) return { kind: 'rrule', value: item };
+  throw new SchedulingCliError('invalid-trigger', 'trigger must be preset, cron or rrule');
+}
+
+function parseScheduleTarget(value: string): ScheduleTarget {
+  const separator = value.indexOf(':');
+  if (separator <= 0) throw new SchedulingCliError('invalid-target', 'target must use kind:value');
+  const kind = value.slice(0, separator);
+  const selector = value.slice(separator + 1).trim();
+  if (selector.length === 0 || !['repo', 'workspace', 'project', 'runtime'].includes(kind) || !SAFE_SELECTOR.test(selector) || selector.includes('://') || selector.includes('=')) {
+    throw new SchedulingCliError('invalid-target', 'target must be repo, workspace, project or runtime');
+  }
+  return { kind: kind as ScheduleTarget['kind'], selector } as ScheduleTarget;
+}
+
+interface ParsedScheduleOptions {
+  readonly scheduleId: string;
+  readonly agentId: string;
+  readonly revisionId: string;
+  readonly trigger: ScheduleTrigger;
+  readonly target: ScheduleTarget;
+  readonly sessionPolicy: AgentScheduleIntent['sessionPolicy'];
+  readonly precheckRef: string | null;
+  readonly sourceContextRef: string | null;
+  readonly dryRun: boolean;
+  readonly yes: boolean;
+  readonly createdAt: string;
+}
+
+function parseScheduleOptions(args: readonly string[], now: string): ParsedScheduleOptions {
+  const allowedFlags = new Set(['--schedule-id', '--agent', '--revision', '--trigger', '--target', '--session-policy', '--precheck', '--source-context', '--dry-run', '--yes']);
+  const valueFlags = new Set(['--schedule-id', '--agent', '--revision', '--trigger', '--target', '--session-policy', '--precheck', '--source-context']);
+  const seenFlags = new Set<string>();
+  for (let index = 0; index < args.length; index += 1) {
+    const arg = args[index]!;
+    if (!arg.startsWith('--')) throw new SchedulingCliError('invalid-arguments', 'schedule options must use named flags');
+    if (!allowedFlags.has(arg) || seenFlags.has(arg)) throw new SchedulingCliError('invalid-arguments', 'unknown or duplicate schedule option');
+    seenFlags.add(arg);
+    if (valueFlags.has(arg)) index += 1;
+  }
+  const agent = assertSafeIdentifier(flagValue(args, '--agent'), 'invalid-arguments', 'agent id is not safe');
+  const revision = assertSafeIdentifier(flagValue(args, '--revision'), 'invalid-arguments', 'revision id is not safe');
+  const trigger = parseScheduleTrigger(flagValue(args, '--trigger'));
+  const target = parseScheduleTarget(flagValue(args, '--target'));
+  const sessionPolicy = flagValue(args, '--session-policy');
+  if (sessionPolicy !== 'fresh' && sessionPolicy !== 'reuse') throw new SchedulingCliError('invalid-session-policy', 'session policy must be fresh or reuse');
+  const scheduleId = assertSafeIdentifier(args.includes('--schedule-id') ? flagValue(args, '--schedule-id') : `schedule-${Date.now()}`, 'invalid-arguments', 'schedule id is not safe');
+  return {
+    scheduleId, agentId: agent, revisionId: revision, trigger, target,
+    sessionPolicy, precheckRef: args.includes('--precheck') ? flagValue(args, '--precheck') : null,
+    sourceContextRef: args.includes('--source-context') ? flagValue(args, '--source-context') : null,
+    dryRun: args.includes('--dry-run'), yes: args.includes('--yes'), createdAt: now,
+  };
+}
+
+function schedulingDependencies(deps: FullDeps): SchedulingDependencies {
+  return { configurations: deps.configurations, registry: deps.registry, scheduler: deps.schedulerFactory(), schedules: deps.schedules, operations: deps.dispatches, now: deps.now };
+}
+
+interface AgentCommandDependencies {
+  readonly registry: AgentRegistry;
+}
+
+function descriptorLookup(descriptor: Awaited<ReturnType<AgentRegistry['list']>>[number]): AgentKey | ReturnType<typeof toAgentId> {
+  if (descriptor.key !== undefined) return descriptor.key;
+  if (descriptor.sourceId !== undefined && descriptor.agentId !== undefined) return { sourceId: descriptor.sourceId, agentId: descriptor.agentId };
+  if (descriptor.id !== undefined) return descriptor.id;
+  throw new SchedulingCliError('agent-not-found', 'agent identity missing');
+}
+function parseAgentLookup(value: string): AgentKey | ReturnType<typeof toAgentId> {
+  const separator = value.indexOf('/');
+  if (separator < 0) return toAgentId(value);
+  const sourceId = value.slice(0, separator).trim();
+  const rawAgentId = value.slice(separator + 1);
+  if (sourceId.length === 0) throw new SchedulingCliError('invalid-arguments', 'agent source id is empty');
+  if (rawAgentId.includes('/')) throw new SchedulingCliError('invalid-arguments', 'slash is reserved for source-qualified agent ids');
+  try {
+    return { sourceId, agentId: toAgentId(rawAgentId) };
+  } catch {
+    throw new SchedulingCliError('invalid-arguments', 'agent id is invalid');
+  }
+}
+
+
+async function runAgentsCommand(deps: AgentCommandDependencies, args: readonly string[]): Promise<number> {
+  if (args[0] === 'list' && args.length === 1) {
+    const descriptors = await deps.registry.list();
+    const items = await Promise.all(descriptors.map(async (descriptor) => ({ descriptor, snapshot: await deps.registry.probe(descriptorLookup(descriptor)) })));
+    console.log(renderAgentListJson(items));
+    return 0;
+  }
+  if (args[0] === 'probe' && args.length === 2) {
+    const descriptor = await deps.registry.get(parseAgentLookup(args[1]!));
+    if (descriptor === null) throw new SchedulingCliError('agent-not-found', 'agent not found');
+    console.log(renderAgentProbeJson(descriptor, await deps.registry.probe(descriptorLookup(descriptor))));
+    return 0;
+  }
+  throw new SchedulingCliError('invalid-arguments', 'agents requires list or probe <agent-id>');
+}
+
+async function runScheduleDryRun(
+  configurations: ConfigurationRepository,
+  registry: AgentRegistry,
+  args: readonly string[],
+  now: string,
+): Promise<number> {
+  const parsed = parseScheduleOptions(args, now);
+  if (!parsed.dryRun) throw new SchedulingCliError('invalid-arguments', 'dry-run command requires --dry-run');
+  const validated = await validateAgentSchedule({ configurations, registry }, parsed);
+  const manifestHash = buildAgentScheduleManifestHash(validated.schedule, validated.revision);
+  console.log(renderScheduleDryRunJson(validated, manifestHash, buildOrcaCreateArgs(validated.schedule)));
+  return 0;
+}
+
+async function findScheduleOperation(deps: FullDeps, schedule: AgentScheduleIntent): Promise<DispatchOperation | null> {
+  const operations = await deps.dispatches.listByAgent(schedule.agentId);
+  return operations.find((operation) => operation.scheduleId === schedule.scheduleId) ?? null;
+}
+
+async function runScheduleCommand(deps: FullDeps, args: readonly string[]): Promise<number> {
+  const subcommand = args[0];
+  if (subcommand === 'create') {
+    if (args.includes('--help')) {
+      console.log('configs schedule create --agent <agent-id> --revision <revision-id> --trigger <kind:value> --target <kind:selector> --session-policy <fresh|reuse> --dry-run');
+      return 0;
+    }
+    const parsed = parseScheduleOptions(args.slice(1), deps.now?.() ?? new Date().toISOString());
+    if (!parsed.dryRun && !parsed.yes) throw new SchedulingCliError('confirmation-required', 'non-dry-run schedule creation requires --yes');
+    const validated = await validateAgentSchedule({ configurations: deps.configurations, registry: deps.registry }, parsed);
+    const manifestHash = buildAgentScheduleManifestHash(validated.schedule, validated.revision);
+    const argv = buildOrcaCreateArgs(validated.schedule);
+    if (parsed.dryRun) {
+      console.log(renderScheduleDryRunJson(validated, manifestHash, argv));
+      return 0;
+    }
+    const scheduleDeps = schedulingDependencies(deps);
+    const schedule = await createAgentSchedule(scheduleDeps, parsed);
+    const operation = await dispatchAgentSchedule(scheduleDeps, { scheduleId: schedule.scheduleId });
+    console.log(renderScheduleJson(schedule, operation));
+    return 0;
+  }
+  if (subcommand === 'show' && args.length === 2) {
+    const schedule = await deps.schedules.findById(args[1]!);
+    if (schedule === null) throw new SchedulingCliError('schedule-not-found', 'schedule not found');
+    console.log(renderScheduleJson(schedule, await findScheduleOperation(deps, schedule)));
+    return 0;
+  }
+  if (subcommand === 'cancel' && (args.length === 2 || args.length === 3)) {
+    if (!args.includes('--yes')) throw new SchedulingCliError('confirmation-required', 'schedule cancellation requires --yes');
+    const schedule = await deps.schedules.findById(args[1]!);
+    if (schedule === null) throw new SchedulingCliError('schedule-not-found', 'schedule not found');
+    const operation = await findScheduleOperation(deps, schedule);
+    if (operation === null) throw new SchedulingCliError('operation-not-found', 'operation not found');
+    const scheduleDeps = schedulingDependencies(deps);
+    const cancelled = await cancelAgentSchedule(scheduleDeps, { scheduleId: schedule.scheduleId, operationId: operation.operationId });
+    console.log(renderScheduleJson(schedule, cancelled));
+    return 0;
+  }
+  throw new SchedulingCliError('invalid-arguments', 'schedule requires create, show or cancel');
+}
+
 export async function main(argv: readonly string[] = process.argv.slice(2), overrides: CliOverrides = {}): Promise<number> {
   const command = argv[0];
   if (command === undefined) return runTui(overrides);
@@ -179,12 +437,68 @@ export async function main(argv: readonly string[] = process.argv.slice(2), over
   if (command === 'supply') {
     const configName = argv[argv.indexOf('--config-name') + 1];
     const groups = argv.flatMap((arg, index) => arg === '--group' ? [argv[index + 1] ?? ''] : []);
-    if (configName === undefined || groups.some((group) => group.length === 0)) throw new Error('supply requires --config-name and --group');
+    const roleIndex = argv.indexOf('--role');
+    const roleRef = roleIndex === -1 ? undefined : argv[roleIndex + 1];
+    if (configName === undefined || (groups.length === 0 && roleRef === undefined) || (groups.length > 0 && roleRef !== undefined) || roleRef === '') throw new Error('supply requires exactly one of --role or --group');
+    if (roleRef !== undefined) {
+      const role = await loadRoleSource(defaultSupplyRoot(), roleRef);
+      console.log(JSON.stringify(buildRoleCandidate(configName, role)));
+      return 0;
+    }
     console.log(JSON.stringify(buildSupplyCandidate(configName, await loadSupplyGroups(defaultSupplyRoot(), groups))));
     return 0;
   }
   if (command === '--version') { console.log(CONFIGS_VERSION); return 0; }
-  validateCommandBeforeStore(command, argv.slice(1));
+  if (command === 'agents') {
+    try {
+      return await runAgentsCommand({ registry: createAgentRegistry(overrides) }, argv.slice(1));
+    } catch (error) {
+      console.error(renderSchedulingFailure(error));
+      return 1;
+    }
+  }
+  if (command === 'schedule' && argv[1] === 'create' && argv.includes('--help')) {
+    console.log('configs schedule create --agent <agent-id> --revision <revision-id> --trigger <kind:value> --target <kind:selector> --session-policy <fresh|reuse> --dry-run');
+    return 0;
+  }
+  if (command === 'schedule' && argv[1] === 'create' && argv.includes('--dry-run') && overrides.configurations !== undefined) {
+    try {
+      return await runScheduleDryRun(overrides.configurations, createAgentRegistry(overrides), argv.slice(2), overrides.now?.() ?? new Date().toISOString());
+    } catch (error) {
+      console.error(renderSchedulingFailure(error));
+      return 1;
+    }
+  }
+  if (command === 'schedule' && argv[1] === 'create' && argv.includes('--dry-run')) {
+    try {
+      const deps = openDeps({ ...overrides, readOnly: true });
+      try {
+        return await runScheduleCommand(deps, argv.slice(1));
+      } finally {
+        closeDeps(deps);
+      }
+    } catch (error) {
+      console.error(renderSchedulingFailure(error));
+      return 1;
+    }
+  }
+  if (command === 'schedule') {
+    let deps: FullDeps;
+    try {
+      deps = openDeps(overrides);
+    } catch (error) {
+      console.error(renderSchedulingFailure(error));
+      return 1;
+    }
+    try {
+      return await runScheduleCommand(deps, argv.slice(1));
+    } catch (error) {
+      console.error(renderSchedulingFailure(error));
+      return 1;
+    } finally {
+      closeDeps(deps);
+    }
+  }
   const deps = openDeps(overrides);
   try {
     if (command === 'list') {
@@ -252,10 +566,10 @@ export async function main(argv: readonly string[] = process.argv.slice(2), over
     if (command === 'use' || command === 'switch') {
       const split = splitForwarded([...argv.slice(1)]);
       const commandArgs = stripYes(split.commandArgs);
-      const parsed = parseClient(commandArgs);
+      const parsed = parseAgent(commandArgs);
       const revisionId = parsed.args.length === 1 ? parsed.args[0] : undefined;
       if (revisionId === undefined || revisionId.startsWith('--')) throw new Error(`${command} requires exactly one revision id`);
-      return await runActivationCommand(deps, command, revisionId, parsed.clientId, hasYes(split.commandArgs), split.forwardedArgs);
+      return await runActivationCommand(deps, command, revisionId, parsed.agentId, hasYes(split.commandArgs), split.forwardedArgs);
     }
     throw new Error(`unknown command: ${command}`);
   } catch (error) { console.error(renderQueryFailure(error)); return 1; } finally { closeDeps(deps); }

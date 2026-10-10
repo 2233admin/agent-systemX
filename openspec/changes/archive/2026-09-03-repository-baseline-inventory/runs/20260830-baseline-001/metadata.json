@@ -1,0 +1,25 @@
+{
+  "schemaVersion": 1,
+  "runId": "20260830-baseline-001",
+  "change": "repository-baseline-inventory",
+  "commit": "ccd54d7046b7fda4f08db48ab70556bef23ad206",
+  "environment": {
+    "os": "Darwin",
+    "arch": "arm64",
+    "node": "v26.7.0",
+    "bun": "1.3.14",
+    "openspec": "1.10.0",
+    "deliveryRuntime": "4896699085a35713b8221a1c878d60c725a47014"
+  },
+  "startedAt": null,
+  "startedAtNote": "首轮命令执行前未捕获精确时间；不据此推导运行时长。",
+  "endedAt": "2026-08-30T11:37:54Z",
+  "inputs": ["inputs/commit.txt", "inputs/node-version.txt", "inputs/bun-version.txt", "inputs/openspec-version.txt"],
+  "outputs": ["outputs/validate-specs.txt", "outputs/validate-change.txt", "outputs/control-plane-help.txt"],
+  "traces": ["traces/runtime-check.txt", "traces/doctor.txt", "traces/schemas.txt"],
+  "cleanup": ["cleanup/worktree-scope.txt"],
+  "requirementCoverage": ["BASE-001", "BASE-002", "BASE-003", "BASE-004", "BASE-005", "BASE-006"],
+  "deviations": ["control-plane CLI --help failed because react/jsx-dev-runtime could not be resolved; recorded as current runtime blocker, not treated as baseline validation failure."],
+  "createdResources": ["this change's files only"],
+  "cleanupResult": "No dynamic database, client process, network publication, or user-global state was created."
+}

@@ -1,0 +1,54 @@
+{
+  "schemaVersion": 1,
+  "artifacts": {
+    "raw-requirements": {
+      "digest": "sha256:a45aac273b900ce04d1b9327c8839fef4df5db3666903a09e12780731669f1da",
+      "decision": "approved",
+      "approvedBy": "负责人",
+      "approvedAt": "2026-08-30T12:27:24.921Z",
+      "migrationSource": null
+    },
+    "specs": {
+      "digest": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "decision": "approved",
+      "approvedBy": "负责人",
+      "approvedAt": "2026-08-30T12:27:25.346Z",
+      "migrationSource": null
+    },
+    "business-current": {
+      "digest": "sha256:18bdf4eadd9327b16a6764a097b7666f8cb8c1c4cca0a55651e8dddb87af8692",
+      "decision": "approved",
+      "approvedBy": "负责人",
+      "approvedAt": "2026-08-30T12:29:06.828Z",
+      "migrationSource": null
+    },
+    "technical-current": {
+      "digest": "sha256:75b0251252c4fab87cf550bc295e73dcb45133af86b1ac3c0d89e1f07903fba9",
+      "decision": "approved",
+      "approvedBy": "负责人",
+      "approvedAt": "2026-08-30T12:33:39.040Z",
+      "migrationSource": null
+    },
+    "change-plan": {
+      "digest": "sha256:7c4db0ad86b98c6875aa2ba1aaba979b7a62ff22604d1f35cdd4941f5428fe15",
+      "decision": "approved",
+      "approvedBy": "负责人",
+      "approvedAt": "2026-08-30T12:33:38.645Z",
+      "migrationSource": null
+    },
+    "test-plan": {
+      "digest": "sha256:6271467327d31518ca551273e006465063c88179b7bb5c77c7ae914caaa49553",
+      "decision": "approved",
+      "approvedBy": "负责人",
+      "approvedAt": "2026-08-30T12:33:39.420Z",
+      "migrationSource": null
+    },
+    "tasks": {
+      "digest": "sha256:11b848c96cf87341d733f99f06c1d249cfdff0746d5d08e3cba950e9433b26ea",
+      "decision": "approved",
+      "approvedBy": "负责人",
+      "approvedAt": "2026-08-30T12:45:33.030Z",
+      "migrationSource": null
+    }
+  }
+}

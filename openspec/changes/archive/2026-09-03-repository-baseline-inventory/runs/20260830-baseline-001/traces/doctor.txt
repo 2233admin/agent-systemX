@@ -1,0 +1,8 @@
+Doctor
+
+Root
+  Location: /Users/<user>/work/worktrees/agent-system/clearify
+  OpenSpec root: ok
+
+References
+  (none declared)

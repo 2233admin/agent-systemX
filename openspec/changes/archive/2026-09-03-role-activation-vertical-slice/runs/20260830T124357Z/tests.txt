@@ -1,0 +1,8 @@
+命令：
+`bun test packages/control-plane/tests`
+`bunx tsc --noEmit -p packages/control-plane/tsconfig.json`
+
+结果：
+- 101 个测试通过，0 失败，287 个 expect 调用。
+- control-plane TypeScript 类型检查退出码 0。
+- 定向 Role/Claude 测试包含 6 个测试、0 失败、22 个 expect 调用。
